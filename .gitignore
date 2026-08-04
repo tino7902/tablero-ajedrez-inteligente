@@ -1,0 +1,14 @@
+# PlatformIO
+firmware/.pio/
+
+# Python (uv)
+companion/.venv/
+companion/__pycache__/
+companion/*.pyc
+# uv.lock SE versiona (no va en gitignore) — es lo que da reproducibilidad
+
+# Zed
+.zed/
+
+# General
+.DS_Store
