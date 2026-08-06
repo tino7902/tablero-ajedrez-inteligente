@@ -1,77 +1,84 @@
 # Tablero de Ajedrez Inteligente
 
-Tablero de ajedrez electrónico que detecta movimientos mediante sensores de final de carrera bajo cada casilla, indica movimientos legales con LEDs, funciona como reloj de ajedrez configurable, y permite jugar humano vs humano o humano vs máquina.
-
-Ver `docs/contexto-tablero-ajedrez-inteligente.md` para el detalle completo de arquitectura y decisiones de diseño.
+Tablero de ajedrez físico con sensores por casilla y LEDs, controlado íntegramente
+por una **Raspberry Pi 3B**. Valida movimientos, mantiene el estado de la partida
+y puede jugar contra Stockfish en modo vs-máquina — todo corriendo en un único
+dispositivo, sin hardware ni proceso adicional.
 
 ## Estructura del proyecto
-
 ```
 tablero-ajedrez-inteligente/
-├── firmware/          # Proyecto PlatformIO (ESP32) — sensores, LEDs, reloj, comunicación
-│   ├── platformio.ini
-│   ├── src/
-│   ├── include/
-│   └── lib/
-├── companion/         # Servidor Python — python-chess (legalidad) + Stockfish (motor)
-│   ├── pyproject.toml
-│   ├── uv.lock
-│   └── src/companion/
-├── hardware/          # Esquemáticos, PCB y BOM (a cargo del equipo de electrónica)
-│   └── schematics/
-└── docs/              # Documentación del proyecto
+├── tablero/ # Paquete Python (gestionado con uv)
+│ └── src/tablero/
+│ ├── main.py # Entry point / orquestador
+│ ├── config.py # Pines GPIO y configuración general
+│ ├── io/ # Lectura de sensores (74HC165) y control de LEDs (WS2812B)
+│ ├── logica/ # Reglas del juego y estado del tablero (python-chess)
+│ ├── motor/ # Integración con Stockfish (modo vs-máquina)
+│ └── web/ # Dashboard/API de estado (a futuro)
+├── hardware/ # Esquemáticos y documentación de electrónica
+│ └── schematics/
+└── docs/ # Documentación adicional del proyecto
 ```
 
 ## Prerrequisitos
 
-| Herramienta | Uso | Instalación (Arch/CachyOS) |
-|---|---|---|
-| [PlatformIO Core](https://platformio.org/) | Compilar y flashear el firmware del ESP32 | `uv tool install platformio --with pip` |
-| [uv](https://docs.astral.sh/uv/) | Gestión de entorno y dependencias de Python | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| [Stockfish](https://stockfishchess.org/) | Motor de ajedrez para el modo vs-máquina | `sudo pacman -S stockfish` |
-| [Mosquitto](https://mosquitto.org/) | Broker MQTT para la comunicación ESP32 ↔ companion | `sudo pacman -S mosquitto` |
-| [GitHub CLI](https://cli.github.com/) | Gestión del repositorio | `sudo pacman -S github-cli` |
+| Herramienta | Uso |
+|---|---|
+| [uv](https://docs.astral.sh/uv/) | Gestión de Python (entornos y dependencias) |
+| Git | Control de versiones |
+| [GitHub CLI (gh)](https://cli.github.com/) | Gestión del repositorio (opcional) |
+| Stockfish | Motor de ajedrez para el modo vs-máquina |
 
-También necesitás permisos sobre el puerto serie del ESP32:
+> Los módulos de `tablero/src/tablero/io/` (sensores y LEDs) requieren acceso a
+> GPIO real y solo funcionan corriendo en la Raspberry Pi. El resto del proyecto
+> (`logica/`, `motor/`) se puede desarrollar y testear en cualquier máquina.
+
+## Instalación
+
+### Linux
+
 ```bash
-sudo usermod -aG uucp,dialout $USER
-# relogueate para que tome efecto
+# uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Stockfish
+sudo apt install stockfish        # Debian/Ubuntu (Raspberry Pi OS)
+# o, en Arch/CachyOS:
+sudo pacman -S stockfish
+
+# GitHub CLI (opcional)
+sudo apt install gh               # Debian/Ubuntu
+# o
+sudo pacman -S github-cli         # Arch/CachyOS
+gh auth login
 ```
 
-## Cómo empezar
+### Windows
 
-### 1. Cloná el repositorio
+```powershell
+# uv
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Stockfish
+winget install Stockfish.Stockfish
+# o descargar el binario desde https://stockfishchess.org/download/ y agregarlo al PATH
+
+# GitHub CLI (opcional)
+winget install --id GitHub.cli
+gh auth login
+```
+
+## Puesta en marcha
 
 ```bash
 git clone https://github.com/<tu-usuario>/tablero-ajedrez-inteligente.git
-cd tablero-ajedrez-inteligente
+cd tablero-ajedrez-inteligente/tablero
+uv sync
+uv run tablero
 ```
-
-### 2. Setup del firmware (ESP32)
-
-```bash
-cd firmware
-pio run                    # compila y descarga dependencias/toolchain
-pio run -t compiledb       # genera compile_commands.json para autocompletado (clangd)
-pio run -t upload          # flashea al ESP32 conectado por USB
-pio device monitor         # abre el monitor serie
-```
-
-### 3. Setup del companion (Python)
-
-```bash
-cd companion
-uv sync                    # instala las dependencias desde uv.lock
-sudo systemctl enable --now mosquitto   # levanta el broker MQTT local
-uv run python -m companion   # (ajustar según el entry point definido)
-```
-
-### 4. Editor (Zed)
-
-Instalá las extensiones `clangd` (para `firmware/`) y `Pyright`/`Python` (para `companion/`) desde el panel de extensiones de Zed. Con `compile_commands.json` generado y el `.venv` de uv detectado, el autocompletado debería andar en ambas partes del proyecto.
 
 ## Flujo de trabajo
 
-- `main` protegida — el trabajo se hace en ramas `feature/nombre-cosa` (ej. `feature/lectura-sensores`, `feature/reloj-ajedrez`).
-- Un issue por componente/tarea en GitHub Issues.
-- Pull request + review antes de mergear a `main`.
+Rama `main` protegida. Trabajo en ramas `feature/nombre-cosa`, un issue por
+componente/tarea, pull request + review antes de mergear.
