@@ -1,3 +1,10 @@
+"""Tests de EstadoTablero (tablero/src/tablero/logica/estado_tablero.py).
+
+No requieren hardware ni binarios externos, corren en cualquier máquina.
+Las posiciones no triviales (ahogado, al paso, enroque, promoción) se arman
+directo por FEN en vez de jugarlas desde la posición inicial.
+"""
+
 import chess
 import pytest
 

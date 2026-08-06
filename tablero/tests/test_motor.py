@@ -1,3 +1,11 @@
+"""Tests de MotorStockfish (tablero/src/tablero/motor/stockfish.py).
+
+Requieren el binario `stockfish` instalado en el sistema; el módulo entero
+se saltea (`pytestmark`) si no está en PATH, para no romper en máquinas o CI
+sin el binario. Los tiempos por jugada se mantienen bajos (0.1-0.2s) porque
+las posiciones usadas no necesitan más para resolverse.
+"""
+
 import shutil
 
 import chess
