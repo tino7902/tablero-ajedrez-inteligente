@@ -77,8 +77,3 @@ cd tablero-ajedrez-inteligente/tablero
 uv sync
 uv run tablero
 ```
-
-## Flujo de trabajo
-
-Rama `main` protegida. Trabajo en ramas `feature/nombre-cosa`, un issue por
-componente/tarea, pull request + review antes de mergear.
