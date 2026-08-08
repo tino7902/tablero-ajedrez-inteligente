@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "pygame>=2.6.1",
     "python-chess>=1.999",
     "rpi-lgpio>=0.6",
     "rpi-ws281x>=5.0.0",

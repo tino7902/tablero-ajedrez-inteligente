@@ -12,7 +12,7 @@ tablero-ajedrez-inteligente/
 │ └── src/tablero/
 │ ├── main.py # Entry point / orquestador
 │ ├── config.py # Pines GPIO y configuración general
-│ ├── io/ # Lectura de sensores (74HC165) y control de LEDs (WS2812B)
+│ ├── io/ # Sensores (74HC165), LEDs (WS2812B) y pantalla táctil (RPI LCD V3)
 │ ├── logica/ # Reglas del juego y estado del tablero (python-chess)
 │ ├── motor/ # Integración con Stockfish (modo vs-máquina)
 │ └── web/ # Dashboard/API de estado (a futuro)
@@ -30,9 +30,13 @@ tablero-ajedrez-inteligente/
 | [GitHub CLI (gh)](https://cli.github.com/) | Gestión del repositorio (opcional) |
 | Stockfish | Motor de ajedrez para el modo vs-máquina |
 
-> Los módulos de `tablero/src/tablero/io/` (sensores y LEDs) requieren acceso a
-> GPIO real y solo funcionan corriendo en la Raspberry Pi. El resto del proyecto
+> Los módulos de `tablero/src/tablero/io/` (sensores, LEDs y pantalla) requieren
+> hardware real y solo funcionan corriendo en la Raspberry Pi. El resto del proyecto
 > (`logica/`, `motor/`) se puede desarrollar y testear en cualquier máquina.
+>
+> La pantalla táctil (RPI LCD V3, 480x320) además requiere el overlay de kernel
+> `piscreen` activado en `config.txt` de la Raspberry — ver
+> [`docs/pantalla.md`](./docs/pantalla.md) para el paso a paso.
 
 ## Instalación
 

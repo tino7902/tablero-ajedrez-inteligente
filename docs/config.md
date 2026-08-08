@@ -9,6 +9,9 @@ y, por ahora, la configuración del motor Stockfish.
 |---|---|---|
 | `STOCKFISH_PATH` | `shutil.which("stockfish")`, o `"stockfish"` si no se encuentra | Ruta al binario que usa `motor/stockfish.py` para abrir el proceso UCI |
 | `STOCKFISH_MOVETIME` | `1.0` (segundos) | Tiempo por jugada por default para `MotorStockfish.mejor_movimiento` |
+| `PANTALLA_ANCHO` | `480` | Ancho en píxeles de la pantalla, usado por `io/pantalla.py` para abrir la superficie de `pygame` |
+| `PANTALLA_ALTO` | `320` | Alto en píxeles de la pantalla |
+| `PANTALLA_TAMANO_FUENTE` | `48` | Tamaño de fuente por default para `mostrar_texto` |
 
 ## Por qué autodetectar `STOCKFISH_PATH`
 
@@ -21,3 +24,10 @@ abrir el proceso, con un mensaje más específico que si fallara en `config.py`.
 
 Ambos valores se pueden overridear por llamada pasando `ruta_binario`/`tiempo_por_jugada`
 a `MotorStockfish(...)` — ver [`docs/motor.md`](./motor.md).
+
+## Por qué no hay una constante de rotación de pantalla
+
+La rotación física del panel se resuelve en el parámetro `rotate=` del overlay de
+kernel `piscreen` (en `config.txt` de la Raspberry), no en la app: el driver ya
+entrega el framebuffer con la orientación final. Una constante `PANTALLA_ROTACION`
+acá no la leería ningún código — ver [`docs/pantalla.md`](./pantalla.md).
