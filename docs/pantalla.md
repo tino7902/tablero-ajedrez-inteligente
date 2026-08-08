@@ -34,18 +34,28 @@ Pasos (una sola vez, en la Raspberry, por SSH):
 2. Agregar al final del archivo:
    ```
    dtparam=spi=on
-   dtoverlay=piscreen,drm,speed=16000000,rotate=0
+   dtoverlay=piscreen,drm,speed=16000000,rotate=180
    ```
 3. Instalar las libs de sistema que `pygame` necesita para dibujar sobre DRM/KMS:
    ```bash
-   sudo apt install -y libsdl2-2.0-0 libsdl2-dev libdrm2 libgbm1
+   sudo apt install -y libsdl2-2.0-0 libsdl2-dev libdrm2 libgbm1 \
+       libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+       libfreetype6-dev libjpeg-dev libportmidi-dev pkg-config \
+       libegl1 libgles2 python3-dev
    ```
-4. `sudo reboot`.
+4. Si el sistema es **Raspberry Pi OS Desktop** (no Lite), hay que bootear a consola
+   en vez de escritorio — el compositor gráfico (Wayfire/labwc) toma el "DRM master"
+   al arrancar y bloquea a `pygame` para usar la pantalla vía KMS, aunque todo lo
+   demás esté bien configurado:
+   ```bash
+   sudo raspi-config nonint do_boot_behaviour B2   # consola con autologin
+   ```
+5. `sudo reboot`.
 
-`rotate` depende de cómo quede montada la pantalla en el tablero — se ajusta por
-prueba y error (`0`, `90`, `180`, `270`) viendo la orientación real. `speed` es la
-velocidad del bus SPI en Hz; `16000000` es un punto de partida razonable, no un valor
-garantizado para todas las unidades del panel.
+`rotate=180` es el valor que terminó siendo correcto para el montaje físico de este
+tablero — depende de cómo quede la pantalla en cada caso, se ajusta por prueba y error
+(`0`, `90`, `180`, `270`). `speed` es la velocidad del bus SPI en Hz; `16000000`
+funcionó sin ajustes.
 
 ### Verificación
 
@@ -54,6 +64,37 @@ overlay se anuncia con el nombre del chip (`ili9486`, `spi0`, etc.), no con la p
 "piscreen", así que buscar `dmesg | grep -i piscreen` puede no devolver nada aunque el
 panel esté andando. La verificación real es visual: si el overlay cargó bien, el panel
 se enciende y muestra lo que dibuje la app.
+
+### Problemas reales encontrados al hacerlo andar
+
+Dos problemas no obvios aparecieron al probar esto en la práctica (Raspberry Pi OS
+Desktop sobre Trixie), ambos con el mismo síntoma (`pygame.error: kmsdrm not
+available`) pero causas distintas:
+
+1. **El wheel binario de `pygame` no sirve**: trae su propio SDL2 compilado sin
+   soporte KMSDRM, por portabilidad. Se resuelve forzando a que `pygame` se compile
+   desde fuente enlazando contra el SDL2 del sistema (ver "Instalación de `pygame`"
+   más abajo) — no alcanza con instalar las libs de sistema si `pygame` sigue usando
+   su propio SDL2 empaquetado.
+2. **El compositor de escritorio bloquea el DRM master**: aunque el SDL2 del sistema
+   sí tiene KMSDRM compilado, en Raspberry Pi OS Desktop el compositor gráfico
+   (Wayfire/labwc) toma el control exclusivo de la pantalla al arrancar, y solo un
+   proceso a la vez puede ser dueño del DRM master. Por eso hace falta el paso 4 de
+   arriba (bootear a consola).
+
+### Instalación de `pygame`
+
+`pyproject.toml` tiene `[tool.uv] no-binary-package = ["pygame"]`, que fuerza a `uv`
+a compilar `pygame` desde fuente en vez de usar el wheel binario de PyPI (ver el
+problema 1 arriba). Como ya se había instalado el wheel roto antes de agregar esa
+configuración, la primera vez hace falta forzar la recompilación:
+```bash
+cd tablero
+uv sync --reinstall-package pygame
+```
+Compilar en una Raspberry Pi 3B tarda varios minutos (no es una descarga de wheel).
+Compilaciones posteriores (`uv sync` normal) ya respetan la config y no hace falta
+el `--reinstall-package`.
 
 ## Decisiones de diseño
 
@@ -74,6 +115,14 @@ se enciende y muestra lo que dibuje la app.
   overlay. Sin X11/escritorio — la app dibuja directo sobre el framebuffer del panel.
   Las variables de entorno de SDL se setean al importar el módulo, antes de tocar
   `pygame.display`, porque SDL las lee una sola vez al inicializar el video.
+- **`pygame` compilado desde fuente (`[tool.uv] no-binary-package` en
+  `pyproject.toml`), no el wheel de PyPI**: el wheel trae un SDL2 propio sin soporte
+  KMSDRM compilado. Ver "Problemas reales encontrados" más abajo.
+- **Consola en vez de escritorio (Raspberry Pi OS Desktop)**: el compositor gráfico
+  toma el DRM master al arrancar y bloquea cualquier otro proceso (incluido
+  `pygame`) de usar la pantalla vía KMS. Se resuelve booteando a consola
+  (`raspi-config nonint do_boot_behaviour B2`) en vez de tocar el ciclo de vida del
+  compositor a mano.
 - **Sin manejo de rotación en Python**: la rotación física se resuelve en el parámetro
   `rotate=` del overlay (nivel kernel/DRM), no en la app — el driver ya entrega el
   framebuffer con la orientación final, así que `config.py` no tiene una constante de

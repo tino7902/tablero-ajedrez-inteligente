@@ -35,8 +35,9 @@ tablero-ajedrez-inteligente/
 > (`logica/`, `motor/`) se puede desarrollar y testear en cualquier máquina.
 >
 > La pantalla táctil (RPI LCD V3, 480x320) además requiere el overlay de kernel
-> `piscreen` activado en `config.txt` de la Raspberry — ver
-> [`docs/pantalla.md`](./docs/pantalla.md) para el paso a paso.
+> `piscreen` activado en `config.txt` de la Raspberry y, si el sistema es Raspberry
+> Pi OS Desktop, bootear a consola (el compositor gráfico bloquea el acceso a la
+> pantalla) — ver [`docs/pantalla.md`](./docs/pantalla.md) para el paso a paso.
 
 ## Instalación
 
