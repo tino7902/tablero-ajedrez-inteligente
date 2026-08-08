@@ -25,3 +25,10 @@ build-backend = "uv_build"
 dev = [
     "pytest>=9.1.1",
 ]
+
+[tool.uv]
+# El wheel binario de pygame trae su propio SDL2 compilado sin soporte KMSDRM
+# (falla con "pygame.error: kmsdrm not available" en io/pantalla.py). Forzar
+# build desde fuente lo enlaza contra el SDL2 del sistema, que sí lo tiene
+# (ver docs/pantalla.md).
+no-binary-package = ["pygame"]
