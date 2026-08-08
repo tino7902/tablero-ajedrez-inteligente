@@ -7,3 +7,5 @@ __pycache__/
 # Editor / OS
 .zed/
 .DS_Store
+
+.env
