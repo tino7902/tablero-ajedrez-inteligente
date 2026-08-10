@@ -11,10 +11,12 @@ dispositivo, sin hardware ni proceso adicional.
 
 **Current state**: early-stage but with the first vertical slices implemented. Done:
 `config.py` (Stockfish + pantalla config), `logica/estado_tablero.py` (wraps `chess.Board`,
-tested in `tests/test_logica.py`), `motor/stockfish.py` (UCI integration via `SimpleEngine`,
-tested in `tests/test_motor.py`), `io/pantalla.py` (static text on the RPI LCD V3 touchscreen via
-`pygame`/DRM-KMS). Still empty: `io/sensores.py`, `io/leds.py`, `logica/eventos.py` (translating
-sensor diffs into a `chess.Move` — no implementation exists yet), `web/`, and
+tested in `tests/test_logica.py`), `logica/eventos.py` (translates sensor occupancy diffs into
+`chess.Move`, state machine for illegal-move correction, tested in `tests/test_eventos.py` — v1
+only, captures/castling/en-passant explicitly detected and rejected as unsupported rather than
+applied, see `software-docs/eventos.md`), `motor/stockfish.py` (UCI integration via
+`SimpleEngine`, tested in `tests/test_motor.py`), `io/pantalla.py` (static text on the RPI LCD V3
+touchscreen via `pygame`/DRM-KMS). Still empty: `io/sensores.py`, `io/leds.py`, `web/`, and
 `tests/test_sensores.py`. `pytest` is a declared dev dependency (`uv add --dev pytest`) and
 `uv run pytest` works. Don't assume implementations exist just because a file is present; check
 its actual contents. See `software-docs/` (per-module design notes) and `hardware-docs/`

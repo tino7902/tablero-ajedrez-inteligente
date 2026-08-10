@@ -57,11 +57,13 @@ que es un shim de compatibilidad sobre el paquete real `chess`).
 
 ## Fuera de alcance (todavía)
 
-- `logica/eventos.py`: traducir eventos de sensores (casilla ocupada/vacía) a un
-  `chess.Move`. Los sensores 74HC165 solo detectan presencia/ausencia de pieza por
-  casilla, no identidad — inferir el movimiento requiere comparar el diff de ocupación
-  contra `movimientos_legales()` en el estado actual.
-- Resolución interactiva de la pieza de promoción.
+- Resolución interactiva de la pieza de promoción (`logica/eventos.py` asume dama por
+  defecto, ver [`eventos.md`](./eventos.md)).
+
+`logica/eventos.py` ya tiene una primera versión: traduce diffs de ocupación de casillas
+a `chess.Move` usando `movimientos_legales()`/`es_legal()` de este módulo. Ver
+[`eventos.md`](./eventos.md) para el diseño y las limitaciones de esa v1 (capturas,
+enroque y al paso todavía se rechazan en vez de aplicarse).
 
 ## Tests
 

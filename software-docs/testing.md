@@ -32,6 +32,19 @@ encuentra un mate en 1 conocido, el motor se puede cerrar sin excepciones. Los t
 por jugada se mantienen bajos (0.1-0.2s) porque ninguna de las posiciones usadas
 necesita más tiempo para resolverse — importante para que la suite siga siendo rápida.
 
+## `test_eventos.py`
+
+Tests de `RastreadorMovimientos` ([`eventos.md`](./eventos.md)). No requieren hardware ni
+binarios externos — las lecturas de sensores se simulan a mano como
+`frozenset[chess.Square]`.
+
+Casos cubiertos: el ejemplo original completo (pieza levantada → colocación ilegal
+rechazada → corrección → movimiento legal aplicado), movimiento legal directo, cancelación
+por pieza repuesta, enroque y captura rechazados explícitamente (incluida la secuencia
+física completa de una captura, para no quedar colgado en silencio), promoción resuelta a
+dama, diffs inesperados (múltiples casillas a la vez, pieza del color equivocado), y
+lecturas duplicadas sin evento.
+
 ## Qué no está cubierto todavía
 
 `test_sensores.py` sigue vacío: `io/sensores.py` no está implementado (requiere
