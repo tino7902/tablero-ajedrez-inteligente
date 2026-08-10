@@ -46,6 +46,14 @@ on the Raspberry Pi. `logica/` and `motor/` have no hardware dependency and can 
 tested on any machine. Keep that separation when adding code — hardware access should stay behind
 the `io/` boundary so `logica/`/`motor/` remain testable off-device.
 
+**Never run or syntax-check `io/` code locally.** Claude Code sessions on this project run on
+Tino's notebook (x86_64, no real GPIO/DRM/touch hardware) — the Raspberry Pi 3B is only reachable
+through a separate SSH session Tino runs himself. Don't invoke `python -m py_compile`,
+`uv run python -c "import ..."`, linters, or anything else against files under
+`tablero/src/tablero/io/`, even as an "innocuous" syntax check — it doesn't prove anything useful
+off-device and isn't wanted. Instead, give Tino the exact command(s) to run over his SSH session
+and wait for him to report the result.
+
 ## Commands
 
 All commands run from the `tablero/` subdirectory (that's where `pyproject.toml` lives).
