@@ -77,7 +77,7 @@ gh auth login
 ## Puesta en marcha
 
 ```bash
-git clone https://github.com/<tu-usuario>/tablero-ajedrez-inteligente.git
+git clone https://github.com/tino7902/tablero-ajedrez-inteligente.git
 cd tablero-ajedrez-inteligente/tablero
 uv sync
 uv run tablero
