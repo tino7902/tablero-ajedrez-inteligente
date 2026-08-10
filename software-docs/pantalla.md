@@ -1,8 +1,9 @@
 # `io/pantalla.py`
 
 Control de la pantalla táctil integrada: la RPI LCD V3, un panel SPI de 480x320 con
-chip de video ILI9486 y controlador táctil XPT2046. Esta primera versión solo muestra
-texto estático — la lectura táctil queda fuera de alcance por ahora.
+chip de video ILI9486 y controlador táctil XPT2046. Además de dibujar texto estático,
+ya incluye un test manual de touch (`probar_boton`) — ver "Precisión táctil" más abajo
+sobre lo que se observó al probarlo en hardware real.
 
 ## Por qué existe este módulo
 
@@ -16,6 +17,7 @@ hay un dispositivo DRM/KMS.
 | Función | Qué hace |
 |---|---|
 | `mostrar_texto(texto)` | Inicializa `pygame`, pinta la pantalla de negro y dibuja `texto` centrado en blanco |
+| `probar_boton()` | Dibuja un botón de prueba y loguea (`logging`) cada evento de toque recibido — `FINGERDOWN`/`MOUSEBUTTONDOWN`, coordenadas, y si cayó dentro del botón. Test manual, corre hasta `Ctrl+C`. |
 
 ## Requisito de sistema: overlay de kernel `piscreen`
 
@@ -133,12 +135,25 @@ el `--reinstall-package`.
 - `PANTALLA_ANCHO` / `PANTALLA_ALTO`: `480` / `320`, resolución del panel.
 - `PANTALLA_TAMANO_FUENTE`: tamaño de fuente por default para `mostrar_texto`.
 
+## Precisión táctil: a tener en cuenta en el diseño de la UI
+
+Al probar `probar_boton()` en la pantalla física, el touch registra bien el contacto (el
+evento `FINGERDOWN`/`MOUSEBUTTONDOWN` se loguea siempre que se toca), pero la posición
+reportada no siempre coincide con el punto físico tocado: hubo toques dentro del área
+visual del botón que no sumaron al contador porque la coordenada del evento cayó fuera de
+`rect_boton`. No se investigó todavía la causa exacta (calibración del XPT2046, el
+`rotate=180` del overlay, o algo inherente a este panel resistivo) — queda pendiente si
+hace falta más precisión más adelante.
+
+Ver [`consideracion-sobre-diseño.md`](./consideracion-sobre-diseño.md) para las implicancias
+de esto en el diseño de cualquier UI táctil futura (botones grandes, separación entre
+elementos, evitar UI densa).
+
 ## Fuera de alcance (todavía)
 
-- Lectura de eventos táctiles (el touch XPT2046 ya queda expuesto como dispositivo
-  `evdev` en `/dev/input/` gracias al mismo overlay, pero nada en el repo lo lee aún).
+- Calibración del touch XPT2046 (ver "Precisión táctil" arriba).
 - Integración con `logica/estado_tablero.py` (mostrar el estado real de la partida).
-- Refresco dinámico / loop de render — por ahora es un dibujo único y estático.
+- Refresco dinámico / loop de render — por ahora son dibujos estáticos entre toques.
 
 ## Cómo probarlo
 
@@ -149,4 +164,6 @@ cd tablero && uv sync
 uv run python -m tablero.io.pantalla
 ```
 
-Debería verse "Hola tablero" centrado en la pantalla física.
+`mostrar_texto` no tiene un `__main__` propio todavía — el `__main__` del módulo corre
+`probar_boton()`, que debería mostrar un botón gris "Tocame" centrado y loguear cada toque
+en consola.
