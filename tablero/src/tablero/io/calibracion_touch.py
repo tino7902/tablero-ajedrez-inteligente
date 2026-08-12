@@ -18,11 +18,11 @@ cualquier evento de touch futuro.
 
 import json
 import logging
-import os
 from pathlib import Path
 
-os.environ.setdefault("SDL_VIDEODRIVER", "kmsdrm")
-os.environ.setdefault("SDL_NOMOUSE", "1")
+from tablero.io._sdl import configurar_entorno_sdl
+
+configurar_entorno_sdl()
 
 import pygame
 

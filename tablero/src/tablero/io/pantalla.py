@@ -6,10 +6,10 @@ se le indica a SDL que use ese backend en vez de abrir una ventana.
 """
 
 import logging
-import os
 
-os.environ.setdefault("SDL_VIDEODRIVER", "kmsdrm")
-os.environ.setdefault("SDL_NOMOUSE", "1")
+from tablero.io._sdl import configurar_entorno_sdl
+
+configurar_entorno_sdl()
 
 import pygame
 
