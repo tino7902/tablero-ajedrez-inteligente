@@ -4,6 +4,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
+# Calibración táctil: específica del panel físico, ver io/calibracion_touch.py
+tablero/calibracion_touch.json
+
 # Editor / OS
 .zed/
 .DS_Store

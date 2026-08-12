@@ -1,6 +1,7 @@
 """Configuración general del proyecto (pines GPIO, motor, etc.)."""
 
 import shutil
+from pathlib import Path
 
 # Ruta al binario de stockfish: se autodetecta en PATH; si no se encuentra,
 # se deja el nombre solo para que el error de arranque sea explícito.
@@ -14,3 +15,8 @@ STOCKFISH_MOVETIME: float = 1.0  # segundos por jugada, ver motor/stockfish.py
 PANTALLA_ANCHO: int = 480
 PANTALLA_ALTO: int = 320
 PANTALLA_TAMANO_FUENTE: int = 48
+
+# Coeficientes de calibración táctil generados por io/calibracion_touch.py (ver
+# "Precisión táctil" en software-docs/pantalla.md). No se trackea en git: depende
+# del panel físico específico, igual que el rotate= del overlay piscreen.
+CALIBRACION_TOUCH_PATH: Path = Path(__file__).resolve().parent.parent.parent / "calibracion_touch.json"

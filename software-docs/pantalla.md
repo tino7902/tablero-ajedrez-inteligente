@@ -17,7 +17,9 @@ hay un dispositivo DRM/KMS.
 | Función | Qué hace |
 |---|---|
 | `mostrar_texto(texto)` | Inicializa `pygame`, pinta la pantalla de negro y dibuja `texto` centrado en blanco |
-| `probar_boton()` | Dibuja un botón de prueba y loguea (`logging`) cada evento de toque recibido — `FINGERDOWN`/`MOUSEBUTTONDOWN`, coordenadas, y si cayó dentro del botón. Test manual, corre hasta `Ctrl+C`. |
+| `probar_boton()` | Dibuja un botón de prueba y loguea (`logging`) cada evento de toque recibido — `FINGERDOWN`/`MOUSEBUTTONDOWN`, coordenadas ya corregidas por calibración (si existe), y si cayó dentro del botón. Test manual, corre hasta `Ctrl+C`. |
+
+`io/calibracion_touch.py` es el módulo de calibración táctil — ver "Calibración del touch" más abajo.
 
 ## Requisito de sistema: overlay de kernel `piscreen`
 
@@ -149,9 +151,48 @@ Ver [`consideracion-sobre-diseño.md`](./consideracion-sobre-diseño.md) para la
 de esto en el diseño de cualquier UI táctil futura (botones grandes, separación entre
 elementos, evitar UI densa).
 
+## Calibración del touch
+
+`io/calibracion_touch.py` corrige el descalce de "Precisión táctil" ajustando una
+transformación afín entre la coordenada cruda que reporta el XPT2046 y la coordenada real
+de pantalla:
+
+```
+x_real = a*x_raw + b*y_raw + c
+y_real = d*x_raw + e*y_raw + f
+```
+
+No se implementó a nivel de sistema (`xinput_calibrator` u otra herramienta de X11) porque
+el panel corre en modo DRM/KMS sin escritorio (ver "Requisito de sistema" arriba) — no hay
+X11 corriendo, así que la corrección se resuelve en la propia app.
+
+### Cómo calibrar
+
+Por SSH, en la Raspberry, con el overlay activado:
+
+```bash
+cd tablero && uv run python -m tablero.io.calibracion_touch
+```
+
+Se muestran 5 cruces en orden (las 4 esquinas, con margen de 40px para evitar el borde
+donde el resistivo es menos preciso, más el centro). Tocar cada una; al terminar se ajustan
+los 6 coeficientes por mínimos cuadrados (el sistema queda sobredeterminado con 5 puntos
+para 3 incógnitas por eje, así que amortigua el ruido de un toque individual en vez de
+interpolar exactamente por 3 de ellos) y se guardan en `config.CALIBRACION_TOUCH_PATH`
+(`tablero/calibracion_touch.json`, gitignoreado — es específico del panel físico montado,
+igual que el `rotate=180` del overlay).
+
+`probar_boton()` (y cualquier código futuro que lea touch) carga ese archivo si existe y
+corrige las coordenadas antes de usarlas; si no existe, loguea un warning y usa las
+coordenadas crudas sin corregir.
+
+Si con el tiempo el ajuste afín de 5 puntos no alcanza (por ejemplo si el panel resistivo
+tiene distorsión no lineal fuerte cerca de los bordes), la vía de escape es agregar más
+puntos de calibración a `PUNTOS_CALIBRACION` — el ajuste por mínimos cuadrados ya soporta
+cualquier cantidad ≥ 3 sin cambios.
+
 ## Fuera de alcance (todavía)
 
-- Calibración del touch XPT2046 (ver "Precisión táctil" arriba).
 - Integración con `logica/estado_tablero.py` (mostrar el estado real de la partida).
 - Refresco dinámico / loop de render — por ahora son dibujos estáticos entre toques.
 

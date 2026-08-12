@@ -14,6 +14,7 @@ os.environ.setdefault("SDL_NOMOUSE", "1")
 import pygame
 
 from tablero import config
+from tablero.io import calibracion_touch
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,14 @@ def probar_boton() -> None:
     rect_boton = pygame.Rect(0, 0, 200, 80)
     rect_boton.center = pantalla.get_rect().center
 
+    coefs_calibracion = calibracion_touch.cargar_calibracion(config.CALIBRACION_TOUCH_PATH)
+    if coefs_calibracion is None:
+        logger.warning(
+            "No hay calibración guardada (%s); usando coordenadas crudas del touch. "
+            "Correr `python -m tablero.io.calibracion_touch` para calibrar.",
+            config.CALIBRACION_TOUCH_PATH,
+        )
+
     contador = 0
     _dibujar_boton(pantalla, rect_boton, "Tocame", fuente, _GRIS)
     logger.info("Esperando toques en el botón (Ctrl+C para salir)...")
@@ -75,6 +84,9 @@ def probar_boton() -> None:
 
                 if pos is None:
                     continue
+
+                if coefs_calibracion is not None:
+                    pos = calibracion_touch.aplicar_transformacion(pos, coefs_calibracion)
 
                 logger.info("Evento %s en %s", pygame.event.event_name(evento.type), pos)
                 if rect_boton.collidepoint(pos):

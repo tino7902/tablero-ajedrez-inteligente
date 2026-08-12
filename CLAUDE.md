@@ -16,8 +16,10 @@ tested in `tests/test_logica.py`), `logica/eventos.py` (translates sensor occupa
 only, captures/castling/en-passant explicitly detected and rejected as unsupported rather than
 applied, see `software-docs/eventos.md`), `motor/stockfish.py` (UCI integration via
 `SimpleEngine`, tested in `tests/test_motor.py`), `io/pantalla.py` (static text on the RPI LCD V3
-touchscreen via `pygame`/DRM-KMS). Still empty: `io/sensores.py`, `io/leds.py`, `web/`, and
-`tests/test_sensores.py`. `pytest` is a declared dev dependency (`uv add --dev pytest`) and
+touchscreen via `pygame`/DRM-KMS), `io/calibracion_touch.py` (affine least-squares calibration
+for the XPT2046 touch controller, no hardware test yet — see `software-docs/pantalla.md`). Still
+empty: `io/sensores.py`, `io/leds.py`, `web/`, and `tests/test_sensores.py`. `pytest` is a
+declared dev dependency (`uv add --dev pytest`) and
 `uv run pytest` works. Don't assume implementations exist just because a file is present; check
 its actual contents. See `software-docs/` (per-module design notes) and `hardware-docs/`
 (componentes, pines GPIO, esquema de detección de casillas) for details beyond this file.
