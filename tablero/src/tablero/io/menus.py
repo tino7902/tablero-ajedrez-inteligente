@@ -1,9 +1,11 @@
 """Interfaz gráfica de navegación por menús (RPI LCD V3, 480x320).
 
 Implementa los bocetos de `diseño-docs/diseño-interfaz.md`: menú principal, selectores
-de tiempo/dificultad/color, y las pantallas de juego (estáticas por ahora — el reloj y
-los indicadores de turno son valores fijos de ejemplo, sin lógica real de partida detrás;
-eso se conecta más adelante con `logica/estado_tablero.py`).
+de tiempo/dificultad/color, y las pantallas de juego (mayormente estáticas por ahora — el
+reloj y los indicadores de turno son valores fijos de ejemplo, sin lógica real de partida
+detrás; eso se conecta más adelante con `logica/estado_tablero.py`. La única pieza de
+lógica real ya conectada es el color del jugador humano vs. Magnus, resuelto en
+`selector_color` y reflejado en `juego_vs_magnus`).
 
 Cada botón tocado se loguea (`logging`) y navega a la pantalla correspondiente; hay un
 botón "Volver" en todas las pantallas salvo el menú principal, que retrocede sobre un
@@ -18,8 +20,10 @@ normal de escritorio — pensado para iterar el diseño visual en un notebook cu
 Sin esa variable, el comportamiento es el de siempre (piensa que corre en la Raspberry).
 """
 
+import enum
 import functools
 import logging
+import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -27,6 +31,7 @@ from tablero.io._sdl import configurar_entorno_sdl
 
 configurar_entorno_sdl()
 
+import chess
 import pygame
 
 from tablero import config
@@ -70,11 +75,20 @@ _RECT_RENDIRSE_VS_MAGNUS = pygame.Rect(0, 0, 130, 36)
 _RECT_RENDIRSE_VS_MAGNUS.center = (config.PANTALLA_ANCHO // 2, 265)
 
 
+class EleccionColor(enum.Enum):
+    """Qué color eligió tocar el jugador en `selector_color` (antes de resolver 'Aleatorio')."""
+
+    BLANCAS = enum.auto()
+    NEGRAS = enum.auto()
+    ALEATORIO = enum.auto()
+
+
 @dataclass(frozen=True)
 class Boton:
     texto: str
     rect: pygame.Rect
     destino: str
+    eleccion_color: EleccionColor | None = None
 
 
 @dataclass(frozen=True)
@@ -83,6 +97,29 @@ class Pantalla:
     dibujar: Callable[[pygame.Surface, "Pantalla"], None]
     botones: list[Boton] = field(default_factory=list)
     permite_volver: bool = True
+
+
+@dataclass
+class EstadoPartida:
+    """Estado que necesitan las pantallas de juego más allá de la navegación entre ellas.
+
+    Por ahora solo el color del jugador humano vs. Magnus (se resuelve al elegir "Blancas"/
+    "Aleatorio"/"Negras" en `selector_color`); crece cuando se conecte `logica/estado_tablero.py`.
+    """
+
+    color_humano: chess.Color | None = None
+
+
+def _resolver_color(eleccion: EleccionColor) -> chess.Color:
+    if eleccion is EleccionColor.BLANCAS:
+        return chess.WHITE
+    if eleccion is EleccionColor.NEGRAS:
+        return chess.BLACK
+    return random.choice([chess.WHITE, chess.BLACK])
+
+
+def _nombre_color(color: chess.Color) -> str:
+    return "blancas" if color == chess.WHITE else "negras"
 
 
 @functools.lru_cache(maxsize=None)
@@ -146,10 +183,10 @@ def _dibujar_juego_pvp(surf: pygame.Surface, pantalla: Pantalla) -> None:
         _dibujar_boton(surf, boton, _ROJO, _TAM_BOTON_CHICO)
 
 
-def _dibujar_juego_vs_magnus(surf: pygame.Surface, pantalla: Pantalla) -> None:
+def _dibujar_juego_vs_magnus(surf: pygame.Surface, pantalla: Pantalla, estado: EstadoPartida) -> None:
     surf.fill(_BLANCO)
     centro_x = config.PANTALLA_ANCHO // 2
-    texto = _fuente(_TAM_PREGUNTA).render("¡Sos blancas/negras!", True, _NEGRO)
+    texto = _fuente(_TAM_PREGUNTA).render(f"¡Sos {_nombre_color(estado.color_humano)}!", True, _NEGRO)
     surf.blit(texto, texto.get_rect(center=(centro_x, 40)))
     _dibujar_indicador_gris(surf, (centro_x, 80), "¡Es tu turno!")
     _dibujar_indicador_gris(surf, (centro_x, 115), "¡Te quedaste sin tiempo!")
@@ -158,7 +195,7 @@ def _dibujar_juego_vs_magnus(surf: pygame.Surface, pantalla: Pantalla) -> None:
         _dibujar_boton(surf, boton, _ROJO, _TAM_BOTON_CHICO)
 
 
-def _construir_pantallas() -> dict[str, Pantalla]:
+def _construir_pantallas(estado: EstadoPartida) -> dict[str, Pantalla]:
     rects = _fila_de_botones(2, y=150)
     pantalla_principal = Pantalla(
         nombre=NOMBRE_MENU_PRINCIPAL,
@@ -217,9 +254,9 @@ def _construir_pantallas() -> dict[str, Pantalla]:
             pregunta="¿Qué color quieres ser?",
         ),
         botones=[
-            Boton("Blancas", rects[0], NOMBRE_JUEGO_VS_MAGNUS),
-            Boton("Aleatorio", rects[1], NOMBRE_JUEGO_VS_MAGNUS),
-            Boton("Negras", rects[2], NOMBRE_JUEGO_VS_MAGNUS),
+            Boton("Blancas", rects[0], NOMBRE_JUEGO_VS_MAGNUS, EleccionColor.BLANCAS),
+            Boton("Aleatorio", rects[1], NOMBRE_JUEGO_VS_MAGNUS, EleccionColor.ALEATORIO),
+            Boton("Negras", rects[2], NOMBRE_JUEGO_VS_MAGNUS, EleccionColor.NEGRAS),
         ],
     )
 
@@ -234,7 +271,7 @@ def _construir_pantallas() -> dict[str, Pantalla]:
 
     pantalla_vs_magnus = Pantalla(
         nombre=NOMBRE_JUEGO_VS_MAGNUS,
-        dibujar=_dibujar_juego_vs_magnus,
+        dibujar=functools.partial(_dibujar_juego_vs_magnus, estado=estado),
         botones=[Boton("¿Rendirse?", _RECT_RENDIRSE_VS_MAGNUS, NOMBRE_MENU_PRINCIPAL)],
     )
 
@@ -267,7 +304,8 @@ def ejecutar_menus() -> None:
     """Corre el loop de navegación entre pantallas hasta `Ctrl+C`."""
     pygame.init()
     surf = pygame.display.set_mode((config.PANTALLA_ANCHO, config.PANTALLA_ALTO))
-    pantallas = _construir_pantallas()
+    estado = EstadoPartida()
+    pantallas = _construir_pantallas(estado)
 
     coefs_calibracion = calibracion_touch.cargar_calibracion(config.CALIBRACION_TOUCH_PATH)
     if coefs_calibracion is None:
@@ -310,6 +348,13 @@ def ejecutar_menus() -> None:
                     logger.info(
                         "Input: %s (%s -> %s)", boton.texto, pantalla_actual.nombre, boton.destino
                     )
+                    if boton.eleccion_color is not None:
+                        estado.color_humano = _resolver_color(boton.eleccion_color)
+                        logger.info(
+                            "Color asignado: jugador humano %s, máquina %s",
+                            _nombre_color(estado.color_humano),
+                            _nombre_color(not estado.color_humano),
+                        )
                     if boton.destino == NOMBRE_MENU_PRINCIPAL:
                         historial = [NOMBRE_MENU_PRINCIPAL]
                     else:
