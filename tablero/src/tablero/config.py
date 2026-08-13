@@ -20,3 +20,11 @@ PANTALLA_TAMANO_FUENTE: int = 48
 # "Precisión táctil" en software-docs/pantalla.md). No se trackea en git: depende
 # del panel físico específico, igual que el rotate= del overlay piscreen.
 CALIBRACION_TOUCH_PATH: Path = Path(__file__).resolve().parent.parent.parent / "calibracion_touch.json"
+
+# Reloj de ajedrez: botones físicos (2x interruptores fin de carrera / limit
+# switches), ver io/sensores.py. Cada uno conecta el pin a GND al presionarse
+# (activo en bajo); numeración BOARD (física), igual que en
+# hardware-docs/componentes.md, sección "Asignación de Pines GPIO"; equivalente
+# BCM entre paréntesis.
+PIN_BOTON_RELOJ_JUGADOR_1: int = 33  # GPIO 13 (BCM)
+PIN_BOTON_RELOJ_JUGADOR_2: int = 35  # GPIO 19 (BCM)

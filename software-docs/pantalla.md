@@ -117,8 +117,12 @@ el `--reinstall-package`.
   dispositivo DRM (`/dev/dri/card*`).
 - **`pygame` con backend `SDL_VIDEODRIVER=kmsdrm`**: coherente con el modo DRM del
   overlay. Sin X11/escritorio — la app dibuja directo sobre el framebuffer del panel.
-  Las variables de entorno de SDL se setean al importar el módulo, antes de tocar
-  `pygame.display`, porque SDL las lee una sola vez al inicializar el video.
+  Las variables de entorno de SDL se setean con `io/_sdl.py::configurar_entorno_sdl()` al
+  importar el módulo, antes de tocar `pygame.display`, porque SDL las lee una sola vez al
+  inicializar el video. Esa función es compartida por `pantalla.py`, `calibracion_touch.py`
+  y `menus.py` — ver [`menus.md`](./menus.md#modo-ventana-testear-sin-la-raspberry) para el
+  porqué de centralizarla ahí en vez de duplicarla, y para el toggle
+  `TABLERO_PANTALLA_VENTANA=1` que permite correr sin el panel físico.
 - **`pygame` compilado desde fuente (`[tool.uv] no-binary-package` en
   `pyproject.toml`), no el wheel de PyPI**: el wheel trae un SDL2 propio sin soporte
   KMSDRM compilado. Ver "Problemas reales encontrados" más abajo.

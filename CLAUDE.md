@@ -17,9 +17,14 @@ only, captures/castling/en-passant explicitly detected and rejected as unsupport
 applied, see `software-docs/eventos.md`), `motor/stockfish.py` (UCI integration via
 `SimpleEngine`, tested in `tests/test_motor.py`), `io/pantalla.py` (static text on the RPI LCD V3
 touchscreen via `pygame`/DRM-KMS), `io/calibracion_touch.py` (affine least-squares calibration
-for the XPT2046 touch controller, no hardware test yet — see `software-docs/pantalla.md`). Still
-empty: `io/sensores.py`, `io/leds.py`, `web/`, and `tests/test_sensores.py`. `pytest` is a
-declared dev dependency (`uv add --dev pytest`) and
+for the XPT2046 touch controller, no hardware test yet — see `software-docs/pantalla.md`),
+`io/menus.py` (navigable menu screens matching `diseño-docs/diseño-interfaz.md`, game screens
+still static placeholders with no `logica/estado_tablero.py` wiring yet; can also run windowed
+on a regular desktop via `TABLERO_PANTALLA_VENTANA=1`, no hardware needed — see
+`software-docs/menus.md`), `io/sensores.py` (chess-clock buttons only — GPIO event detection on
+the two limit-switch buttons, BOARD pins 33/35, no occupancy matrix yet, no hardware test
+reported yet — see `software-docs/sensores.md`). Still empty: `io/leds.py`, `web/`, and
+`tests/test_sensores.py`. `pytest` is a declared dev dependency (`uv add --dev pytest`) and
 `uv run pytest` works. Don't assume implementations exist just because a file is present; check
 its actual contents. See `software-docs/` (per-module design notes) and `hardware-docs/`
 (componentes, pines GPIO, esquema de detección de casillas) for details beyond this file.
@@ -35,13 +40,13 @@ tablero-ajedrez-inteligente/
 │   └── src/tablero/
 │       ├── __init__.py       # Entry point (main()) — mapped via pyproject [project.scripts]
 │       ├── config.py         # Pines GPIO y configuración general (implementado)
-│       ├── io/                # sensores.py, leds.py (vacíos); pantalla.py (implementado)
+│       ├── io/                # leds.py (vacío); pantalla.py, calibracion_touch.py, menus.py, sensores.py (implementados)
 │       ├── logica/            # estado_tablero.py (implementado); eventos.py (vacío)
 │       ├── motor/             # stockfish.py (implementado)
 │       └── web/                # Dashboard/API de estado (a futuro, vacío)
 ├── hardware/scematichs/       # Directorio vacío (.gitkeep); esquemáticos aún no subidos acá
 ├── hardware-docs/             # Componentes, pines GPIO, esquema de detección de casillas (docs + fotos)
-├── software-docs/             # Notas de diseño por módulo (config, logica, motor, pantalla, pyproject, testing)
+├── software-docs/             # Notas de diseño por módulo (config, logica, motor, pantalla, menus, comandos, pyproject, testing)
 └── README.md
 ```
 
@@ -50,13 +55,18 @@ on the Raspberry Pi. `logica/` and `motor/` have no hardware dependency and can 
 tested on any machine. Keep that separation when adding code — hardware access should stay behind
 the `io/` boundary so `logica/`/`motor/` remain testable off-device.
 
-**Never run or syntax-check `io/` code locally.** Claude Code sessions on this project run on
-Tino's notebook (x86_64, no real GPIO/DRM/touch hardware) — the Raspberry Pi 3B is only reachable
-through a separate SSH session Tino runs himself. Don't invoke `python -m py_compile`,
-`uv run python -c "import ..."`, linters, or anything else against files under
-`tablero/src/tablero/io/`, even as an "innocuous" syntax check — it doesn't prove anything useful
-off-device and isn't wanted. Instead, give Tino the exact command(s) to run over his SSH session
-and wait for him to report the result.
+**Syntax-check `io/` code locally, but never run it.** Claude Code sessions on this project run
+on Tino's notebook (x86_64, no real GPIO/DRM/touch hardware) — the Raspberry Pi 3B is only
+reachable through a separate SSH session Tino runs himself. Static syntax checks against files
+under `tablero/src/tablero/io/` are fine (`python -m py_compile`, linters, `ast.parse`, etc.).
+Don't actually run or import them (`uv run python -m tablero.io.<module>`, `uv run python -c
+"import ..."`, `uv run pytest tests/test_sensores.py`, etc.) — hardware-backed modules will fail
+or behave meaninglessly off-device regardless of whether the code is correct, so an import/run
+attempt here doesn't prove anything and isn't wanted. Instead, give Tino the exact command(s) to
+run over his SSH session and wait for him to report the result. This still applies even for
+`io/menus.py`'s windowed mode (`TABLERO_PANTALLA_VENTANA=1`, see `software-docs/menus.md`) — that
+mode exists so **Tino** can visually iterate the UI on his own notebook without the Raspberry, not
+so Claude Code runs it.
 
 ## Commands
 
@@ -77,13 +87,16 @@ uv run pytest tests/test_logica.py tests/test_motor.py -v   # runnable now (see 
 
 `test_logica.py` needs no hardware or external binaries. `test_motor.py` needs the `stockfish`
 binary in PATH and skips itself (`pytest.mark.skipif`) if it's missing. `test_sensores.py` is
-still empty — `io/sensores.py` isn't implemented yet.
+still empty — needs real hardware to test meaningfully, see `software-docs/testing.md`.
+`io/sensores.py` now covers the chess-clock buttons only; the occupancy matrix (74HC165) isn't
+implemented yet.
 
 ## Dependencies
 
 - `python-chess` (installed as the `python-chess==1.999` compat shim, which pulls in the real
   `chess` package) — move validation and board state
-- `rpi-lgpio` — GPIO access (sensor matrix, not yet used by any implemented module)
+- `rpi-lgpio` — GPIO access; used by `io/sensores.py` for the chess-clock buttons, not yet by the
+  occupancy matrix
 - `rpi-ws281x` — WS2812B LED strip control (not yet used by any implemented module)
 - `pygame` — renders to the RPI LCD V3 touchscreen via DRM/KMS in `io/pantalla.py`; must be
   compiled from source (`[tool.uv] no-binary-package = ["pygame"]` in `pyproject.toml`) because
