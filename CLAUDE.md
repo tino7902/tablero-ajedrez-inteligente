@@ -18,13 +18,19 @@ applied, see `software-docs/eventos.md`), `motor/stockfish.py` (UCI integration 
 `SimpleEngine`, tested in `tests/test_motor.py`), `io/pantalla.py` (static text on the RPI LCD V3
 touchscreen via `pygame`/DRM-KMS), `io/calibracion_touch.py` (affine least-squares calibration
 for the XPT2046 touch controller, no hardware test yet — see `software-docs/pantalla.md`),
-`io/menus.py` (navigable menu screens matching `diseño-docs/diseño-interfaz.md`, game screens
-still static placeholders with no `logica/estado_tablero.py` wiring yet; can also run windowed
-on a regular desktop via `TABLERO_PANTALLA_VENTANA=1`, no hardware needed — see
-`software-docs/menus.md`), `io/sensores.py` (chess-clock buttons only — GPIO event detection on
-the two limit-switch buttons, BOARD pins 33/35, no occupancy matrix yet, no hardware test
-reported yet — see `software-docs/sensores.md`). Still empty: `io/leds.py`, `web/`, and
-`tests/test_sensores.py`. `pytest` is a declared dev dependency (`uv add --dev pytest`) and
+`io/menus.py` (navigable menu screens matching `diseño-docs/diseño-interfaz.md`; PvP game screen
+has a real chess clock — countdown, two independent timers, turn switch on boton_1/boton_2,
+timeout message — while vs-Magnus is still a static placeholder aside from color selection; can
+also run windowed on a regular desktop via `TABLERO_PANTALLA_VENTANA=1`, no hardware needed, with
+the clock buttons simulated by the ←/→ keys — see `software-docs/menus.md`), `io/menus_gpio.py`
+(thin hardware-real driver: wires `io/sensores.py`'s GPIO buttons into `io/menus.py`'s shared
+loop via a custom pygame event, kept in a separate file from `io/menus.py` on purpose so the
+notebook-only keyboard-testing code path and the Raspberry-only GPIO code path can't break each
+other — see "Modo hardware real" in `software-docs/menus.md`), `io/sensores.py` (chess-clock
+buttons — GPIO event detection on the two limit-switch buttons, BOARD pins 33/35, no occupancy
+matrix yet; hardware-verified by Tino, consumed by `io/menus_gpio.py` — see
+`software-docs/sensores.md`). Still empty: `io/leds.py`, `web/`, and `tests/test_sensores.py`.
+`pytest` is a declared dev dependency (`uv add --dev pytest`) and
 `uv run pytest` works. Don't assume implementations exist just because a file is present; check
 its actual contents. See `software-docs/` (per-module design notes) and `hardware-docs/`
 (componentes, pines GPIO, esquema de detección de casillas) for details beyond this file.
@@ -40,7 +46,7 @@ tablero-ajedrez-inteligente/
 │   └── src/tablero/
 │       ├── __init__.py       # Entry point (main()) — mapped via pyproject [project.scripts]
 │       ├── config.py         # Pines GPIO y configuración general (implementado)
-│       ├── io/                # leds.py (vacío); pantalla.py, calibracion_touch.py, menus.py, sensores.py (implementados)
+│       ├── io/                # leds.py (vacío); pantalla.py, calibracion_touch.py, menus.py, menus_gpio.py, sensores.py (implementados)
 │       ├── logica/            # estado_tablero.py (implementado); eventos.py (vacío)
 │       ├── motor/             # stockfish.py (implementado)
 │       └── web/                # Dashboard/API de estado (a futuro, vacío)

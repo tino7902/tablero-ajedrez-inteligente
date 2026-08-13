@@ -8,15 +8,18 @@ implementada acá.
 ## Por qué existe este módulo
 
 Es el punto de entrada de GPIO real del proyecto (primera vez que se usa `rpi-lgpio` en este
-repo). Aísla al resto del código de los detalles de `RPi.GPIO`/`rpi-lgpio`: cualquier lógica de
-reloj futura (`logica/`) solo necesitará reaccionar a "se presionó boton_1/boton_2", no a pines ni
-flancos.
+repo). Aísla al resto del código de los detalles de `RPi.GPIO`/`rpi-lgpio`: quien lo use solo
+necesita reaccionar a "se presionó boton_1/boton_2", no a pines ni flancos. Hoy lo consume
+`io/menus_gpio.py`, que traduce cada presión a un evento de `pygame` para el reloj PvP real de
+`io/menus.py` (ver `software-docs/menus.md`).
 
 ## API
 
 | Función | Qué hace |
 |---|---|
-| `probar_botones_reloj()` | Loguea cada presión de `boton_1` (pin 33) o `boton_2` (pin 35). Test manual, corre hasta `Ctrl+C`. No implementa lógica de reloj (tiempo, turnos) — eso queda para `logica/` a futuro. |
+| `configurar_botones_reloj(callback)` | Configura GPIO y llama a `callback('boton_1' \| 'boton_2')` en cada presión (flanco descendente, debounce nativo). El callback corre en el thread interno de `rpi-lgpio`. API principal, reusable — la usa `io/menus_gpio.py`. |
+| `liberar_botones_reloj()` | `GPIO.cleanup()`. Llamar al terminar. |
+| `probar_botones_reloj()` | Test manual standalone construido sobre `configurar_botones_reloj()`: loguea cada presión, corre hasta `Ctrl+C`. No implementa lógica de reloj (tiempo, turnos) — eso vive en `io/menus.py`. |
 
 ## Pines (ver `config.py` / `hardware-docs/componentes.md`)
 
@@ -56,15 +59,17 @@ flancos.
 
 ## Fuera de alcance (todavía)
 
-- Lógica de reloj real: cuenta de tiempo, de quién es el turno, cambio de turno al presionar. Esto
-  es pura detección de flanco por pin.
+- Lógica de reloj real (cuenta de tiempo, de quién es el turno, mensaje de fin de partida): esto es
+  pura detección de flanco por pin + el puente a nombre de botón — la lógica de reloj vive en
+  `io/menus.py`/`io/menus_gpio.py` (ver `software-docs/menus.md`).
 - Matriz de ocupación de casillas (74HC165 + 74HC138, 64 reed switches) — pines ya documentados en
   `hardware-docs/componentes.md` pero sin código todavía.
 - Integración con `logica/eventos.py` / `logica/estado_tablero.py`.
 
 ## Cómo probarlo
 
-Por SSH, en la Raspberry, con los dos botones cableados a sus pines y GND dedicados:
+**Test de cableado standalone** (ya verificado por Tino: detecta ambos pines correctamente), por
+SSH en la Raspberry, con los dos botones cableados a sus pines y GND dedicados:
 
 ```bash
 cd tablero
@@ -76,11 +81,14 @@ botón fue:
 
 ```
 ... INFO Esperando presiones en boton_1 (pin 33) o boton_2 (pin 35) (Ctrl+C para salir)...
-... INFO boton_1 presionado (pin físico 33)
-... INFO boton_2 presionado (pin físico 35)
+... INFO boton_1 presionado
+... INFO boton_2 presionado
 ```
 
 Con `Ctrl+C` debería salir limpio (sin traceback), logueando `GPIO liberado, saliendo.`.
+
+**Test del reloj PvP completo** (usa `configurar_botones_reloj()` desde `io/menus_gpio.py`, no
+este test standalone): ver "Modo hardware real" en `software-docs/menus.md`.
 
 Si aparece un `PermissionError` al acceder a GPIO (primera vez que se corre código GPIO en esta
 Raspberry), verificar que el usuario esté en el grupo `gpio` (`groups $USER`) — si no,

@@ -71,20 +71,30 @@ se enciende y muestra lo que dibuje la app.
 
 ### Problemas reales encontrados al hacerlo andar
 
-Dos problemas no obvios aparecieron al probar esto en la práctica (Raspberry Pi OS
-Desktop sobre Trixie), ambos con el mismo síntoma (`pygame.error: kmsdrm not
-available`) pero causas distintas:
+Tres problemas no obvios aparecieron al probar esto en la práctica (Raspberry Pi OS
+Desktop sobre Trixie), cada uno con síntoma distinto:
 
-1. **El wheel binario de `pygame` no sirve**: trae su propio SDL2 compilado sin
-   soporte KMSDRM, por portabilidad. Se resuelve forzando a que `pygame` se compile
-   desde fuente enlazando contra el SDL2 del sistema (ver "Instalación de `pygame`"
-   más abajo) — no alcanza con instalar las libs de sistema si `pygame` sigue usando
-   su propio SDL2 empaquetado.
-2. **El compositor de escritorio bloquea el DRM master**: aunque el SDL2 del sistema
-   sí tiene KMSDRM compilado, en Raspberry Pi OS Desktop el compositor gráfico
-   (Wayfire/labwc) toma el control exclusivo de la pantalla al arrancar, y solo un
-   proceso a la vez puede ser dueño del DRM master. Por eso hace falta el paso 4 de
-   arriba (bootear a consola).
+1. **El wheel binario de `pygame` no sirve** (`pygame.error: kmsdrm not available`):
+   trae su propio SDL2 compilado sin soporte KMSDRM, por portabilidad. Se resuelve
+   forzando a que `pygame` se compile desde fuente enlazando contra el SDL2 del
+   sistema (ver "Instalación de `pygame`" más abajo) — no alcanza con instalar las
+   libs de sistema si `pygame` sigue usando su propio SDL2 empaquetado.
+2. **El compositor de escritorio bloquea el DRM master** (mismo síntoma que 1):
+   aunque el SDL2 del sistema sí tiene KMSDRM compilado, en Raspberry Pi OS Desktop
+   el compositor gráfico (Wayfire/labwc) toma el control exclusivo de la pantalla al
+   arrancar, y solo un proceso a la vez puede ser dueño del DRM master. Por eso hace
+   falta el paso 4 de arriba (bootear a consola).
+3. **SDL abre el dispositivo DRM equivocado** (síntoma distinto: nada de error, pero
+   pantalla completamente en blanco/negra): esta Raspberry expone *dos* dispositivos
+   DRM — `dmesg` muestra `card0` como la GPU integrada vc4 (HDMI), que sin monitor
+   conectado reporta `Cannot find any crtc or sizes`, y `card1` como el panel
+   `ili9486` real, que sí inicializa framebuffer (`fb0`). SDL abre por default el
+   índice 0, que no tiene salida válida — no tira excepción, simplemente no hay nada
+   que mostrar. Se resuelve fijando `SDL_KMSDRM_DEVICE_INDEX=1` en
+   `io/_sdl.py::configurar_entorno_sdl()` (confirmado por Tino en hardware real,
+   2026-08-13; si en algún momento se reordenan los dispositivos DRM del sistema,
+   `ls /dev/dri/` + `dmesg | grep -iE "drm|ili9486"` es cómo se vuelve a confirmar
+   cuál índice es cuál).
 
 ### Instalación de `pygame`
 

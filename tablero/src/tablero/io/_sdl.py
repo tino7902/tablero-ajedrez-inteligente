@@ -22,9 +22,17 @@ def configurar_entorno_sdl() -> None:
     (usa `xwayland-satellite`) y su propia documentación marca las ventanas Xwayland como
     negras por defecto, sin relación con `pygame`. El backend `wayland` nativo de SDL2 no
     pasa por Xwayland y funciona correctamente.
+
+    En modo Raspberry (KMS/DRM) se fuerza además `SDL_KMSDRM_DEVICE_INDEX=1`: esta
+    Raspberry tiene dos dispositivos DRM (`dmesg`: `card0` es la GPU integrada vc4/HDMI,
+    que sin monitor conectado reporta "Cannot find any crtc or sizes"; `card1` es el panel
+    `ili9486` real, que sí inicializa framebuffer). SDL por default abre el índice 0 — sin
+    error, pero sin nada que mostrar, así que la pantalla queda en blanco sin ningún
+    traceback. Confirmado por Tino en hardware real (2026-08-13).
     """
     if os.environ.get("TABLERO_PANTALLA_VENTANA") == "1":
         os.environ.setdefault("SDL_VIDEODRIVER", "wayland")
         return
     os.environ.setdefault("SDL_VIDEODRIVER", "kmsdrm")
     os.environ.setdefault("SDL_NOMOUSE", "1")
+    os.environ.setdefault("SDL_KMSDRM_DEVICE_INDEX", "1")
