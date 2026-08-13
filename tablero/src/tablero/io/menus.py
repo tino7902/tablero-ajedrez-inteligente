@@ -399,6 +399,7 @@ def ejecutar_menus() -> None:
     historial = [NOMBRE_MENU_PRINCIPAL]
     estado.entrada_pantalla_ts = time.monotonic()
     logger.info("Mostrando %s", historial[-1])
+    _renderizar(surf, pantallas[historial[-1]])
 
     def _navegar(destino: str) -> None:
         nonlocal historial
@@ -417,7 +418,8 @@ def ejecutar_menus() -> None:
             dt = ahora - ultimo_tick
             ultimo_tick = ahora
 
-            for evento in pygame.event.get():
+            eventos = pygame.event.get()
+            for evento in eventos:
                 pantalla_actual = pantallas[historial[-1]]
 
                 if evento.type == EVENTO_BOTON_RELOJ:
@@ -479,7 +481,9 @@ def ejecutar_menus() -> None:
                     estado.tiempo_agotado = False
                     _navegar(NOMBRE_JUEGO_PVP)
 
+            reloj_tick = False
             if pantalla_actual.nombre == NOMBRE_JUEGO_PVP and estado.reloj_corriendo:
+                reloj_tick = True
                 if estado.turno_blancas:
                     estado.tiempo_restante_blancas = max(0.0, estado.tiempo_restante_blancas - dt)
                     agotado = estado.tiempo_restante_blancas <= 0
@@ -495,7 +499,14 @@ def ejecutar_menus() -> None:
                         "negras" if estado.turno_blancas else "blancas",
                     )
 
-            _renderizar(surf, pantallas[historial[-1]])
+            # Solo se redibuja cada frame en las pantallas "vivas" (cuenta regresiva, reloj
+            # corriendo) — el resto vuelve al comportamiento original de redibujar solo ante
+            # un evento real. Llamar a pygame.display.flip() en cada vuelta del loop (~50/s)
+            # sin necesidad rompe el backend KMSDRM de la Raspberry (pantalla queda en blanco;
+            # no pasa con el backend de escritorio/ventana).
+            pantalla_viva = pantalla_actual.nombre == NOMBRE_CUENTA_REGRESIVA or reloj_tick
+            if eventos or pantalla_viva:
+                _renderizar(surf, pantallas[historial[-1]])
             pygame.time.wait(20)
     except KeyboardInterrupt:
         pygame.quit()
