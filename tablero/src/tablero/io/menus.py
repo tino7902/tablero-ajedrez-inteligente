@@ -447,6 +447,8 @@ def ejecutar_menus() -> None:
                 if pantalla_actual.permite_volver and _RECT_VOLVER.collidepoint(pos):
                     logger.info("Input: Volver (desde %s)", pantalla_actual.nombre)
                     historial.pop()
+                    while len(historial) > 1 and historial[-1] == NOMBRE_CUENTA_REGRESIVA:
+                        historial.pop()
                     estado.entrada_pantalla_ts = time.monotonic()
                     logger.info("Mostrando %s", historial[-1])
                     continue
