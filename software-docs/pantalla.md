@@ -98,17 +98,26 @@ Desktop sobre Trixie), cada uno con síntoma distinto:
 
 ### Instalación de `pygame`
 
-`pyproject.toml` tiene `[tool.uv] no-binary-package = ["pygame"]`, que fuerza a `uv`
-a compilar `pygame` desde fuente en vez de usar el wheel binario de PyPI (ver el
-problema 1 arriba). Como ya se había instalado el wheel roto antes de agregar esa
-configuración, la primera vez hace falta forzar la recompilación:
+El wheel binario de PyPI alcanza para probar `menus.py` en modo ventana en cualquier
+notebook (Windows, Linux de escritorio, lo que sea) — ahí no hace falta KMSDRM. Por
+eso `pyproject.toml` **no** fuerza el build desde fuente de forma global: hacerlo
+rompía `uv sync` en cualquier máquina que no fuera la Pi (compila `pygame` desde
+fuente ahí también, y sin el toolchain de esa plataforma —Visual C++ Build Tools en
+Windows, por ejemplo— falla). Ver software-docs/pyproject.md, sesión 2026-08-26.
+
+En la Raspberry sí hace falta compilar desde fuente para enlazar contra el SDL2 del
+sistema (ver el problema 1 arriba), forzándolo por invocación:
 ```bash
 cd tablero
-uv sync --reinstall-package pygame
+uv sync --no-binary-package pygame --reinstall-package pygame
 ```
 Compilar en una Raspberry Pi 3B tarda varios minutos (no es una descarga de wheel).
-Compilaciones posteriores (`uv sync` normal) ya respetan la config y no hace falta
-el `--reinstall-package`.
+El `--reinstall-package` solo hace falta si ya había un wheel binario instalado
+antes; en una instalación limpia con `--no-binary-package pygame` alcanza. Para que
+`uv sync` normal (sin flags) siga usando el build desde fuente en sesiones
+posteriores en la Pi, fijar la variable de entorno `UV_NO_BINARY_PACKAGE=pygame` en
+el perfil de shell de esa máquina (no en `pyproject.toml`, para no afectar a otras
+máquinas).
 
 ## Decisiones de diseño
 
