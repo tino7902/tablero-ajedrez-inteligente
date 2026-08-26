@@ -12,6 +12,17 @@ Configuración del paquete `tablero`, gestionado con `uv`.
 - **Nuevo `[dependency-groups]` con `dev = ["pytest>=9.1.1"]`**, agregado vía
   `uv add --dev pytest`. Antes no había ningún test runner instalado, a pesar de que
   ya existían archivos de test vacíos.
+- **Environment markers (PEP 508) en `pygame`, `rpi-lgpio` y `rpi-ws281x`**:
+  `; sys_platform == 'linux' and platform_machine in 'aarch64 armv7l armv6l'`. Estas
+  tres dependencias hablan con hardware específico de la Raspberry Pi (GPIO real,
+  DRM-KMS, PWM de Broadcom) y no tiene sentido que `uv sync` intente instalarlas ni
+  compilarlas fuera de la Pi — de hecho en Windows `uv sync` fallaba al buildear la
+  extensión en C de `rpi-ws281x` por falta de Microsoft Visual C++ Build Tools. Esto
+  coincide con el boundary que ya documenta `CLAUDE.md`: `io/` es Pi-only,
+  `logica/`/`motor/` son multiplataforma. Con el marker, en cualquier máquina que no
+  sea Linux ARM (notebooks de desarrollo) `uv sync` solo instala `python-chess` y el
+  grupo `dev` (`pytest`), dejando `logica/`/`motor/` testeables sin hardware ni
+  toolchain de compilación.
 
 ## Dependencias
 
