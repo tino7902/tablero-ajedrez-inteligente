@@ -139,21 +139,27 @@ El forzado de `SDL_VIDEODRIVER=kmsdrm`/`SDL_NOMOUSE=1` vive centralizado en
 ```python
 def configurar_entorno_sdl() -> None:
     if os.environ.get("TABLERO_PANTALLA_VENTANA") == "1":
-        os.environ.setdefault("SDL_VIDEODRIVER", "wayland")
+        if sys.platform.startswith("linux"):
+            os.environ.setdefault("SDL_VIDEODRIVER", "wayland")
         return
     os.environ.setdefault("SDL_VIDEODRIVER", "kmsdrm")
     os.environ.setdefault("SDL_NOMOUSE", "1")
 ```
 
-**Por qué `wayland` en modo ventana:** la primera versión de este toggle forzaba `x11`
-(vía XWayland), asumiendo que era la opción más compatible en un escritorio Linux con
-Wayland. En niri (el compositor de Tino, CachyOS) eso da una ventana completamente negra
-— niri no soporta Xwayland de forma nativa (corre `xwayland-satellite` aparte) y su propia
-documentación marca las ventanas Xwayland como negras por defecto (hay que forzarlas a
-floating/fullscreen para verlas), sin relación con `pygame`. El backend `wayland` nativo de
-SDL2 no pasa por Xwayland y renderiza bien. Es un `setdefault`, así que si hace falta otro
+**Por qué `wayland` en modo ventana (solo en Linux):** la primera versión de este toggle
+forzaba `x11` (vía XWayland), asumiendo que era la opción más compatible en un escritorio
+Linux con Wayland. En niri (el compositor de Tino, CachyOS) eso da una ventana completamente
+negra — niri no soporta Xwayland de forma nativa (corre `xwayland-satellite` aparte) y su
+propia documentación marca las ventanas Xwayland como negras por defecto (hay que forzarlas
+a floating/fullscreen para verlas), sin relación con `pygame`. El backend `wayland` nativo
+de SDL2 no pasa por Xwayland y renderiza bien. Es un `setdefault`, así que si hace falta otro
 backend (por ejemplo `x11` en un escritorio sin soporte Wayland nativo en SDL2) alcanza con
 exportar `SDL_VIDEODRIVER` antes de correr el script.
+
+El `if sys.platform.startswith("linux")` se agregó en sesión 2026-08-26: sin él, correr en
+modo ventana en Windows fallaba con `pygame.error: wayland not available` (SDL ahí no tiene
+ese backend). En Windows/macOS no hace falta tocar `SDL_VIDEODRIVER` — SDL ya elige el
+backend nativo correcto (`windows`, `cocoa`) por su cuenta.
 
 Nota para correr en niri: además de esto, hace falta una window-rule en la config de niri
 para que la ventana de `pygame` abra en modo floating (si no, el tiling la deja con un

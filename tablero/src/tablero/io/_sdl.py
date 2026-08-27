@@ -10,18 +10,22 @@ haga cada uno por su cuenta.
 """
 
 import os
+import sys
 
 
 def configurar_entorno_sdl() -> None:
     """Fuerza el backend KMS/DRM sin mouse, salvo que `TABLERO_PANTALLA_VENTANA=1`.
 
-    En modo ventana se fuerza además `SDL_VIDEODRIVER=wayland` (vía `setdefault`, así que
-    se puede pisar seteándola antes de correr el script): probamos primero forzar `x11`
-    (vía XWayland) pensando que era la opción más compatible, pero en niri (el compositor
-    de Tino) da ventana completamente negra — niri no soporta Xwayland de forma nativa
-    (usa `xwayland-satellite`) y su propia documentación marca las ventanas Xwayland como
-    negras por defecto, sin relación con `pygame`. El backend `wayland` nativo de SDL2 no
-    pasa por Xwayland y funciona correctamente.
+    En modo ventana, sobre Linux se fuerza además `SDL_VIDEODRIVER=wayland` (vía
+    `setdefault`, así que se puede pisar seteándola antes de correr el script):
+    probamos primero forzar `x11` (vía XWayland) pensando que era la opción más
+    compatible, pero en niri (el compositor de Tino) da ventana completamente negra —
+    niri no soporta Xwayland de forma nativa (usa `xwayland-satellite`) y su propia
+    documentación marca las ventanas Xwayland como negras por defecto, sin relación
+    con `pygame`. El backend `wayland` nativo de SDL2 no pasa por Xwayland y funciona
+    correctamente. En otras plataformas (Windows, macOS) no se toca `SDL_VIDEODRIVER`
+    en modo ventana — `wayland` no existe ahí y SDL ya elige el backend nativo
+    correcto por su cuenta.
 
     En modo Raspberry (KMS/DRM) se fuerza además `SDL_KMSDRM_DEVICE_INDEX=1`: esta
     Raspberry tiene dos dispositivos DRM (`dmesg`: `card0` es la GPU integrada vc4/HDMI,
@@ -31,7 +35,8 @@ def configurar_entorno_sdl() -> None:
     traceback. Confirmado por Tino en hardware real (2026-08-13).
     """
     if os.environ.get("TABLERO_PANTALLA_VENTANA") == "1":
-        os.environ.setdefault("SDL_VIDEODRIVER", "wayland")
+        if sys.platform.startswith("linux"):
+            os.environ.setdefault("SDL_VIDEODRIVER", "wayland")
         return
     os.environ.setdefault("SDL_VIDEODRIVER", "kmsdrm")
     os.environ.setdefault("SDL_NOMOUSE", "1")
