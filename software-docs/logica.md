@@ -1,5 +1,9 @@
 # `logica/estado_tablero.py`
 
+> El resto de `logica/` está documentado aparte: [`eventos.md`](./eventos.md) (sensores →
+> movimientos), [`partida.md`](./partida.md) (partida, reloj y notación) y
+> [`registro.md`](./registro.md) (PGN y log de las partidas jugadas).
+
 Estado de la partida y validación de movimientos. Es la única fuente de verdad sobre
 la posición actual del juego: quién mueve, qué movimientos son legales, si hay jaque,
 jaque mate o tablas.

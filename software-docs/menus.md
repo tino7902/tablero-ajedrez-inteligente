@@ -29,37 +29,45 @@ input de cada botón.
 
 ## Reloj PvP
 
-Campos de `EstadoPartida` para el reloj (además de `color_humano`, que es para vs-Magnus):
+El reloj en sí **no** se implementa acá: es `RelojAjedrez`
+([`partida.md`](./partida.md#logicarelojpy)), el mismo que usa la simulación por terminal.
+Esta pantalla solo lo crea, lo actualiza una vez por vuelta del loop y lo dibuja; el
+descuento de tiempo y el cambio de turno viven en `logica/reloj.py`.
+
+Campos de `EstadoPartida` (además de `color_humano`, que es para vs-Magnus):
 
 | Campo | Qué es |
 |---|---|
-| `tiempo_restante_blancas` / `_negras` | Segundos restantes de cada lado (float, se decrementa en tiempo real). |
-| `turno_blancas` | De quién es el turno mientras se juega. Una vez `tiempo_agotado=True` queda "congelado" en el lado que perdió — así identifica a la vez "de quién es el turno" y "quién se quedó sin tiempo" sin un campo separado. |
-| `reloj_corriendo` | `False` durante la cuenta regresiva y después de que alguien se queda sin tiempo; `True` mientras se juega. |
-| `tiempo_agotado` | Se pone en `True` cuando algún reloj llega a 0; dispara el mensaje de fin de partida y congela ambos relojes. |
+| `duracion_segundos` | Lo que se eligió en `selector_tiempo` (3/5/10 min). |
+| `reloj` | El `RelojAjedrez` de la partida, o `None` mientras no hay partida en curso (durante los menús y la cuenta regresiva). |
 | `entrada_pantalla_ts` | `time.monotonic()` de cuándo se entró a la pantalla actual — lo usa la cuenta regresiva para saber cuánto pasó. |
 
-Al elegir duración en `selector_tiempo` (3/5/10 min) se setean `tiempo_restante_blancas`/
-`_negras` de una y se navega a `cuenta_regresiva` (no directo a `juego_pvp`). Esa pantalla
-no tiene botones ni permite Volver: `_dibujar_cuenta_regresiva()` calcula cuántos segundos
-pasaron desde `entrada_pantalla_ts` y muestra "3"/"2"/"1"/"¡Partida iniciada!" (un segundo
-cada uno, `_TEXTOS_CUENTA_REGRESIVA`); el loop principal de `ejecutar_menus()` la saca de
-ahí automáticamente por tiempo (no por click) una vez pasan los 4 segundos, seteando
-`turno_blancas=True`, `reloj_corriendo=True` y navegando a `juego_pvp`.
+De quién es el turno y quién se quedó sin tiempo se leen del reloj (`reloj.turno`,
+`reloj.tiempo_agotado`, `reloj.perdedor`): al agotarse el tiempo, `turno` queda congelado
+en el lado que perdió, así identifica las dos cosas sin un campo separado.
 
-Mientras `reloj_corriendo`, cada vuelta del loop resta `dt` (el tiempo real transcurrido
-desde la vuelta anterior) al lado activo. Al llegar a 0: `reloj_corriendo=False`,
-`tiempo_agotado=True`, y `_dibujar_juego_pvp()` reemplaza toda la fila de
+Al elegir duración en `selector_tiempo` (3/5/10 min) se guarda `duracion_segundos` y se
+navega a `cuenta_regresiva` (no directo a `juego_pvp`). Esa pantalla no tiene botones ni
+permite Volver: `_dibujar_cuenta_regresiva()` calcula cuántos segundos pasaron desde
+`entrada_pantalla_ts` y muestra "3"/"2"/"1"/"¡Partida iniciada!" (un segundo cada uno,
+`_TEXTOS_CUENTA_REGRESIVA`); el loop principal de `ejecutar_menus()` la saca de ahí
+automáticamente por tiempo (no por click) una vez pasan los 4 segundos, creando el
+`RelojAjedrez` de la partida y navegando a `juego_pvp`.
+
+Con la partida en curso, cada vuelta del loop llama a `reloj.actualizar()`, que descuenta
+el tiempo real transcurrido al lado activo. Al llegar a 0 el reloj queda agotado y
+`_dibujar_juego_pvp()` reemplaza toda la fila de
 encabezados/indicadores por el mensaje combinado "¡Blancas se quedó sin tiempo! Gana
 Negras" (o el caso inverso) en dos líneas — no alcanza el espacio del indicador chico de
 "¡Te quedaste sin tiempo!" para meter también "gana X" sin superponerse con el otro lado.
 Los relojes quedan congelados con su último valor, visibles debajo del mensaje.
 
 **Por qué `_renderizar()` no se llama en cada vuelta del loop incondicionalmente:** la
-lógica de tiempo (`dt`, avance de la cuenta regresiva, decremento del reloj activo) sí
-corre en cada vuelta, pero el `pygame.display.flip()` de `_renderizar()` solo se dispara si
-hubo algún evento real (click/touch/tecla/GPIO) o si la pantalla actual es "viva"
-(`cuenta_regresiva`, o `juego_pvp` con `reloj_corriendo=True`) — las demás pantallas
+lógica de tiempo (avance de la cuenta regresiva, `reloj.actualizar()`) sí corre en cada
+vuelta, pero el `pygame.display.flip()` de `_renderizar()` solo se dispara si hubo algún
+evento real (click/touch/tecla/GPIO) o si la pantalla actual es "viva" (`cuenta_regresiva`,
+o `juego_pvp` con el reloj corriendo — se evalúa *antes* de actualizarlo, para que el frame
+en el que se agota el tiempo también se redibuje y muestre el mensaje de fin) — las demás pantallas
 (menús, selectores, `juego_vs_magnus`, `juego_pvp` ya terminado) vuelven al comportamiento
 original de redibujar solo ante un evento. Llamar a `flip()` sin parar (~50/s) contra el
 backend `kmsdrm` de la Raspberry deja la pantalla en blanco (no pasa con el backend de
@@ -67,10 +75,15 @@ ventana/escritorio) — confirmado por Tino en hardware real (2026-08-13): con e
 sin gatear, ni siquiera `menu_principal` (pantalla sin ningún código nuevo de esta feature)
 llegaba a mostrarse.
 
-Los botones físicos se traducen a `boton_1`/`boton_2` y se procesan en
-`_procesar_boton_reloj()`: solo tienen efecto si `pantalla_actual == juego_pvp`,
-`reloj_corriendo` y es el turno de ese lado — igual que un reloj de ajedrez real, un jugador
-solo puede parar su propio reloj, no el del rival.
+Los botones físicos se traducen a `boton_1`/`boton_2` (blancas/negras) y se procesan en
+`_procesar_boton_reloj()`, que delega en `reloj.pulsar(color)`: solo tienen efecto si
+`pantalla_actual == juego_pvp`, hay partida en curso y es el turno de ese lado — igual que
+un reloj de ajedrez real, un jugador solo puede parar su propio reloj, no el del rival.
+
+Todavía **no** se exige que el jugador haya movido antes de apretar: esa es la regla de las
+dos condiciones de [`partida.md`](./partida.md), que entra en juego cuando la pantalla
+reciba movimientos reales desde `io/sensores.py`. Se puede probar hoy, sin hardware, con la
+simulación por terminal ([`simulacion.md`](./simulacion.md)).
 
 ## Grafo de navegación
 

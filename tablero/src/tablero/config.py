@@ -28,3 +28,9 @@ CALIBRACION_TOUCH_PATH: Path = Path(__file__).resolve().parent.parent.parent / "
 # BCM entre paréntesis.
 PIN_BOTON_RELOJ_JUGADOR_1: int = 33  # GPIO 13 (BCM)
 PIN_BOTON_RELOJ_JUGADOR_2: int = 35  # GPIO 19 (BCM)
+
+# Registro de partidas (ver logica/registro.py y software-docs/registro.md). No se
+# trackea en git: son datos de ejecución, igual que la calibración táctil.
+DIRECTORIO_REGISTROS: Path = Path(__file__).resolve().parent.parent.parent / "registros"
+MAX_PARTIDAS_REGISTRADAS: int = 15  # PGN (movimientos legales + resultado)
+MAX_DETALLES_REGISTRADOS: int = 5  # log detallado de eventos

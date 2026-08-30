@@ -29,9 +29,21 @@ notebook-only keyboard-testing code path and the Raspberry-only GPIO code path c
 other — see "Modo hardware real" in `software-docs/menus.md`), `io/sensores.py` (chess-clock
 buttons — GPIO event detection on the two limit-switch buttons, BOARD pins 33/35, no occupancy
 matrix yet; hardware-verified by Tino, consumed by `io/menus_gpio.py` — see
-`software-docs/sensores.md`). Still empty: `io/leds.py`, `web/`, and `tests/test_sensores.py`.
+`software-docs/sensores.md`), `logica/reloj.py` (`RelojAjedrez`, the project's **only** chess
+clock — `io/menus.py` no longer implements its own, see `software-docs/partida.md`),
+`logica/notacion.py` (parses typed moves: Spanish/English SAN + UCI; the language is chosen
+rather than guessed because `R` is king in Spanish and rook in English),
+`logica/partida.py` (`Partida` = board + clock + the two-condition rule: the turn passes only
+if the right player made a legal move AND then pressed their clock button — this is the layer
+the real board will use once `io/sensores.py` reports moves), `logica/registro.py` (per-game
+PGN for the last 15 games plus a detailed event log for the last 5, under `tablero/registros/`,
+gitignored — see `software-docs/registro.md`), and `simulacion.py` (terminal-only game
+simulation: type a move, the program answers how the board would react, with a real running
+clock; runs anywhere, no hardware — see `software-docs/simulacion.md`). Still empty:
+`io/leds.py`, `web/`, and `tests/test_sensores.py`.
 `pytest` is a declared dev dependency (`uv add --dev pytest`) and
-`uv run pytest` works. Don't assume implementations exist just because a file is present; check
+`uv run pytest` works (86 tests, all hardware-free except `test_motor.py`, which skips itself
+without the `stockfish` binary). Don't assume implementations exist just because a file is present; check
 its actual contents. See `software-docs/` (per-module design notes) and `hardware-docs/`
 (componentes, pines GPIO, esquema de detección de casillas) for details beyond this file.
 
@@ -45,14 +57,16 @@ tablero-ajedrez-inteligente/
 ├── tablero/                  # Paquete Python (gestionado con uv), raíz de trabajo para uv/pytest
 │   └── src/tablero/
 │       ├── __init__.py       # Entry point (main()) — mapped via pyproject [project.scripts]
-│       ├── config.py         # Pines GPIO y configuración general (implementado)
+│       ├── config.py         # Pines GPIO, pantalla, registros y configuración general
+│       ├── simulacion.py      # Simulación de partida por terminal (sin hardware)
 │       ├── io/                # leds.py (vacío); pantalla.py, calibracion_touch.py, menus.py, menus_gpio.py, sensores.py (implementados)
-│       ├── logica/            # estado_tablero.py (implementado); eventos.py (vacío)
+│       ├── logica/            # estado_tablero.py, eventos.py, reloj.py, notacion.py, partida.py, registro.py (implementados)
 │       ├── motor/             # stockfish.py (implementado)
 │       └── web/                # Dashboard/API de estado (a futuro, vacío)
 ├── hardware/scematichs/       # Directorio vacío (.gitkeep); esquemáticos aún no subidos acá
 ├── hardware-docs/             # Componentes, pines GPIO, esquema de detección de casillas (docs + fotos)
-├── software-docs/             # Notas de diseño por módulo (config, logica, motor, pantalla, menus, comandos, pyproject, testing)
+├── software-docs/             # Notas de diseño por módulo (config, logica, eventos, partida, registro,
+│                              #   simulacion, motor, pantalla, menus, comandos, pyproject, testing)
 └── README.md
 ```
 
@@ -88,14 +102,19 @@ uv run python -m tablero  # alternative way to run the package
 ```
 
 ```bash
-uv run pytest tests/test_logica.py tests/test_motor.py -v   # runnable now (see software-docs/testing.md)
+uv run pytest -v                       # the whole suite (see software-docs/testing.md)
+uv run python -m tablero.simulacion    # terminal game simulation, no hardware
 ```
 
-`test_logica.py` needs no hardware or external binaries. `test_motor.py` needs the `stockfish`
-binary in PATH and skips itself (`pytest.mark.skipif`) if it's missing. `test_sensores.py` is
-still empty — needs real hardware to test meaningfully, see `software-docs/testing.md`.
+Only `test_motor.py` needs anything special (the `stockfish` binary in PATH; it skips itself
+via `pytest.mark.skipif` if missing) — everything else runs anywhere. `test_sensores.py` is
+still empty: it needs real hardware to test meaningfully, see `software-docs/testing.md`.
 `io/sensores.py` now covers the chess-clock buttons only; the occupancy matrix (74HC165) isn't
 implemented yet.
+
+`tablero/simulacion.py` is the way to exercise the game logic (move validation + clock rules)
+off-device: it lives at the package root, **not** under `io/`, precisely so it can be run here
+— it imports nothing from `io/`, so the "never run `io/` code" rule below doesn't apply to it.
 
 ## Dependencies
 
@@ -107,7 +126,8 @@ implemented yet.
 - `pygame` — renders to the RPI LCD V3 touchscreen via DRM/KMS in `io/pantalla.py`; must be
   compiled from source (`[tool.uv] no-binary-package = ["pygame"]` in `pyproject.toml`) because
   the PyPI wheel ships its own SDL2 without KMSDRM support — see `software-docs/pantalla.md`
-- `pytest` (dev dependency) — test runner for `tablero/tests/`
+- `pytest` (dev dependency) — test runner for `tablero/tests/`; shared fixtures (the fake
+  clock used by the time-dependent tests) live in `tablero/tests/conftest.py`
 - Stockfish — external binary, required for vs-machine mode (installed via system package
   manager, not a Python dependency)
 

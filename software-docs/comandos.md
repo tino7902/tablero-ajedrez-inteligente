@@ -21,13 +21,35 @@ contra el SDL2 del sistema): ver [`pantalla.md`](./pantalla.md#instalación-de-p
 ## Tests
 
 ```bash
-uv run pytest tests/test_logica.py tests/test_motor.py -v   # o `uv run pytest` a secas
+uv run pytest -v      # toda la suite
 ```
 
-Corre en notebook o Raspberry. `test_logica.py` y `test_eventos.py` no requieren nada
-especial; `test_motor.py` necesita el binario `stockfish` en el `PATH` y se saltea solo si
-no está. `test_sensores.py` está vacío todavía (`io/sensores.py` no implementado). Detalle
+Corre en notebook o Raspberry. Solo `test_motor.py` necesita algo especial (el binario
+`stockfish` en el `PATH`, y se saltea solo si no está); el resto —`test_logica.py`,
+`test_eventos.py`, `test_reloj.py`, `test_notacion.py`, `test_partida.py`,
+`test_registro.py`— no requiere nada. `test_sensores.py` está vacío todavía. Detalle
 completo: [`testing.md`](./testing.md).
+
+## Simulación de partida (terminal, sin hardware)
+
+```bash
+uv run python -m tablero.simulacion              # pregunta notación y minutos
+uv run simulacion --notacion es --minutos 3      # sin preguntas
+uv run simulacion --sin-registro                 # sin escribir en registros/
+```
+
+Corre en notebook o Raspberry, no toca `io/`. Se tipea un movimiento y el programa responde
+si el tablero lo aceptaría o lo bloquearía, con el reloj corriendo y la regla de las dos
+condiciones (movimiento legal + botón del reloj). Comandos completos y ejemplos:
+[`simulacion.md`](./simulacion.md).
+
+Cada partida queda registrada en `tablero/registros/` (PGN de las últimas 15, log detallado
+de las últimas 5, ver [`registro.md`](./registro.md)):
+
+```bash
+cat tablero/registros/partidas/*.pgn      # PGN multi-partida, se abre en cualquier visor
+cat tablero/registros/detalle/*.log       # qué intentó cada jugador, cuándo y con qué reloj
+```
 
 ## Entry point del proyecto
 
@@ -73,3 +95,5 @@ cd tablero && env TABLERO_PANTALLA_VENTANA=1 uv run python -m tablero.io.menus
   táctil.
 - [`menus.md`](./menus.md) — grafo de navegación de `io/menus.py` y el modo ventana.
 - [`testing.md`](./testing.md) — qué cubre cada archivo de test.
+- [`simulacion.md`](./simulacion.md) — modo de prueba de la lógica por terminal.
+- [`registro.md`](./registro.md) — dónde y cómo quedan registradas las partidas.

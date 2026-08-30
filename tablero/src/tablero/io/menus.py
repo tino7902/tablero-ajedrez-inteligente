@@ -43,6 +43,7 @@ import pygame
 
 from tablero import config
 from tablero.io import calibracion_touch
+from tablero.logica.reloj import RelojAjedrez, formatear_tiempo
 
 logger = logging.getLogger(__name__)
 
@@ -121,18 +122,16 @@ class EstadoPartida:
     """Estado que necesitan las pantallas de juego más allá de la navegación entre ellas.
 
     `color_humano` es para vs. Magnus (se resuelve al elegir "Blancas"/"Aleatorio"/"Negras"
-    en `selector_color`). El resto es el reloj PvP: `turno_blancas` indica de quién es el
-    turno mientras se juega, y queda "congelado" en el lado que se quedó sin tiempo una vez
-    `tiempo_agotado=True` (no se vuelve a alternar) — así identifica a la vez "de quién es
-    el turno" y "quién perdió por tiempo" sin necesitar un campo separado.
+    en `selector_color`). `duracion_segundos` es lo que se elige en `selector_tiempo`, y
+    `reloj` es el reloj de la partida PvP: vale `None` mientras no haya partida en curso y
+    se crea al terminar la cuenta regresiva. El reloj en sí es `logica.reloj.RelojAjedrez`,
+    compartido con la simulación por terminal — esta pantalla no vuelve a implementar el
+    descuento de tiempo ni el cambio de turno.
     """
 
     color_humano: chess.Color | None = None
-    tiempo_restante_blancas: float = 0.0
-    tiempo_restante_negras: float = 0.0
-    turno_blancas: bool = True
-    reloj_corriendo: bool = False
-    tiempo_agotado: bool = False
+    duracion_segundos: int = 0
+    reloj: RelojAjedrez | None = None
     entrada_pantalla_ts: float = 0.0
 
 
@@ -189,42 +188,41 @@ def _dibujar_indicador(surf: pygame.Surface, centro: tuple[int, int], texto_str:
     surf.blit(texto, texto.get_rect(center=centro))
 
 
-def _formatear_tiempo(segundos: float) -> str:
-    total = max(0, int(segundos))
-    minutos, segs = divmod(total, 60)
-    return f"{minutos:02d}:{segs:02d}"
-
-
 def _dibujar_reloj(
     surf: pygame.Surface, centro: tuple[int, int], size: tuple[int, int], tamano_fuente: int, segundos_restantes: float
 ) -> None:
     rect = pygame.Rect(0, 0, *size)
     rect.center = centro
     pygame.draw.rect(surf, _AZUL, rect, width=3, border_radius=12)
-    texto = _fuente(tamano_fuente).render(_formatear_tiempo(segundos_restantes), True, _NEGRO)
+    texto = _fuente(tamano_fuente).render(formatear_tiempo(segundos_restantes), True, _NEGRO)
     surf.blit(texto, texto.get_rect(center=rect.center))
 
 
 def _dibujar_juego_pvp(surf: pygame.Surface, pantalla: Pantalla, estado: EstadoPartida) -> None:
     surf.fill(_BLANCO)
-    if estado.tiempo_agotado:
-        color_perdedor = "Blancas" if estado.turno_blancas else "Negras"
-        color_ganador = "Negras" if estado.turno_blancas else "Blancas"
+    reloj = estado.reloj
+    turno_blancas = reloj.turno == chess.WHITE if reloj else True
+    if reloj is not None and reloj.tiempo_agotado:
+        color_perdedor = "Blancas" if turno_blancas else "Negras"
+        color_ganador = "Negras" if turno_blancas else "Blancas"
         for y, linea in ((55, f"¡{color_perdedor} se quedó sin tiempo!"), (85, f"Gana {color_ganador}")):
             texto = _fuente(_TAM_MENSAJE_FIN).render(linea, True, _ROJO)
             surf.blit(texto, texto.get_rect(center=(config.PANTALLA_ANCHO // 2, y)))
     else:
         for x_centro, encabezado, es_turno in (
-            (130, "Blancas", estado.turno_blancas),
-            (350, "Negras", not estado.turno_blancas),
+            (130, "Blancas", reloj is not None and turno_blancas),
+            (350, "Negras", reloj is not None and not turno_blancas),
         ):
             texto = _fuente(_TAM_PREGUNTA).render(encabezado, True, _NEGRO)
             surf.blit(texto, texto.get_rect(center=(x_centro, 48)))
             if es_turno:
                 _dibujar_indicador(surf, (x_centro, 80), "¡Es tu turno!", _VERDE)
 
-    _dibujar_reloj(surf, (130, 168), (140, 70), _TAM_RELOJ, estado.tiempo_restante_blancas)
-    _dibujar_reloj(surf, (350, 168), (140, 70), _TAM_RELOJ, estado.tiempo_restante_negras)
+    # Sin reloj (partida no arrancada) se muestran los dos lados con la duración elegida.
+    restante_blancas = reloj.restante(chess.WHITE) if reloj else estado.duracion_segundos
+    restante_negras = reloj.restante(chess.BLACK) if reloj else estado.duracion_segundos
+    _dibujar_reloj(surf, (130, 168), (140, 70), _TAM_RELOJ, restante_blancas)
+    _dibujar_reloj(surf, (350, 168), (140, 70), _TAM_RELOJ, restante_negras)
     for boton in pantalla.botones:
         _dibujar_boton(surf, boton, _ROJO, _TAM_BOTON_CHICO)
 
@@ -365,14 +363,22 @@ def _renderizar(surf: pygame.Surface, pantalla: Pantalla) -> None:
 
 
 def _procesar_boton_reloj(estado: EstadoPartida, pantalla_nombre: str, boton_nombre: str) -> None:
-    if pantalla_nombre != NOMBRE_JUEGO_PVP or not estado.reloj_corriendo:
+    """Aplica una pulsación de botón físico (o de su tecla ←/→) sobre el reloj PvP.
+
+    Cada botón solo hace algo si es el del jugador que tiene el turno; el reloj mismo se
+    encarga de ignorar el resto (ver `logica/reloj.py`). Todavía no se exige que el
+    jugador haya movido: esa regla es de `logica/partida.py` y entra cuando la pantalla
+    reciba movimientos reales desde `io/sensores.py`.
+    """
+    if pantalla_nombre != NOMBRE_JUEGO_PVP or estado.reloj is None:
         return
-    if boton_nombre == "boton_1" and estado.turno_blancas:
-        estado.turno_blancas = False
-        logger.info("boton_1 presionado: pasa el turno a negras")
-    elif boton_nombre == "boton_2" and not estado.turno_blancas:
-        estado.turno_blancas = True
-        logger.info("boton_2 presionado: pasa el turno a blancas")
+    color = chess.WHITE if boton_nombre == "boton_1" else chess.BLACK
+    if estado.reloj.pulsar(color):
+        logger.info(
+            "%s presionado: pasa el turno a %s",
+            boton_nombre,
+            _nombre_color(estado.reloj.turno),
+        )
 
 
 def ejecutar_menus() -> None:
@@ -410,13 +416,9 @@ def ejecutar_menus() -> None:
         estado.entrada_pantalla_ts = time.monotonic()
         logger.info("Mostrando %s", historial[-1])
 
-    ultimo_tick = time.monotonic()
-
     try:
         while True:
             ahora = time.monotonic()
-            dt = ahora - ultimo_tick
-            ultimo_tick = ahora
 
             eventos = pygame.event.get()
             for evento in eventos:
@@ -467,8 +469,7 @@ def ejecutar_menus() -> None:
                             _nombre_color(not estado.color_humano),
                         )
                     if boton.duracion_segundos is not None:
-                        estado.tiempo_restante_blancas = float(boton.duracion_segundos)
-                        estado.tiempo_restante_negras = float(boton.duracion_segundos)
+                        estado.duracion_segundos = boton.duracion_segundos
                         logger.info("Duración elegida: %d segundos por jugador", boton.duracion_segundos)
                     _navegar(boton.destino)
                     break
@@ -478,28 +479,22 @@ def ejecutar_menus() -> None:
             if pantalla_actual.nombre == NOMBRE_CUENTA_REGRESIVA:
                 duracion_total = len(_TEXTOS_CUENTA_REGRESIVA) * _DURACION_PASO_CUENTA_REGRESIVA
                 if ahora - estado.entrada_pantalla_ts >= duracion_total:
-                    estado.turno_blancas = True
-                    estado.reloj_corriendo = True
-                    estado.tiempo_agotado = False
+                    estado.reloj = RelojAjedrez(estado.duracion_segundos)
                     _navegar(NOMBRE_JUEGO_PVP)
 
-            reloj_tick = False
-            if pantalla_actual.nombre == NOMBRE_JUEGO_PVP and estado.reloj_corriendo:
-                reloj_tick = True
-                if estado.turno_blancas:
-                    estado.tiempo_restante_blancas = max(0.0, estado.tiempo_restante_blancas - dt)
-                    agotado = estado.tiempo_restante_blancas <= 0
-                else:
-                    estado.tiempo_restante_negras = max(0.0, estado.tiempo_restante_negras - dt)
-                    agotado = estado.tiempo_restante_negras <= 0
-                if agotado:
-                    estado.reloj_corriendo = False
-                    estado.tiempo_agotado = True
-                    logger.info(
-                        "%s se quedó sin tiempo, gana %s",
-                        "Blancas" if estado.turno_blancas else "Negras",
-                        "negras" if estado.turno_blancas else "blancas",
-                    )
+            # `reloj_tick` se calcula ANTES de actualizar para que el frame en el que se
+            # agota el tiempo también se redibuje y muestre el mensaje de fin.
+            reloj_tick = (
+                pantalla_actual.nombre == NOMBRE_JUEGO_PVP
+                and estado.reloj is not None
+                and not estado.reloj.tiempo_agotado
+            )
+            if reloj_tick and estado.reloj.actualizar():
+                logger.info(
+                    "%s se quedó sin tiempo, gana %s",
+                    _nombre_color(estado.reloj.perdedor).capitalize(),
+                    _nombre_color(not estado.reloj.perdedor),
+                )
 
             # Solo se redibuja cada frame en las pantallas "vivas" (cuenta regresiva, reloj
             # corriendo) — el resto vuelve al comportamiento original de redibujar solo ante

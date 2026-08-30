@@ -32,20 +32,14 @@ from enum import Enum, auto
 import chess
 
 from tablero.logica.estado_tablero import EstadoTablero
+# Los nombres en español viven en `notacion.py` (el módulo de "lenguaje" del proyecto),
+# compartidos con los mensajes de `logica/partida.py` y el log de `logica/registro.py`.
+from tablero.logica.notacion import NOMBRES_COLOR as _NOMBRES_COLOR
+from tablero.logica.notacion import NOMBRES_PIEZA as _NOMBRES_PIEZA
 
 log = logging.getLogger(__name__)
 
 Ocupacion = frozenset[chess.Square]
-
-_NOMBRES_COLOR = {chess.WHITE: "blancas", chess.BLACK: "negras"}
-_NOMBRES_PIEZA = {
-    chess.PAWN: "peón",
-    chess.KNIGHT: "caballo",
-    chess.BISHOP: "alfil",
-    chess.ROOK: "torre",
-    chess.QUEEN: "dama",
-    chess.KING: "rey",
-}
 
 
 def casillas_ocupadas(board: chess.Board) -> Ocupacion:

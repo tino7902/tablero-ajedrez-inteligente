@@ -7,6 +7,9 @@ __pycache__/
 # Calibración táctil: específica del panel físico, ver io/calibracion_touch.py
 tablero/calibracion_touch.json
 
+# Registro de partidas jugadas, ver logica/registro.py
+tablero/registros/
+
 # Editor / OS
 .zed/
 .DS_Store
