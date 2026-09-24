@@ -27,9 +27,14 @@ the clock buttons simulated by the ←/→ keys — see `software-docs/menus.md`
 loop via a custom pygame event, kept in a separate file from `io/menus.py` on purpose so the
 notebook-only keyboard-testing code path and the Raspberry-only GPIO code path can't break each
 other — see "Modo hardware real" in `software-docs/menus.md`), `io/sensores.py` (chess-clock
-buttons — GPIO event detection on the two limit-switch buttons, BOARD pins 33/35, no occupancy
-matrix yet; hardware-verified by Tino, consumed by `io/menus_gpio.py` — see
-`software-docs/sensores.md`), `logica/reloj.py` (`RelojAjedrez`, the project's **only** chess
+buttons — GPIO event detection on the two limit-switch buttons, BOARD pins 33/35,
+hardware-verified by Tino, consumed by `io/menus_gpio.py` — plus the occupancy matrix scan:
+74HC138 row select + 74HC165 column read, debounced `LectorMatriz`, raw→`chess.Square` mapping
+via two permutations in `config.py`, and `matriz`/`calibrar` diagnostic CLIs; the matrix part
+is **not yet tested on the prototype** and nothing consumes `ocupacion()` yet — see
+`software-docs/sensores.md`), `io/leds.py` (WS2812B via `rpi-ws281x` on BCM 12, needs sudo +
+`dtparam=audio=off`, casilla→LED zigzag formula, `todos`/`recorrer`/`esquinas` test CLIs;
+**not yet tested on hardware** — see `software-docs/leds.md`), `logica/reloj.py` (`RelojAjedrez`, the project's **only** chess
 clock — `io/menus.py` no longer implements its own, see `software-docs/partida.md`),
 `logica/notacion.py` (parses typed moves: Spanish/English SAN + UCI; the language is chosen
 rather than guessed because `R` is king in Spanish and rook in English),
@@ -39,8 +44,10 @@ the real board will use once `io/sensores.py` reports moves), `logica/registro.p
 PGN for the last 15 games plus a detailed event log for the last 5, under `tablero/registros/`,
 gitignored — see `software-docs/registro.md`), and `simulacion.py` (terminal-only game
 simulation: type a move, the program answers how the board would react, with a real running
-clock; runs anywhere, no hardware — see `software-docs/simulacion.md`). Still empty:
-`io/leds.py`, `web/`, and `tests/test_sensores.py`.
+clock; runs anywhere, no hardware — see `software-docs/simulacion.md`). Still empty: `web/` and
+`tests/test_sensores.py`. Not yet wired: no game loop connects the matrix (`sensores.ocupacion`)
+to `logica/eventos.py`/`logica/partida.py` — `Partida` only accepts typed moves and
+`RastreadorMovimientos` applies moves to its own `EstadoTablero`, bypassing the clock rule.
 `pytest` is a declared dev dependency (`uv add --dev pytest`) and
 `uv run pytest` works (86 tests, all hardware-free except `test_motor.py`, which skips itself
 without the `stockfish` binary). Don't assume implementations exist just because a file is present; check
@@ -59,7 +66,7 @@ tablero-ajedrez-inteligente/
 │       ├── __init__.py       # Entry point (main()) — mapped via pyproject [project.scripts]
 │       ├── config.py         # Pines GPIO, pantalla, registros y configuración general
 │       ├── simulacion.py      # Simulación de partida por terminal (sin hardware)
-│       ├── io/                # leds.py (vacío); pantalla.py, calibracion_touch.py, menus.py, menus_gpio.py, sensores.py (implementados)
+│       ├── io/                # pantalla.py, calibracion_touch.py, menus.py, menus_gpio.py, sensores.py, leds.py (implementados)
 │       ├── logica/            # estado_tablero.py, eventos.py, reloj.py, notacion.py, partida.py, registro.py (implementados)
 │       ├── motor/             # stockfish.py (implementado)
 │       └── web/                # Dashboard/API de estado (a futuro, vacío)
@@ -109,8 +116,7 @@ uv run python -m tablero.simulacion    # terminal game simulation, no hardware
 Only `test_motor.py` needs anything special (the `stockfish` binary in PATH; it skips itself
 via `pytest.mark.skipif` if missing) — everything else runs anywhere. `test_sensores.py` is
 still empty: it needs real hardware to test meaningfully, see `software-docs/testing.md`.
-`io/sensores.py` now covers the chess-clock buttons only; the occupancy matrix (74HC165) isn't
-implemented yet.
+`io/sensores.py` covers the chess-clock buttons and the occupancy matrix (74HC138/74HC165).
 
 `tablero/simulacion.py` is the way to exercise the game logic (move validation + clock rules)
 off-device: it lives at the package root, **not** under `io/`, precisely so it can be run here
@@ -120,9 +126,9 @@ off-device: it lives at the package root, **not** under `io/`, precisely so it c
 
 - `python-chess` (installed as the `python-chess==1.999` compat shim, which pulls in the real
   `chess` package) — move validation and board state
-- `rpi-lgpio` — GPIO access; used by `io/sensores.py` for the chess-clock buttons, not yet by the
+- `rpi-lgpio` — GPIO access; used by `io/sensores.py` for the chess-clock buttons and the
   occupancy matrix
-- `rpi-ws281x` — WS2812B LED strip control (not yet used by any implemented module)
+- `rpi-ws281x` — WS2812B LED strip control, used by `io/leds.py`
 - `pygame` — renders to the RPI LCD V3 touchscreen via DRM/KMS in `io/pantalla.py`; must be
   compiled from source (`[tool.uv] no-binary-package = ["pygame"]` in `pyproject.toml`) because
   the PyPI wheel ships its own SDL2 without KMSDRM support — see `software-docs/pantalla.md`
