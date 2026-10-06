@@ -66,7 +66,7 @@ LED_BRILLO: int = 32  # 0-255; bajo por defecto: 64 LEDs en blanco al máximo so
 # Mapeo casilla → índice en la tira: LED_DE_CASILLA[chess.Square] (0 = a1, 1 = b1, ...,
 # 63 = h8). El valor por defecto es un placeholder que supone la tira en serpentina
 # desde a1 (fila 1 a→h, fila 2 h→a, ...) justo después del LED de sacrificio. Se
-# genera el real con `sudo .venv/bin/python -m tablero.io.leds calibrar`
+# genera el real con `uv run python -m tablero.io.leds calibrar`
 # (ver software-docs/leds.md).
 LED_DE_CASILLA: tuple[int, ...] = tuple(
     1 + fila * 8 + (7 - columna if fila % 2 else columna) for fila in range(8) for columna in range(8)

@@ -4,17 +4,20 @@ Usa `rpi-ws281x` sobre GPIO 12 (pin físico 32, PWM0). Necesita root para accede
 `/dev/mem` y el audio analógico desactivado (`dtparam=audio=off` en config.txt),
 porque comparte el periférico PWM — ver software-docs/leds.md.
 
-Pruebas manuales en la Raspberry (desde tablero/):
+Pruebas manuales en la Raspberry (desde tablero/). Si no se corre como root, el
+módulo se relanza solo con `sudo` usando el mismo Python del .venv:
 
-    sudo .venv/bin/python -m tablero.io.leds todos
-    sudo .venv/bin/python -m tablero.io.leds recorrer
-    sudo .venv/bin/python -m tablero.io.leds esquinas
-    sudo .venv/bin/python -m tablero.io.leds calibrar
-    sudo .venv/bin/python -m tablero.io.leds verificar
+    uv run python -m tablero.io.leds todos
+    uv run python -m tablero.io.leds recorrer
+    uv run python -m tablero.io.leds esquinas
+    uv run python -m tablero.io.leds calibrar
+    uv run python -m tablero.io.leds verificar
 """
 
 import argparse
 import logging
+import os
+import sys
 import time
 
 import chess
@@ -175,6 +178,10 @@ def _probar_calibrar(tira: TiraLeds) -> None:
 
 
 if __name__ == "__main__":
+    if os.geteuid() != 0:
+        # rpi-ws281x necesita root (/dev/mem). sys.executable es el Python del .venv,
+        # así root usa las mismas dependencias sin pasar por `sudo uv run`.
+        os.execvp("sudo", ["sudo", sys.executable, "-m", "tablero.io.leds", *sys.argv[1:]])
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Pruebas manuales de los LEDs del tablero.")
     parser.add_argument(

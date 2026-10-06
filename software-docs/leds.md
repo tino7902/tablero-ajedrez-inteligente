@@ -40,9 +40,13 @@ el prototipo**.
 
 ## Requisitos en la Raspberry
 
-- **Root**: `rpi-ws281x` accede a `/dev/mem`. Correr con
-  `sudo .venv/bin/python -m tablero.io.leds ...` desde `tablero/` (no `sudo uv run`, que usa
-  el entorno de root).
+- **Root**: `rpi-ws281x` accede a `/dev/mem`. Se corre como el resto del proyecto,
+  `uv run python -m tablero.io.leds ...` desde `tablero/`: si el proceso no es root, el
+  `__main__` de `io/leds.py` se relanza con `sudo <python del .venv> -m tablero.io.leds ...`
+  (en Raspberry Pi OS el usuario principal tiene sudo sin contraseña). No usar
+  `sudo uv run`, que corre con el entorno de root y puede dejar archivos de root en el
+  `.venv`. Desde código (un futuro loop de juego que importe `TiraLeds`) el relanzamiento no
+  aplica: ese proceso tiene que arrancar como root.
 - **Audio analógico desactivado**: el PWM de los LEDs es el mismo que el del audio. En
   `/boot/firmware/config.txt` (o `/boot/config.txt` en sistemas viejos) poner
   `dtparam=audio=off` y reiniciar. Sin esto, los LEDs parpadean con colores al azar o no
@@ -54,11 +58,11 @@ el prototipo**.
 Desde `tablero/`, por SSH en la Raspberry:
 
 ```bash
-sudo .venv/bin/python -m tablero.io.leds todos      # 64 casillas en rojo, verde, azul y blanco
-sudo .venv/bin/python -m tablero.io.leds recorrer   # un LED por vez, Enter para el siguiente
-sudo .venv/bin/python -m tablero.io.leds esquinas   # a1 rojo, h1 verde, a8 azul, h8 amarillo
-sudo .venv/bin/python -m tablero.io.leds calibrar   # genera LED_DE_CASILLA
-sudo .venv/bin/python -m tablero.io.leds verificar  # recorre a1, b1, ..., h8 con el mapeo
+uv run python -m tablero.io.leds todos      # 64 casillas en rojo, verde, azul y blanco
+uv run python -m tablero.io.leds recorrer   # un LED por vez, Enter para el siguiente
+uv run python -m tablero.io.leds esquinas   # a1 rojo, h1 verde, a8 azul, h8 amarillo
+uv run python -m tablero.io.leds calibrar   # genera LED_DE_CASILLA
+uv run python -m tablero.io.leds verificar  # recorre a1, b1, ..., h8 con el mapeo
 ```
 
 Orden recomendado: `todos` (¿prenden todos? ¿colores correctos, o rojo y verde invertidos?
