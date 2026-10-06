@@ -8,7 +8,7 @@ el prototipo**.
 
 | Función/clase | Qué hace |
 |---|---|
-| `indice_de(casilla)` | Índice en la tira del LED de una `chess.Square`, según `LED_ZIGZAG` |
+| `indice_de(casilla)` | Índice en la tira del LED de una `chess.Square`, según la tabla `LED_DE_CASILLA` |
 | `TiraLeds(brillo)` | Inicializa la tira (`PixelStrip.begin()`) |
 | `.encender(casilla, color)` / `.encender_indice(i, color)` | Fija el color de un LED (no se ve hasta `mostrar()`) |
 | `.limpiar()` / `.mostrar()` / `.apagar()` | Todo en negro / enviar a la tira / las dos cosas |
@@ -23,14 +23,15 @@ el prototipo**.
 | `LED_CANTIDAD` | 65 | Incluye el LED de sacrificio |
 | `LED_INDICE_SACRIFICIO` | 0 | Siempre apagado: `mostrar()` lo fuerza a negro antes de enviar |
 | `LED_BRILLO` | 32 | Brillo global 0–255 |
-| `LED_ZIGZAG` | `True` | Supuesto hasta confirmarlo con `recorrer` |
+| `LED_DE_CASILLA` | serpentina desde a1 | Tabla de 64 índices (`[chess.Square]`); placeholder hasta correr `calibrar` |
 
 ## Decisiones de diseño
 
-- **Mapeo casilla → LED por fórmula, no por tabla**: índice 1 en a1, columnas a→h dentro de
-  cada fila; con `LED_ZIGZAG` las filas pares (2, 4, 6, 8) van h→a, que es lo típico al tender
-  una tira en serpentina. Si `recorrer` muestra otro orden (por ejemplo arranca en h8), se
-  cambia la fórmula en `indice_de()` o se pasa a una tabla de 64.
+- **Mapeo casilla → LED por tabla, no por fórmula**: `LED_DE_CASILLA[casilla]` da el índice
+  en la tira, igual que las permutaciones de `io/sensores.py` para la matriz. Así no importa
+  cómo se haya soldado la tira (serpentina, filas en el mismo sentido, arrancando en h8...) ni
+  si algún tramo quedó salteado: se mide con `calibrar` y se pega el resultado. El valor por
+  defecto supone serpentina desde a1 justo después del LED de sacrificio.
 - **Brillo bajo por defecto**: 64 LEDs en blanco al 100 % consumen ~3,8 A, en el límite de la
   fuente de 5 V >4 A. Para las pruebas alcanza con 32; `--brillo` permite subirlo.
 - **LED de sacrificio siempre apagado**: su único trabajo es regenerar la señal de datos a
@@ -56,8 +57,17 @@ Desde `tablero/`, por SSH en la Raspberry:
 sudo .venv/bin/python -m tablero.io.leds todos      # 64 casillas en rojo, verde, azul y blanco
 sudo .venv/bin/python -m tablero.io.leds recorrer   # un LED por vez, Enter para el siguiente
 sudo .venv/bin/python -m tablero.io.leds esquinas   # a1 rojo, h1 verde, a8 azul, h8 amarillo
+sudo .venv/bin/python -m tablero.io.leds calibrar   # genera LED_DE_CASILLA
+sudo .venv/bin/python -m tablero.io.leds verificar  # recorre a1, b1, ..., h8 con el mapeo
 ```
 
 Orden recomendado: `todos` (¿prenden todos? ¿colores correctos, o rojo y verde invertidos?
-Eso sería `strip_type` GRB/RGB), después `recorrer` (anotar en qué casilla cae cada índice) y
-por último `esquinas` para confirmar el mapeo. `Ctrl+C` apaga la tira y sale.
+Eso sería `strip_type` GRB/RGB), después `calibrar` y por último `verificar`/`esquinas` para
+confirmar el mapeo. `Ctrl+C` apaga la tira y sale.
+
+### `calibrar`
+
+Prende cada LED (1..64) en blanco y pregunta en qué casilla se ve. Se responde con el nombre
+(`e4`), `-` si ese LED no cae en ninguna casilla, o `r` para volver al LED anterior si hubo un
+error. No deja asignar dos LEDs a la misma casilla. Al final imprime la tupla
+`LED_DE_CASILLA` lista para pegar en `config.py`, una fila de ajedrez por línea.

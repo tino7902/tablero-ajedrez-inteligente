@@ -63,11 +63,14 @@ LED_CANAL_PWM: int = 0
 LED_CANTIDAD: int = 65
 LED_INDICE_SACRIFICIO: int = 0
 LED_BRILLO: int = 32  # 0-255; bajo por defecto: 64 LEDs en blanco al máximo son ~3,8 A
-# Cómo recorre la tira las casillas después del LED de sacrificio: índice 1 en a1,
-# avanzando por columnas a→h dentro de cada fila. Con LED_ZIGZAG la tira va y
-# vuelve (fila 1 a→h, fila 2 h→a, ...). Confirmar con
-# `sudo .venv/bin/python -m tablero.io.leds recorrer` (ver software-docs/leds.md).
-LED_ZIGZAG: bool = True
+# Mapeo casilla → índice en la tira: LED_DE_CASILLA[chess.Square] (0 = a1, 1 = b1, ...,
+# 63 = h8). El valor por defecto es un placeholder que supone la tira en serpentina
+# desde a1 (fila 1 a→h, fila 2 h→a, ...) justo después del LED de sacrificio. Se
+# genera el real con `sudo .venv/bin/python -m tablero.io.leds calibrar`
+# (ver software-docs/leds.md).
+LED_DE_CASILLA: tuple[int, ...] = tuple(
+    1 + fila * 8 + (7 - columna if fila % 2 else columna) for fila in range(8) for columna in range(8)
+)
 
 # Registro de partidas (ver logica/registro.py y software-docs/registro.md). No se
 # trackea en git: son datos de ejecución, igual que la calibración táctil.
