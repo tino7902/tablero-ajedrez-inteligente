@@ -144,9 +144,18 @@ uv run python -m tablero.io.sensores matriz
 ```
 
 Qué mirar: con el tablero vacío no tiene que haber ninguna celda `#`; al apoyar una pieza tiene
-que encenderse **una sola** celda (si se encienden varias de la misma columna, hay ghosting: un
-diodo invertido o faltante). Si todas las celdas salen `#`, revisar que Q7 llegue al pin 36 y que
-las columnas tengan pull-up.
+que encenderse **una sola** celda. Si con una sola pieza se encienden varias, el imán está cerrando
+reeds vecinos o hay un puente de estaño: con una pieza sola los diodos no influyen. Si todas las
+celdas salen `#`, revisar que Q7 llegue al pin 36 y que las columnas tengan pull-up.
+
+Los diodos se notan recién con **varias piezas en la misma columna física**. Como el 74HC138
+mantiene en HIGH (push-pull) las filas no seleccionadas, un diodo faltante, en corto o invertido no
+genera la casilla fantasma clásica del ghosting. Lo que pasa es que esa fila HIGH pelea contra la
+fila LOW por la columna, y las *otras* piezas de esa columna parpadean o desaparecen. Un diodo
+invertido, además, hace que su casilla no se encienda nunca. La prueba es poner piezas en todas
+las casillas de una columna (o las 32 en la posición inicial y después las 32 en las filas 3–6):
+tienen que verse todas, estables. Si falla, no dejarlo corriendo así, porque son dos salidas del
+138 en corto a través del reed.
 
 **Calibración del mapeo**: pide una pieza sola en a1, b1, … h1 y después en a2, … a8, verifica
 que el cableado sea una grilla y al final imprime las dos líneas para pegar en `config.py`:
