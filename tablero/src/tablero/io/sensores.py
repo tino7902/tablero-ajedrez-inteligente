@@ -9,6 +9,8 @@
 Pruebas manuales en la Raspberry (ver software-docs/sensores.md):
 
     uv run python -m tablero.io.sensores botones
+    uv run python -m tablero.io.sensores selector
+    uv run python -m tablero.io.sensores lector
     uv run python -m tablero.io.sensores matriz
     uv run python -m tablero.io.sensores calibrar
 """
@@ -36,6 +38,9 @@ _PINES_SELECTOR = (
     config.PIN_MATRIZ_SELECTOR_C,
 )
 _PINES_MATRIZ = (*_PINES_SELECTOR, config.PIN_MATRIZ_CARGA, config.PIN_MATRIZ_RELOJ, config.PIN_MATRIZ_DATOS)
+
+# Pata física del 74HC138 de cada salida Y0..Y7, para saber dónde medir en `probar_selector()`.
+_PATA_DE_SALIDA_138 = (15, 14, 13, 12, 11, 10, 9, 7)
 
 # Tiempo para que la fila recién elegida en el 74HC138 se estabilice antes de
 # cargar las columnas en el 74HC165. Sobra por mucho (el chip tarda nanosegundos),
@@ -120,6 +125,12 @@ def liberar_matriz() -> None:
     GPIO.cleanup(list(_PINES_MATRIZ))
 
 
+def _elegir_fila(salida: int) -> None:
+    """Escribe `salida` en A/B/C: el 74HC138 pone en LOW esa salida Y y deja las demás en HIGH."""
+    for bit, pin in enumerate(_PINES_SELECTOR):
+        GPIO.output(pin, GPIO.HIGH if salida >> bit & 1 else GPIO.LOW)
+
+
 def _leer_columnas() -> tuple[bool, ...]:
     """Lee las 8 entradas del 74HC165 de la fila ya seleccionada, indexadas D0..D7.
 
@@ -141,8 +152,7 @@ def leer_matriz() -> MatrizCruda:
     """Barre las 8 filas y devuelve la matriz cruda, sin antirrebote ni mapeo a casillas."""
     filas = []
     for salida in range(8):
-        for bit, pin in enumerate(_PINES_SELECTOR):
-            GPIO.output(pin, GPIO.HIGH if salida >> bit & 1 else GPIO.LOW)
+        _elegir_fila(salida)
         time.sleep(_ESPERA_SELECCION_FILA)
         filas.append(_leer_columnas())
     return tuple(filas)
@@ -207,6 +217,60 @@ def _formatear_tablero(casillas: frozenset[chess.Square]) -> str:
         lineas.append(f"  {fila + 1}   {celdas}")
     lineas.append("      " + "  ".join("abcdefgh"))
     return "\n".join(lineas)
+
+
+def probar_selector() -> None:
+    """Activa Y0..Y7 del 74HC138 de a una, esperando Enter, para medirlas con el multímetro.
+
+    Prueba el 138 solo, sin depender del 74HC165. La salida activa tiene que dar ~0 V y
+    las demás ~3,3 V; diagnóstico en software-docs/sensores.md, "Pruebas por chip".
+    """
+    GPIO.setmode(GPIO.BOARD)
+    for pin in _PINES_SELECTOR:
+        GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
+    try:
+        for salida in range(8):
+            _elegir_fila(salida)
+            input(
+                f"Y{salida} activa: pata {_PATA_DE_SALIDA_138[salida]} del 138 en ~0 V, "
+                "las otras Y en ~3,3 V. Enter para seguir... "
+            )
+        print("Listo, se recorrieron las 8 salidas.")
+    except KeyboardInterrupt:
+        print("\nPrueba cancelada.")
+    finally:
+        GPIO.cleanup(list(_PINES_SELECTOR))
+
+
+def probar_lector() -> None:
+    """Confirma que el 74HC165 maneja el pin de datos, leyéndolo con pull-up y con pull-down.
+
+    Con SH/LD en LOW la salida del 165 copia en vivo la entrada D7, así que no hacen falta
+    el reloj ni el 138. Si la lectura sigue al pull, nadie maneja el pin. Correr con el
+    tablero vacío; diagnóstico en software-docs/sensores.md, "Pruebas por chip".
+    """
+    GPIO.setwarnings(False)  # el pin de datos se configura dos veces, con pulls distintos
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(config.PIN_MATRIZ_CARGA, GPIO.OUT, initial=GPIO.LOW)
+    lecturas = {}
+    try:
+        for pull, nombre in ((GPIO.PUD_UP, "pull-up"), (GPIO.PUD_DOWN, "pull-down")):
+            GPIO.setup(config.PIN_MATRIZ_DATOS, GPIO.IN, pull_up_down=pull)
+            time.sleep(0.05)
+            lecturas[nombre] = [GPIO.input(config.PIN_MATRIZ_DATOS) for _ in range(16)]
+            print(nombre, lecturas[nombre])
+    finally:
+        GPIO.cleanup([config.PIN_MATRIZ_CARGA, config.PIN_MATRIZ_DATOS])
+
+    arriba, abajo = set(lecturas["pull-up"]), set(lecturas["pull-down"])
+    if arriba == abajo == {1}:
+        print("OK: el 165 maneja el pin y D7 está en HIGH.")
+    elif arriba == {1} and abajo == {0}:
+        print("FALLA: nadie maneja el pin (cable de la pata 9, o el 165 sin Vcc/GND, al revés o dañado).")
+    elif arriba == abajo == {0}:
+        print("FALLA: el 165 maneja el pin pero D7 está en LOW (¿tablero vacío? ¿pull-up de esa columna?).")
+    else:
+        print("FALLA: lecturas mezcladas, probable falso contacto.")
 
 
 def probar_matriz() -> None:
@@ -307,8 +371,18 @@ if __name__ == "__main__":
         "prueba",
         nargs="?",
         default="botones",
-        choices=["botones", "matriz", "calibrar"],
-        help="botones: reloj (por defecto); matriz: ver la grilla en vivo; calibrar: generar el mapeo",
+        choices=["botones", "selector", "lector", "matriz", "calibrar"],
+        help=(
+            "botones: reloj (por defecto); selector: medir las salidas del 74HC138; "
+            "lector: ver si el 74HC165 maneja el pin de datos; matriz: ver la grilla en vivo; "
+            "calibrar: generar el mapeo"
+        ),
     )
     prueba = parser.parse_args().prueba
-    {"botones": probar_botones_reloj, "matriz": probar_matriz, "calibrar": calibrar_matriz}[prueba]()
+    {
+        "botones": probar_botones_reloj,
+        "selector": probar_selector,
+        "lector": probar_lector,
+        "matriz": probar_matriz,
+        "calibrar": calibrar_matriz,
+    }[prueba]()

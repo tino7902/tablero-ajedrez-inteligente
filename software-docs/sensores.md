@@ -3,8 +3,8 @@
 Entradas digitales del tablero: los dos botones físicos del reloj de ajedrez (interruptores fin
 de carrera / limit switches, ver `hardware-docs/componentes.md`) y la matriz de ocupación de
 casillas (74HC138 + 74HC165, 64 reed switches). Los botones están verificados en hardware; la
-matriz está implementada pero **todavía no se probó en el prototipo** (ver "Matriz de casillas"
-más abajo).
+matriz está implementada pero **todavía no se calibró ni se verificó en el prototipo** (ver
+"Matriz de casillas" más abajo).
 
 ## Por qué existe este módulo
 
@@ -69,6 +69,7 @@ necesita reaccionar a "se presionó boton_1/boton_2", no a pines ni flancos. Hoy
 | `LectorMatriz(lecturas_estables)` | Antirrebote: `.leer()` devuelve la matriz solo cuando se repitió N veces seguidas **y** cambió respecto de la última estable; si no, `None`. `.reiniciar()` olvida lo leído |
 | `casilla_de(salida, entrada)` | Celda cruda → `chess.Square`, según el mapeo de `config.py` |
 | `ocupacion(matriz)` | Matriz cruda → `frozenset[chess.Square]`, la `Ocupacion` que espera `logica/eventos.py` |
+| `probar_selector()` / `probar_lector()` | Pruebas de cada chip por separado (CLI `selector` / `lector`), ver "Pruebas por chip" más abajo |
 
 ### Pines (BOARD, ver `config.py`)
 
@@ -93,15 +94,28 @@ necesita reaccionar a "se presionó boton_1/boton_2", no a pines ni flancos. Hoy
   `COLUMNA_DE_ENTRADA_165` alcanzan, y la calibración pide 15 casillas en vez de 64. En el
   esquemático las columnas no entran en orden al 165, así que los valores por defecto
   (identidad) son solo un placeholder hasta correr `calibrar`.
-- **Riesgo conocido**: se asume que `GPIO.cleanup(lista)` de `rpi-lgpio` acepta una lista de
-  pines, igual que `RPi.GPIO`. Si falla, es lo primero a revisar.
+- **`GPIO.cleanup(lista)`**: `rpi-lgpio` acepta una lista de pines igual que `RPi.GPIO`; lo
+  confirman en la Pi los botones (`liberar_botones_reloj()`) y la prueba del 165.
 
 ### Chequeos eléctricos antes de energizar
 
-- Pull-ups de columna y Vcc de ambos chips a **3,3 V, nunca 5 V**: los GPIO de la Pi no toleran 5 V.
-- 74HC165: CLK INH (pin 15) y SER (pin 10) a GND. 74HC138: E1/E2 (pines 4/5) a GND, E3 (pin 6) a Vcc.
+- Pull-ups de columna y Vcc (pata 16) de ambos chips a **3,3 V, nunca 5 V**: los GPIO de la Pi no
+  toleran 5 V. La pata 8 de los dos chips, a un GND común con la Pi.
+- Muesca o punto de cada chip del lado de la pata 1.
+- 74HC138: A/B/C (patas 1/2/3) → pines 38/40/37 de la Pi; E1/E2 (patas 4/5) a GND, E3 (pata 6) a
+  Vcc. Cada salida Y a una fila distinta (el orden lo resuelve `calibrar`).
+- 74HC165: SH/LD (pata 1) → pin 29, CLK (pata 2) → pin 31, QH (pata 9, **no** la 7, que es QH̄
+  invertida) → pin 36. CLK INH (pata 15) y SER (pata 10) a GND.
 - Orientación de los 64 diodos (cátodo hacia la línea de fila).
-- Distancia y polaridad a la que el imán cierra el reed a través del espesor real del tablero.
+- Distancia a la que el imán cierra el reed a través del espesor real del tablero.
+
+### Imanes y reeds
+
+- **Punto muerto**: si el eje del imán queda perpendicular al reed y justo sobre su centro, las
+  dos láminas reciben el mismo polo y el reed puede no cerrar. Por eso la guía de prueba pide
+  probar cada casilla con la pieza centrada y corrida hacia los bordes.
+- **Polaridad**: al reed le da igual qué polo tenga cerca. Conviene igual poner todas las piezas
+  con el mismo polo hacia abajo: así dos piezas vecinas se repelen en vez de atraerse.
 
 ## Fuera de alcance (todavía)
 
@@ -112,6 +126,8 @@ necesita reaccionar a "se presionó boton_1/boton_2", no a pines ni flancos. Hoy
   `ocupacion()` ya produce la entrada correcta, pero nadie la consume todavía.
 
 ## Cómo probarlo
+
+### Botones del reloj
 
 **Test de cableado standalone** (ya verificado por Tino: detecta ambos pines correctamente), por
 SSH en la Raspberry, con los dos botones cableados a sus pines y GND dedicados:
@@ -135,9 +151,58 @@ Con `Ctrl+C` debería salir limpio (sin traceback), logueando `GPIO liberado, sa
 (`uv run python -m tablero.io.sensores botones` hace lo mismo; `botones` es la prueba por
 defecto.)
 
-**Test de la matriz en vivo**: limpia la terminal y dibuja la matriz cruda (Y0–Y7 × D0–D7) y el
-tablero ya mapeado cada vez que cambia algo, y loguea `aparece pieza en e4` / `se levanta pieza
-de e2`:
+### Matriz
+
+La guía paso a paso para probar y mapear la matriz completa (chips, imanes, calibración y
+verificación de las 64 casillas) está en `hardware-docs/checklist-prueba-matriz.md`. Acá está
+el detalle de cada prueba y cómo interpretar los resultados.
+
+#### Pruebas por chip
+
+Separan un problema de cableado o de alimentación de un chip de un problema de las columnas,
+antes de mirar la matriz completa. Las dos salieron de diagnosticar el primer armado, donde el
+165 no manejaba su salida (el pin 36 quedaba flotando y `matriz` mostraba todo en `#`) y el 138 se
+alimentaba de rebote por una entrada (sus salidas inactivas daban ~2,8 V).
+
+**`selector` (74HC138)**: activa Y0…Y7 de a una y espera Enter entre cada una, para medir con el
+multímetro. No usa el 165.
+
+```bash
+uv run python -m tablero.io.sensores selector
+```
+
+En cada paso, medir contra GND la pata que indica el mensaje (~0 V) y alguna salida inactiva
+(~3,3 V). Midiendo además en el cátodo de un diodo de la fila, se confirma que esa Y llega a su
+fila. Patas de las salidas: Y0 = 15, Y1 = 14, Y2 = 13, Y3 = 12, Y4 = 11, Y5 = 10, Y6 = 9, Y7 = 7.
+
+| Qué se ve | Causa probable |
+|---|---|
+| La activa en ~0 V y las inactivas en ~3,3 V | ✅ Bien |
+| Las inactivas en **~2,8 V** | La pata 16 no llega a 3,3 V y el chip se alimenta de rebote por una entrada en HIGH (la pata 6), a través de su diodo de protección (3,3 − 0,5 V). Funciona, pero fuera de especificación: llevar la pata 16 al 3,3 V |
+| Todas las Y en ~3,3 V en todos los pasos | El 138 está deshabilitado (patas 4, 5 o 6) |
+| Todo en ~0 V o en valores intermedios | Al 138 le falta Vcc o GND, o está al revés |
+| Dos pasos activan la misma Y | Una de las líneas A, B o C no llega (pines 38, 40, 37) |
+| Cada paso activa una Y distinta, pero no la que dice el mensaje | A, B y C están cruzadas. No hace falta cambiar nada: `calibrar` lo corrige |
+
+**`lector` (74HC165)**: con el tablero vacío, deja SH/LD en LOW (así la salida del 165 copia en
+vivo la entrada D7, sin reloj ni 138) y lee el pin 36 primero con pull-up y después con
+pull-down. Imprime las dos lecturas y un veredicto.
+
+```bash
+uv run python -m tablero.io.sensores lector
+```
+
+| Resultado | Qué significa |
+|---|---|
+| Las dos líneas todo `1` (`OK`) | ✅ El 165 maneja el pin y D7 está en HIGH por su pull-up |
+| pull-up → todo `1`, pull-down → todo `0` | Nadie maneja el pin 36: cable de la pata 9 → pin 36, o el 165 sin Vcc/GND (patas 16/8), al revés o dañado. Las patas 1 y 2 no causan esto: el 165 no tiene "output enable" y, alimentado, siempre maneja la pata 9 |
+| Las dos líneas todo `0` | El 165 funciona pero D7 está en LOW: medir las entradas D0…D7 (patas 11, 12, 13, 14, 3, 4, 5, 6) contra GND, tienen que dar ~3,3 V. ~0 V = algo la lleva a GND; valor intermedio o que salta = pull-up desconectada |
+| Mezcla de 0 y 1 | Falso contacto |
+
+#### Matriz en vivo
+
+`matriz` limpia la terminal y dibuja la matriz cruda (Y0–Y7 × D0–D7) y el tablero ya mapeado cada
+vez que cambia algo, y loguea `aparece pieza en e4` / `se levanta pieza de e2`:
 
 ```bash
 uv run python -m tablero.io.sensores matriz
@@ -145,8 +210,16 @@ uv run python -m tablero.io.sensores matriz
 
 Qué mirar: con el tablero vacío no tiene que haber ninguna celda `#`; al apoyar una pieza tiene
 que encenderse **una sola** celda. Si con una sola pieza se encienden varias, el imán está cerrando
-reeds vecinos o hay un puente de estaño: con una pieza sola los diodos no influyen. Si todas las
-celdas salen `#`, revisar que Q7 llegue al pin 36 y que las columnas tengan pull-up.
+reeds vecinos o hay un puente de estaño: con una pieza sola los diodos no influyen. Hasta correr
+`calibrar`, el tablero mapeado no significa nada.
+
+| Qué se ve | Causa probable |
+|---|---|
+| Todo en `#` | El pin 36 está flotando (`lector`), el 165 sin alimentación, o faltan las pull-ups |
+| Nunca se enciende nada | El 138 está deshabilitado o A/B/C mal conectados (`selector`) |
+| Una pieza enciende toda una fila Y | El CLK no llega (pin 31 de la Pi → pata 2 del 165) |
+| Una columna D entera en `#` | Pull-up suelta en esa columna o columna en corto a GND |
+| Celdas que parpadean sin tocar nada | Soldaduras. Si no es eso, subir `MATRIZ_LECTURAS_ESTABLES` |
 
 Los diodos se notan recién con **varias piezas en la misma columna física**. Como el 74HC138
 mantiene en HIGH (push-pull) las filas no seleccionadas, un diodo faltante, en corto o invertido no
@@ -157,8 +230,10 @@ las casillas de una columna (o las 32 en la posición inicial y después las 32 
 tienen que verse todas, estables. Si falla, no dejarlo corriendo así, porque son dos salidas del
 138 en corto a través del reed.
 
-**Calibración del mapeo**: pide una pieza sola en a1, b1, … h1 y después en a2, … a8, verifica
-que el cableado sea una grilla y al final imprime las dos líneas para pegar en `config.py`:
+#### Calibración
+
+Pide una pieza sola en a1, b1, … h1 y después en a2, … a8, verifica que el cableado sea una
+grilla y al final imprime las dos líneas para pegar en `config.py`:
 
 ```bash
 uv run python -m tablero.io.sensores calibrar
@@ -166,6 +241,8 @@ uv run python -m tablero.io.sensores calibrar
 
 Después de pegarlas, volver a correr `matriz` y confirmar que el tablero mapeado coincide con
 las piezas reales.
+
+### Otros
 
 **Test del reloj PvP completo** (usa `configurar_botones_reloj()` desde `io/menus_gpio.py`, no
 este test standalone): ver "Modo hardware real" en `software-docs/menus.md`.

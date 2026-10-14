@@ -1,91 +1,263 @@
-# Checklist: prueba de imanes y matriz de casillas
+# Guía: prueba y mapeo de la matriz de casillas
 
-Pasos para probar los reed switches con los imanes de las piezas, calibrar el mapeo matriz →
-casilla y verificar las 64 casillas. Detalle del código y de los comandos en
-`software-docs/sensores.md`.
+Vas a verificar los dos chips que leen el tablero, probar que los imanes de las piezas activan
+los sensores, calibrar qué sensor corresponde a cada casilla y verificar las 64 casillas.
 
-## 0. Antes de energizar (multímetro, con la Pi apagada)
+## Cómo usar esta guía
 
-- [ ] El pin 16 (Vcc) del 74HC138 y del 74HC165 va a **3,3 V, nunca a 5 V**. El pin 8 (GND) de
-      los dos chips tiene que compartir tierra con la Pi.
-- [ ] Las 8 resistencias pull-up de columna van a 3,3 V.
-- [ ] En el 138: pin 6 a 3,3 V y pines 4 y 5 a GND. En el esquemático el pin 6 termina en un
-      terminal sin nombre, así que confirmar que en el armado real llega a 3,3 V.
-- [ ] En el 165: pin 15 (INH) y pin 10 (SER) a GND.
-- [ ] La Pi lee desde el **pin 9 del 165 (QH)**, no desde el pin 7 (QH̄, que sale invertido). Va
-      al pin 36 de la Pi.
-- [ ] La banda de cada diodo (cátodo) mira hacia la línea de fila, la que va al 138.
-- [ ] Ninguna columna está en corto con GND ni con otra columna.
+Para cada ítem:
 
-## 1. Imanes contra reeds (un reed suelto, multímetro en continuidad y un pedazo del material del tablero)
+1. Copiá el comando y ejecutalo en la sesión SSH de la Raspberry.
+2. Hacé la prueba que dice el ítem.
+3. Anotá el resultado en la línea 📝.
+4. Pasá al siguiente ítem.
 
-- [ ] El imán cierra el reed a través del espesor real del tablero.
-- [ ] **Punto muerto:** si el eje del imán queda perpendicular al reed y justo en el centro, a
-      veces no cierra. Probar con la pieza centrada y corrida hacia cada borde de la casilla.
-- [ ] El reed se abre al levantar la pieza, no queda pegado.
-- [ ] Una pieza apoyada contra el borde de su casilla no cierra el reed de la casilla vecina.
-- [ ] Probar todas las piezas, porque cada imán puede ser distinto.
-- [ ] Opcional: todas las piezas con el mismo polo hacia abajo. Al reed le da igual, pero así las
-      piezas vecinas se repelen en vez de atraerse.
+Antes de empezar, hacé una copia de este archivo (por ejemplo `resultados-matriz.md`) y anotá
+ahí; no edites este.
 
-## 2. Preparación en la Pi
+Si algo no da lo esperado (✅), anotá exactamente lo que viste. Si el ítem tiene ⛔, pará ahí y
+avisale a Tino; si no, seguí con el siguiente. Si un comando muestra un error largo
+(`Traceback ...`), copialo entero en el 📝 y pará.
 
-- [ ] `git pull` y `uv sync` en `tablero/`.
-- [ ] Decidir la orientación física: a1 es la casilla oscura a la izquierda de las blancas.
-      Marcarla con cinta y usar **la misma** orientación al calibrar los LEDs
-      (`software-docs/leds.md`).
-- [ ] Alejar del tablero las piezas que no se estén usando. Una caja con 31 imanes al lado puede
-      cerrar los reeds del borde.
+**Qué necesitás:** la sesión SSH a la Pi, un multímetro, todas las piezas y cinta de papel.
 
-## 3. Primera lectura
+---
+
+## Parte 1 · Preparación
+
+### 1. Conectarte y actualizar
+
+```bash
+cd ~/tablero-ajedrez-inteligente/tablero && git pull && uv sync
+```
+
+✅ Termina sin errores.
+⛔ Si da error, pará.
+
+📝 **Resultado:**
+
+### 2. Preparar el tablero
+
+- Elegí la orientación: **a1 es la casilla oscura en la esquina izquierda del lado de las
+  blancas**. Marcala con cinta.
+- Sacá todas las piezas del tablero y dejalas lejos (una caja con imanes al lado puede activar
+  los sensores del borde). Quedate con una sola pieza a mano.
+
+📝 **De qué lado del tablero quedaron las blancas** (por ejemplo "del lado de los cables"):
+
+---
+
+## Parte 2 · Los chips
+
+### 3. Chip de las filas (74HC138)
+
+```bash
+uv run python -m tablero.io.sensores selector
+```
+
+El programa activa las salidas Y0 a Y7 de a una y espera Enter entre cada una. En cada paso:
+
+1. Con el multímetro en voltaje continuo, punta negra en la pata 8 del 138 (GND).
+2. Punta roja en la pata que indica el mensaje: tiene que dar **~0 V**.
+3. Punta roja en cualquier otra salida Y (por ejemplo la del paso anterior): tiene que dar
+   **~3,3 V**.
+4. Apretá Enter.
+
+Las patas del chip, mirándolo desde arriba con la muesca hacia arriba:
+
+```
+          ┌────╮╭────┐
+   A    1 │    ╰╯    │ 16  Vcc
+   B    2 │          │ 15  Y0
+   C    3 │          │ 14  Y1
+        4 │ 74HC138  │ 13  Y2
+        5 │          │ 12  Y3
+        6 │          │ 11  Y4
+   Y7   7 │          │ 10  Y5
+   GND  8 │          │  9  Y6
+          └──────────┘
+```
+
+✅ En los 8 pasos, la pata indicada da ~0 V y las otras salidas ~3,3 V.
+⛔ Si no, pará.
+
+📝 **Resultado** (si algo no dio, en qué paso, qué pata y cuánto midió):
+
+### 4. Chip de las columnas (74HC165)
+
+Con el tablero vacío:
+
+```bash
+uv run python -m tablero.io.sensores lector
+```
+
+✅ Imprime dos líneas con todos `1` y al final una línea que empieza con `OK`.
+⛔ Si la última línea empieza con `FALLA`, pará.
+
+📝 **Resultado** (copiá las tres líneas que imprime):
+
+---
+
+## Parte 3 · Sensores e imanes
+
+### 5. Tablero vacío
 
 ```bash
 uv run python -m tablero.io.sensores matriz
 ```
 
-Hasta calibrar, ignorar la parte de "Tablero mapeado" y mirar solo la matriz cruda.
+El programa queda corriendo y redibuja la pantalla cada vez que cambia algo. Muestra dos
+dibujos; **por ahora mirá solo el de arriba**, "Matriz cruda". El de abajo, "Tablero mapeado",
+recién tiene sentido después de calibrar (Parte 4).
 
-| Qué se ve | Causa probable |
-|---|---|
-| Tablero vacío y todo en `.` | ✅ Bien |
-| Todo en `#` | Q7 desconectado o tomado del pin 7, el 165 sin alimentación, o faltan las pull-ups |
-| Nunca se enciende nada | El 138 está deshabilitado (pines 4, 5 o 6) o A/B/C están mal conectados |
-| Una pieza enciende toda una fila Y | El CLK no llega (pin 31 de la Pi → pin 2 del 165) |
-| Una columna D entera en `#` | Pull-up suelta en esa columna o columna en corto a GND |
-| Celdas que parpadean sin tocar nada | Soldaduras. Si no es eso, subir `MATRIZ_LECTURAS_ESTABLES` en `config.py` |
+```
+Matriz cruda (# = reed cerrado):
+      D0 D1 D2 D3 D4 D5 D6 D7
+  Y0   .  .  .  .  .  .  .  .
+  Y1   .  .  .  .  .  .  .  .
+  ...
+```
 
-## 4. Calibración (15 apoyadas: a1…h1, después a2…a8)
+✅ Con el tablero vacío, todo en `.`.
+⛔ Si hay algún `#`, pará.
+
+📝 **Resultado:**
+
+Dejá el programa corriendo para los ítems 6 a 8.
+
+### 6. Una pieza
+
+Apoyá la pieza en cualquier casilla y después levantala.
+
+✅ Al apoyarla aparece **un solo** `#`; al levantarla, desaparece.
+
+📝 **Resultado:**
+
+### 7. Centro y bordes de la casilla
+
+En las casillas **a1, d4 y h8**, apoyá la pieza:
+
+- centrada en la casilla;
+- corrida hacia cada uno de los 4 bordes de la casilla.
+
+✅ En todas las posiciones hay **exactamente un** `#`. Si no aparece ninguno, el sensor no la
+detecta en esa posición. Si aparecen dos, el imán está activando también la casilla vecina.
+
+📝 **Resultado** (casilla, posición y cuántos `#` aparecieron):
+
+### 8. Todas las piezas
+
+Apoyá cada una de las 32 piezas, de a una, en la misma casilla (por ejemplo d4).
+
+✅ Todas encienden el `#`.
+
+📝 **Piezas que no se detectan:**
+
+Cuando termines, cortá el programa con `Ctrl+C`.
+
+---
+
+## Parte 4 · Calibración
+
+### 9. Calibrar
+
+Con el tablero vacío y una pieza a mano:
 
 ```bash
 uv run python -m tablero.io.sensores calibrar
 ```
 
-- [ ] Apoyar la pieza **y después** apretar Enter.
-- [ ] Si sale algún `AVISO`, frenar: significa que el cableado no forma una grilla y el mapeo con
-      dos permutaciones no alcanza.
-- [ ] Copiar las dos líneas que imprime al final (`FILA_DE_SALIDA_138` y
-      `COLUMNA_DE_ENTRADA_165`) en `tablero/src/tablero/config.py`.
+Te va a pedir 15 casillas de a una: a1, b1, … h1 y después a2, a3, … a8. Para cada una:
 
-## 5. Verificación casilla por casilla
+1. Poné la pieza en la casilla que pide (sacándola de la anterior).
+2. **Después** apretá Enter.
 
-Con el mapeo ya pegado, de nuevo `matriz`. La calibración mide 15 casillas y deduce las demás,
-así que este paso es el que confirma las 64.
+Si dice `Se detectaron N celdas activas`, repetí la misma casilla: revisá que no haya otra pieza
+en el tablero.
 
-- [ ] Recorrer las 64 casillas con una sola pieza. El log `aparece pieza en X` tiene que coincidir
-      con la casilla real.
-- [ ] Armar la posición inicial: tienen que verse 32 `#` estables, con las filas 1, 2, 7 y 8
-      llenas.
-- [ ] Poner las 32 piezas en las filas 3 a 6: de nuevo 32 `#` estables.
-- [ ] Pasar la mano por encima y arrastrar una pieza: no tienen que aparecer cambios fantasma.
+✅ Termina imprimiendo dos líneas que empiezan con `FILA_DE_SALIDA_138` y
+`COLUMNA_DE_ENTRADA_165`, sin ningún `AVISO` en el medio.
+⛔ Si aparece un `AVISO`, pará.
 
-Los dos pasos de 32 piezas prueban los diodos. Si una pieza parpadea o desaparece cuando hay otra
-en su misma columna, hay un diodo faltante, en corto o invertido en esa columna. No dejarlo
-corriendo así, porque deja dos salidas del 138 en corto (ver "Cómo probarlo" en
-`software-docs/sensores.md`).
+📝 **Resultado** (copiá las dos líneas finales y cualquier `AVISO`):
 
-## Qué anotar
+### 10. Guardar la calibración
 
-- La salida de `calibrar`, incluido cualquier `AVISO`.
-- Las casillas que fallen en el paso 5 y cómo fallan (no se encienden, encienden otra casilla,
-  parpadean).
-- Si aparecieron cambios fantasma.
+```bash
+nano src/tablero/config.py
+```
+
+1. Apretá `Ctrl+W`, escribí `FILA_DE_SALIDA_138` y Enter.
+2. Borrá esa línea con `Ctrl+K` y pegá en su lugar la línea `FILA_DE_SALIDA_138: ...` que
+   imprimió la calibración.
+3. Lo mismo con `COLUMNA_DE_ENTRADA_165`.
+4. Guardá con `Ctrl+O` y Enter; salí con `Ctrl+X`.
+
+Para confirmar que quedó bien:
+
+```bash
+grep -nE "^(FILA_DE_SALIDA_138|COLUMNA_DE_ENTRADA_165)" src/tablero/config.py
+```
+
+✅ Muestra las dos líneas, iguales a las del ítem 9.
+⛔ Si no, pará.
+
+No hace falta commitear: Tino se encarga.
+
+📝 **Resultado:**
+
+---
+
+## Parte 5 · Verificación de las 64 casillas
+
+### 11. Recorrer las 64 casillas
+
+```bash
+uv run python -m tablero.io.sensores matriz
+```
+
+Ahora mirá el dibujo de abajo, "Tablero mapeado", y los mensajes `aparece pieza en ...`. Llevá una
+pieza por las 64 casillas en orden: a1, b1, … h1, a2, … h8.
+
+✅ En cada casilla, el mensaje dice exactamente la casilla donde está la pieza.
+
+📝 **Casillas que fallaron** (dónde estaba la pieza y qué dijo el mensaje):
+
+### 12. Posición inicial
+
+Armá la posición inicial completa (32 piezas) y esperá unos segundos sin tocar nada.
+
+✅ Dice `Tablero mapeado (32 piezas)`, el dibujo muestra llenas las filas 1, 2, 7 y 8, y no
+cambia mientras no toques nada.
+
+📝 **Resultado** (si no dio 32, cuántas y cuáles faltan o sobran):
+
+### 13. Filas del medio
+
+Mové las 32 piezas a las filas 3, 4, 5 y 6 y esperá unos segundos.
+
+✅ Dice `(32 piezas)`, las filas 3 a 6 aparecen llenas y no cambia.
+Si alguna pieza parpadea o desaparece, **no lo dejes corriendo así**: anotá cuál y cortá con
+`Ctrl+C`.
+
+📝 **Resultado:**
+
+### 14. Mano y arrastre
+
+Volvé a correr `matriz` si lo cortaste. Pasá la mano por encima del tablero y arrastrá algunas
+piezas de una casilla a otra.
+
+✅ No aparecen ni desaparecen piezas que no tocaste.
+
+📝 **Resultado:**
+
+Cortá el programa con `Ctrl+C`.
+
+---
+
+## Al terminar
+
+Pasale a Tino tu copia con todas las líneas 📝 completas.
+
+El detalle técnico de cada prueba y cómo interpretar las fallas está en
+`software-docs/sensores.md` ("Cómo probarlo" → "Matriz").
