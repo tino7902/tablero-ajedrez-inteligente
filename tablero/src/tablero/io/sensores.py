@@ -243,15 +243,20 @@ def probar_selector() -> None:
 
 
 def probar_lector() -> None:
-    """Confirma que el 74HC165 maneja el pin de datos, leyéndolo con pull-up y con pull-down.
+    """Prueba el 74HC165 sin el 138: que maneje el pin de datos y que desplace los bits.
 
-    Con SH/LD en LOW la salida del 165 copia en vivo la entrada D7, así que no hacen falta
-    el reloj ni el 138. Si la lectura sigue al pull, nadie maneja el pin. Correr con el
-    tablero vacío; diagnóstico en software-docs/sensores.md, "Pruebas por chip".
+    1. Con SH/LD en LOW la salida del 165 copia en vivo la entrada D7: se lee el pin con
+       pull-up y con pull-down. Si la lectura sigue al pull, nadie maneja el pin.
+    2. Se cargan las columnas y se dan 8 pulsos de reloj: la salida tiene que pasar de D7
+       (1 con el tablero vacío) a lo que entra por SER, que está a GND (0). Si sigue en 1,
+       el chip carga pero no desplaza, y `matriz` solo ve la columna de D7.
+
+    Correr con el tablero vacío; diagnóstico en software-docs/sensores.md, "Pruebas por chip".
     """
     GPIO.setwarnings(False)  # el pin de datos se configura dos veces, con pulls distintos
     GPIO.setmode(GPIO.BOARD)
     GPIO.setup(config.PIN_MATRIZ_CARGA, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(config.PIN_MATRIZ_RELOJ, GPIO.OUT, initial=GPIO.LOW)
     lecturas = {}
     try:
         for pull, nombre in ((GPIO.PUD_UP, "pull-up"), (GPIO.PUD_DOWN, "pull-down")):
@@ -259,18 +264,34 @@ def probar_lector() -> None:
             time.sleep(0.05)
             lecturas[nombre] = [GPIO.input(config.PIN_MATRIZ_DATOS) for _ in range(16)]
             print(nombre, lecturas[nombre])
+
+        GPIO.output(config.PIN_MATRIZ_CARGA, GPIO.LOW)
+        GPIO.output(config.PIN_MATRIZ_CARGA, GPIO.HIGH)
+        recien_cargado = GPIO.input(config.PIN_MATRIZ_DATOS)
+        for _ in range(8):
+            GPIO.output(config.PIN_MATRIZ_RELOJ, GPIO.HIGH)
+            GPIO.output(config.PIN_MATRIZ_RELOJ, GPIO.LOW)
+        tras_reloj = GPIO.input(config.PIN_MATRIZ_DATOS)
+        print(f"desplazamiento: recién cargado {recien_cargado}, después de 8 pulsos de reloj {tras_reloj}")
     finally:
-        GPIO.cleanup([config.PIN_MATRIZ_CARGA, config.PIN_MATRIZ_DATOS])
+        GPIO.cleanup([config.PIN_MATRIZ_CARGA, config.PIN_MATRIZ_RELOJ, config.PIN_MATRIZ_DATOS])
 
     arriba, abajo = set(lecturas["pull-up"]), set(lecturas["pull-down"])
-    if arriba == abajo == {1}:
-        print("OK: el 165 maneja el pin y D7 está en HIGH.")
-    elif arriba == {1} and abajo == {0}:
+    if arriba == {1} and abajo == {0}:
         print("FALLA: nadie maneja el pin (cable de la pata 9, o el 165 sin Vcc/GND, al revés o dañado).")
     elif arriba == abajo == {0}:
         print("FALLA: el 165 maneja el pin pero D7 está en LOW (¿tablero vacío? ¿pull-up de esa columna?).")
-    else:
+    elif arriba != {1} or abajo != {1}:
         print("FALLA: lecturas mezcladas, probable falso contacto.")
+    elif (recien_cargado, tras_reloj) == (1, 1):
+        print(
+            "FALLA: el 165 carga pero no desplaza (CLK pata 2 → pin 31, INH pata 15 a GND, "
+            "SH/LD y CLK cruzados) o SER (pata 10) no está a GND."
+        )
+    elif (recien_cargado, tras_reloj) != (1, 0):
+        print("FALLA: el desplazamiento dio un resultado inesperado, probable falso contacto.")
+    else:
+        print("OK: el 165 maneja el pin, D7 está en HIGH y desplaza los bits.")
 
 
 def probar_matriz() -> None:
@@ -374,7 +395,7 @@ if __name__ == "__main__":
         choices=["botones", "selector", "lector", "matriz", "calibrar"],
         help=(
             "botones: reloj (por defecto); selector: medir las salidas del 74HC138; "
-            "lector: ver si el 74HC165 maneja el pin de datos; matriz: ver la grilla en vivo; "
+            "lector: ver si el 74HC165 maneja el pin de datos y desplaza; matriz: ver la grilla en vivo; "
             "calibrar: generar el mapeo"
         ),
     )

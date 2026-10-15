@@ -99,14 +99,14 @@ necesita reaccionar a "se presionó boton_1/boton_2", no a pines ni flancos. Hoy
 
 ### Chequeos eléctricos antes de energizar
 
-- Pull-ups de columna y Vcc (pata 16) de ambos chips a **3,3 V, nunca 5 V**: los GPIO de la Pi no
-  toleran 5 V. La pata 8 de los dos chips, a un GND común con la Pi.
-- Muesca o punto de cada chip del lado de la pata 1.
-- 74HC138: A/B/C (patas 1/2/3) → pines 38/40/37 de la Pi; E1/E2 (patas 4/5) a GND, E3 (pata 6) a
-  Vcc. Cada salida Y a una fila distinta (el orden lo resuelve `calibrar`).
-- 74HC165: SH/LD (pata 1) → pin 29, CLK (pata 2) → pin 31, QH (pata 9, **no** la 7, que es QH̄
-  invertida) → pin 36. CLK INH (pata 15) y SER (pata 10) a GND.
-- Orientación de los 64 diodos (cátodo hacia la línea de fila).
+La lista pata por pata de los dos chips (con qué tiene que tener continuidad cada una, qué no, y
+cómo verificar pull-ups y celdas) está en `hardware-docs/conexiones-matriz.md`. Lo crítico:
+
+- Vcc (pata 16) de los dos chips y pull-ups a **3,3 V, nunca 5 V**: los GPIO de la Pi no toleran
+  5 V.
+- **Medir continuidad de todas las patas que van a un nivel fijo**, no solo las de señal. Una
+  entrada suelta puede flotar hacia el nivel correcto y hacer pasar una prueba de casualidad:
+  pasó con las patas 10 y 15 del 165.
 - Distancia a la que el imán cierra el reed a través del espesor real del tablero.
 
 ### Imanes y reeds
@@ -160,9 +160,12 @@ el detalle de cada prueba y cómo interpretar los resultados.
 #### Pruebas por chip
 
 Separan un problema de cableado o de alimentación de un chip de un problema de las columnas,
-antes de mirar la matriz completa. Las dos salieron de diagnosticar el primer armado, donde el
-165 no manejaba su salida (el pin 36 quedaba flotando y `matriz` mostraba todo en `#`) y el 138 se
-alimentaba de rebote por una entrada (sus salidas inactivas daban ~2,8 V).
+antes de mirar la matriz completa. Salieron de diagnosticar el armado del prototipo, que tuvo
+tres fallas:
+- El 165 no manejaba su salida: el pin 36 quedaba flotando y `matriz` mostraba todo en `#`.
+- El 138 se alimentaba de rebote por una entrada: sus salidas inactivas daban ~2,8 V.
+- Las patas 10 y 15 del 165 estaban sueltas: el 165 cargaba pero no desplazaba, así que `matriz`
+  solo veía la columna de D7 y marcaba la fila entera.
 
 **`selector` (74HC138)**: activa Y0…Y7 de a una y espera Enter entre cada una, para medir con el
 multímetro. No usa el 165.
@@ -184,19 +187,24 @@ fila. Patas de las salidas: Y0 = 15, Y1 = 14, Y2 = 13, Y3 = 12, Y4 = 11, Y5 = 10
 | Dos pasos activan la misma Y | Una de las líneas A, B o C no llega (pines 38, 40, 37) |
 | Cada paso activa una Y distinta, pero no la que dice el mensaje | A, B y C están cruzadas. No hace falta cambiar nada: `calibrar` lo corrige |
 
-**`lector` (74HC165)**: con el tablero vacío, deja SH/LD en LOW (así la salida del 165 copia en
-vivo la entrada D7, sin reloj ni 138) y lee el pin 36 primero con pull-up y después con
-pull-down. Imprime las dos lecturas y un veredicto.
+**`lector` (74HC165)**: con el tablero vacío, prueba el 165 sin el 138, en dos partes. Imprime las
+lecturas de cada parte y un veredicto (`OK` o `FALLA: ...`).
 
 ```bash
 uv run python -m tablero.io.sensores lector
 ```
 
+1. **Que maneje el pin 36**: deja SH/LD en LOW (así la salida copia en vivo la entrada D7, sin
+   reloj) y lee el pin primero con pull-up y después con pull-down.
+2. **Que desplace**: carga las columnas y da 8 pulsos de reloj. La salida tiene que pasar de D7
+   (`1` con el tablero vacío) a lo que entra por SER, que está a GND (`0`).
+
 | Resultado | Qué significa |
 |---|---|
-| Las dos líneas todo `1` (`OK`) | ✅ El 165 maneja el pin y D7 está en HIGH por su pull-up |
+| pull-up y pull-down todo `1`; desplazamiento `1` → `0` (`OK`) | ✅ El 165 maneja el pin, D7 está en HIGH por su pull-up y los bits se desplazan |
 | pull-up → todo `1`, pull-down → todo `0` | Nadie maneja el pin 36: cable de la pata 9 → pin 36, o el 165 sin Vcc/GND (patas 16/8), al revés o dañado. Las patas 1 y 2 no causan esto: el 165 no tiene "output enable" y, alimentado, siempre maneja la pata 9 |
-| Las dos líneas todo `0` | El 165 funciona pero D7 está en LOW: medir las entradas D0…D7 (patas 11, 12, 13, 14, 3, 4, 5, 6) contra GND, tienen que dar ~3,3 V. ~0 V = algo la lleva a GND; valor intermedio o que salta = pull-up desconectada |
+| pull-up y pull-down todo `0` | El 165 funciona pero D7 está en LOW: medir las entradas D0…D7 (patas 11, 12, 13, 14, 3, 4, 5, 6) contra GND, tienen que dar ~3,3 V. ~0 V = algo la lleva a GND; valor intermedio o que salta = pull-up desconectada |
+| Desplazamiento `1` → `1` | El 165 carga pero no desplaza: CLK (pata 2 → pin 31) no llega, INH (pata 15) no está a GND, o SH/LD y CLK están cruzados (pines 29/31). También da esto si SER (pata 10) no está a GND. En `matriz` se ve como "solo reacciona la columna de D7 y marca la fila entera" |
 | Mezcla de 0 y 1 | Falso contacto |
 
 #### Matriz en vivo
@@ -217,7 +225,7 @@ reeds vecinos o hay un puente de estaño: con una pieza sola los diodos no influ
 |---|---|
 | Todo en `#` | El pin 36 está flotando (`lector`), el 165 sin alimentación, o faltan las pull-ups |
 | Nunca se enciende nada | El 138 está deshabilitado o A/B/C mal conectados (`selector`) |
-| Una pieza enciende toda una fila Y | El CLK no llega (pin 31 de la Pi → pata 2 del 165) |
+| Solo reacciona la columna de D7 y marca la fila Y entera | El 165 no desplaza: CLK (pin 31 → pata 2) o INH (pata 15) sin GND (`lector`) |
 | Una columna D entera en `#` | Pull-up suelta en esa columna o columna en corto a GND |
 | Celdas que parpadean sin tocar nada | Soldaduras. Si no es eso, subir `MATRIZ_LECTURAS_ESTABLES` |
 

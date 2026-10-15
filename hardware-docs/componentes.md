@@ -38,3 +38,6 @@ _Detección de Tablero - Selector 74HC138:_
 - _GPIO 20_ (Pin 38) → Selección Bit A
 - _GPIO 21_ (Pin 40) → Selección Bit B
 - _GPIO 26_ (Pin 37) → Selección Bit C
+
+Conexiones de los dos chips pata por pata (y cómo verificarlas con el multímetro) en
+`conexiones-matriz.md`.

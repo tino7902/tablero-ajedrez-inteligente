@@ -72,7 +72,8 @@ tablero-ajedrez-inteligente/
 │       ├── motor/             # stockfish.py (implementado)
 │       └── web/                # Dashboard/API de estado (a futuro, vacío)
 ├── hardware/scematichs/       # Directorio vacío (.gitkeep); esquemáticos aún no subidos acá
-├── hardware-docs/             # Componentes, pines GPIO, esquema de detección de casillas (docs + fotos)
+├── hardware-docs/             # Componentes, pines GPIO, esquema de detección de casillas (docs + fotos),
+│                              #   conexiones pata por pata de los chips, guía de prueba de la matriz
 ├── software-docs/             # Notas de diseño por módulo (config, logica, eventos, partida, registro,
 │                              #   simulacion, motor, pantalla, menus, comandos, pyproject, testing)
 └── README.md

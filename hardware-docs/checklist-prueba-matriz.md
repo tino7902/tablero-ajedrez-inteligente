@@ -91,10 +91,10 @@ Con el tablero vacío:
 uv run python -m tablero.io.sensores lector
 ```
 
-✅ Imprime dos líneas con todos `1` y al final una línea que empieza con `OK`.
+✅ La última línea empieza con `OK`.
 ⛔ Si la última línea empieza con `FALLA`, pará.
 
-📝 **Resultado** (copiá las tres líneas que imprime):
+📝 **Resultado** (copiá las cuatro líneas que imprime):
 
 ---
 
@@ -260,4 +260,5 @@ Cortá el programa con `Ctrl+C`.
 Pasale a Tino tu copia con todas las líneas 📝 completas.
 
 El detalle técnico de cada prueba y cómo interpretar las fallas está en
-`software-docs/sensores.md` ("Cómo probarlo" → "Matriz").
+`software-docs/sensores.md` ("Cómo probarlo" → "Matriz"). Las conexiones de los chips pata por
+pata, para revisar el cableado con el multímetro, están en `hardware-docs/conexiones-matriz.md`.
