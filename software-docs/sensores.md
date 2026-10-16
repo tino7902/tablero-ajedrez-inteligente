@@ -227,6 +227,7 @@ reeds vecinos o hay un puente de estaño: con una pieza sola los diodos no influ
 | Nunca se enciende nada | El 138 está deshabilitado o A/B/C mal conectados (`selector`) |
 | Solo reacciona la columna de D7 y marca la fila Y entera | El 165 no desplaza: CLK (pin 31 → pata 2) o INH (pata 15) sin GND (`lector`) |
 | Una columna D entera en `#` | Pull-up suelta en esa columna o columna en corto a GND |
+| Celdas sueltas fijas en `#` con el tablero vacío | El reed de esa celda está cerrado: pegado, con el vidrio rajado o con un imán cerca (uno suelto debajo del tablero). También puede ser un puente de estaño sobre el reed. Si son dos celdas de la misma fila en columnas vecinas, puede ser una sola celda cerrada más esas dos entradas D en corto entre sí. Hay que arreglarlo antes de `calibrar`, que pide una sola celda activa |
 | Celdas que parpadean sin tocar nada | Soldaduras. Si no es eso, subir `MATRIZ_LECTURAS_ESTABLES` |
 
 Los diodos se notan recién con **varias piezas en la misma columna física**. Como el 74HC138

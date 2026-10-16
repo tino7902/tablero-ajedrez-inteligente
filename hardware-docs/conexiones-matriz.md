@@ -127,9 +127,13 @@ y punta negra en la fila (pata Y del 138):
 
 | Medición | Tiene que dar | Si no |
 |---|---|---|
-| Sin imán | `OL` | El reed queda cerrado (pegado), o hay un puente de estaño |
-| Con el imán sobre el reed | ~0,5–0,7 V | `OL`: el reed no cierra o el diodo está al revés. ~0 V: el diodo está en corto o falta |
-| Con el imán y las puntas invertidas | `OL` | ~0,5–0,7 V: el diodo está al revés. ~0 V: el diodo está en corto o falta |
+| Sin imán | `OL` | Lo mismo que con imán: el reed quedó cerrado (pegado) o hay un puente de estaño. Un poco más que con imán y variando (por ejemplo 0,9–1 V): el reed cierra a medias o hay una fuga sobre él, y en `matriz` esa celda parpadea |
+| Con el imán sobre el reed | ~0,6–0,8 V (en el prototipo, 0,775 V) | `OL`: el reed no cierra o el diodo está al revés. ~0 V: el diodo está en corto o falta |
+| Con el imán y las puntas invertidas | `OL` | ~0,6–0,8 V: el diodo está al revés. ~0 V: el diodo está en corto o falta |
+
+Si una celda da mal, medir el reed solo: en resistencia, directo entre sus dos patas. Sin imán
+tiene que dar `OL` y con imán ~0 Ω. Una de sus patas solo va a su diodo, así que los chips no
+influyen en esta medición.
 
 ## Lo que **no** tiene que tener continuidad
 
