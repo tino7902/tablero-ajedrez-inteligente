@@ -15,7 +15,10 @@ being moved off the Pi's GPIO. The v2 design (Pi → 74HC138 + 74HC165 at 3.3 V,
 on a 138 output) was tested and failed — the active 138 output read 1.6 V because it can't sink
 ~35 mA per row. The chosen replacement is an Arduino Nano driving one NPN per row (D2–D9) and
 reading columns (D10–D12, A0–A4), reporting to the Pi over USB serial. Rows/columns keep their
-old Yk/Dk numbering so `CASILLA_DE_CELDA_HALL` stays valid. **Neither the Nano firmware nor a
+old Yk/Dk numbering so `CASILLA_DE_CELDA_HALL` stays valid. The 64 cells are already soldered
+with the diode in each Hall's GND and OUT straight to the column (not the diode-on-OUT layout
+first planned), which is why the drivers use BC337/2N2222/S8050 with 470 Ω bases (up to ~200 mA
+per full row) and why there's an analog-read "plan B" for the columns. **Neither the Nano firmware nor a
 serial-reading `io/matriz.py` exists yet** — everything below about `io/matriz.py`/`io/sensores.py`
 describes the v2 GPIO code still in the repo. Build guide: `hardware-docs/matriz-hall-nano.md`;
 iterations (v1 reed, v2 Hall+138/165, v3 Nano) and every rejected alternative with its reason:

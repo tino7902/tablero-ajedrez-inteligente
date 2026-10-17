@@ -1,82 +1,95 @@
 # Matriz Hall con Arduino Nano (versión actual)
 
-Cómo se arma la detección de casillas: 64 sensores Hall en una matriz de 8 × 8, leídos por un
-Arduino Nano que le pasa el estado del tablero a la Raspberry Pi por USB. Un NPN por fila maneja
-la corriente. Reemplaza al 74HC138 y al 74HC165 de las versiones anteriores; por qué se cambió y
-qué se descartó, en `historial-deteccion.md`.
+Cómo se arma la detección de casillas: 64 sensores Hall A3144 en una matriz de 8 × 8, leídos por
+un Arduino Nano que le pasa el estado del tablero a la Raspberry Pi por USB. Un NPN por fila
+maneja la corriente. Reemplaza al 74HC138 y al 74HC165 de las versiones anteriores; por qué se
+cambió y qué se descartó, en `historial-deteccion.md`.
 
-**Estado:** decidida el 2026-10-17. **No está armada ni probada todavía**, y el firmware del Nano
-y el lector del lado Pi tampoco están escritos (ver "Software" al final).
+**Estado:** decidida el 2026-10-17. Las 64 celdas ya están soldadas (con el diodo en el GND, ver
+"Una celda"); los drivers NPN y el Nano **no están armados ni probados todavía**, y el firmware
+del Nano y el lector del lado Pi tampoco están escritos (ver "Software" al final).
 
 Versión web de esta guía, con esquemas dibujados y checklist para tildar, para el equipo de
-hardware: https://claude.ai/artifact/Y4zNzHhxoWoaWzvcRwRLkU
+hardware: https://claude.ai/artifact/Y4zNzHhxoWoaWzvcRwRLkU (su fuente es `matriz-hall-nano.html`,
+en esta misma carpeta; si se cambia uno, cambiar el otro).
 
 ## Cómo funciona
 
 ```
- Raspberry Pi ── USB ── Arduino Nano ── D2…D9 ──► 8 × NPN ──► GND de cada fila ─┐
-                          │   ▲                                                 │
-                          │   └── D10 D11 D12 A0…A4 ◄── 8 columnas (diodos) ◄── Matriz Hall 8 × 8
-                          └── 5V ──────────────────────────────────────────────► Vcc de los 64 Hall
+ Raspberry Pi ── USB ── Arduino Nano ── D2…D9 ──► 8 × NPN ──► bus de cada fila ──┐
+                          │   ▲                                                  │
+                          │   └── D10 D11 D12 A0…A4 ◄── 8 columnas (salidas directas) ◄── Matriz Hall 8 × 8
+                          └── 5V ───────────────────────────────────────────────► Vcc de los 64 Hall
 ```
 
-El Nano enciende una fila por vez (pone su pin en HIGH, el NPN conecta a GND el bus de GND de esa
-fila), espera ~1 ms a que los Hall arranquen, lee las 8 columnas y pasa a la siguiente. Una
-columna en LOW es un imán sobre esa casilla. Le manda la matriz a la Pi por el puerto serie.
+El Nano enciende una fila por vez (pone su pin en HIGH y el NPN conecta a GND el bus de esa fila),
+espera ~1 ms a que los Hall arranquen, lee las 8 columnas y pasa a la siguiente. Una columna en
+LOW es un imán sobre esa casilla. Le manda la matriz a la Pi por el puerto serie.
 
-| Estado | Pin del Nano | NPN | Bus GND de la fila |
+| Estado | Pin del Nano | NPN | Bus de la fila |
 |---|---|---|---|
-| Fila elegida | HIGH (5 V) | conduce (~4 mA de base) | ~0,1 V: fila encendida |
+| Fila elegida | HIGH (5 V) | conduce (~9 mA de base) | ~0,1–0,3 V: fila encendida |
 | Fila no elegida | LOW | cortado | flota: fila apagada |
-
-En una fila apagada, la pull-up del KY-003 deja OUT en 5 V y el diodo no conduce, así que esa
-fila no carga las columnas.
 
 ## Materiales
 
 | Componente | Cantidad | Detalle |
 |---|---|---|
 | Arduino Nano (ATmega328P) | 1 | Original o clon, con su cable USB |
-| Transistor NPN | 8 | BC547, BC337, 2N3904, 2N2222 o S8050 |
-| Resistencia 1 kΩ | 8 | Base de cada NPN |
+| Transistor NPN | 8 | **BC337, 2N2222 o S8050.** No BC547, BC548 ni 2N3904 (ver "Transistores") |
+| Resistencia 470 Ω | 8 | Base de cada NPN |
 | Resistencia 10 kΩ | 8 | Entre base y GND de cada NPN |
-| Hall A3144 / KY-003 | 64 | Ya están |
-| Diodo | 64 | Ya están (1N4148). Si hay que comprar, mejor Schottky: BAT85, BAT43, 1N5819 |
-| Resistencia 10 kΩ (opcional) | 8 | Pull-up externa de cada columna a 5 V, si las internas no alcanzan |
+| A3144 + diodo | 64 | Ya soldados, con el diodo en el GND de cada Hall |
 
-Salen de la placa: el 74HC138, el 74HC165 y las 8 pull-ups de 10 kΩ que iban a 3,3 V.
+Salen de la placa: el 74HC138, el 74HC165 y las 8 pull-ups de 10 kΩ que iban a 3,3 V. Las
+columnas usan las pull-ups internas del Nano.
 
-## Driver de una fila
+## Una celda: así están soldadas
 
-```
- pin del Nano ──[ 1 kΩ ]──┬── B ┐
-                          │      NPN    C ── bus GND de los 8 Hall de la fila
-                       [10 kΩ]          E ── GND del Nano
-                          │
-                         GND
-```
-
-- La de 1 kΩ limita la corriente del pin a ~4 mA. **Sin ella se quema el pin o el transistor.**
-- La de 10 kΩ deja el NPN apagado mientras el Nano arranca o si se desconecta.
-- Por fila pasan como mucho ~60 mA (Hall + LEDs de los KY-003); todos los NPN de la tabla
-  aguantan 100 mA o más.
-
-## Una celda
-
-Es la misma celda de la v2 (`celdas-hall.md`). Cambian dos cosas: el Vcc va a 5 V y el GND va al
-bus de su fila en vez de a la pata del 138.
+Las 64 celdas ya están armadas así y **no se cambian**:
 
 ```
                      ┌─────────┐
   5 V del Nano ─ Vcc ┤         │
-                     │  A3144  ├─ OUT ──┤◄── columna Ck (pin del Nano)
-  bus GND fila ─ GND ┤         │
-                     └─────────┘
-  Diodo: la banda (cátodo) hacia OUT, el ánodo hacia la columna.
+                     │  A3144  ├─ OUT ── columna Ck (directo al pin del Nano)
+                 GND ┤         │
+                     └────┬────┘
+                          ▼  diodo: ánodo en el GND del Hall,
+                          │  banda (cátodo) hacia el bus de fila
+                   bus de fila Fk ── colector del NPN de la fila
 ```
 
-Pinout, polaridad (solo detecta el polo sur, cara con letras hacia arriba) y sensores que no
-sirven: igual que en `celdas-hall.md`, "Pinout".
+Esto es distinto de lo que planteaba la primera versión de esta guía (diodo en la salida, GND
+directo al bus). Qué implica:
+
+| Efecto | Valor | Consecuencia |
+|---|---|---|
+| El diodo suma ~0,6–0,8 V en el GND de cada Hall | ~4,3 V; ~3,9 V con la fila llena | Tensión de cada Hall, por debajo de los 4,5 V del A3144 original. Los clones suelen funcionar igual: **hay que comprobarlo** en la prueba |
+| Los otros 7 Hall de la columna le pasan corriente al que detecta | ~20 mA | En las filas apagadas, el GND de cada Hall flota y su consumo sale por un diodo interno hacia su salida, que está unida a la columna. Dentro de lo que aguanta la salida del A3144 (~25 mA), pero obliga a usar un NPN más fuerte |
+| Nivel bajo de la columna con pieza | ~1,1–1,3 V | El Nano tiene garantizado leer LOW hasta 1,5 V. Si queda más alto, plan B |
+| Piezas fantasma | no hay | El diodo del GND impide que un Hall de una fila apagada encuentre camino a GND |
+
+Pinout (cara plana con letras al frente, patas abajo, de izquierda a derecha): **1 Vcc, 2 GND,
+3 OUT**. Solo detecta el **polo sur** contra la cara con letras: esa cara va hacia arriba y todos
+los imanes con el sur hacia abajo. **No puentear el diodo del GND**: sin él aparecerían piezas
+fantasma.
+
+## Driver de una fila
+
+```
+ pin del Nano ──[ 470 Ω ]──┬── B ┐
+                           │      NPN    C ── bus de la fila (cátodos de sus 8 diodos)
+                        [10 kΩ]          E ── GND del Nano
+                           │
+                          GND
+```
+
+- **Hasta ~200 mA por fila:** los 8 Hall consumen ~35 mA, y cada Hall que detecta recibe ~20 mA
+  de los otros 7 de su columna, que también bajan por el NPN. Con la fila llena (posición
+  inicial): 35 + 8 × 20 ≈ 200 mA.
+- La de 470 Ω deja pasar ~9 mA del pin del Nano (máximo recomendado: 20 mA), lo necesario para
+  saturar el NPN con 200 mA. **Sin ella se quema el pin o el transistor.**
+- La de 10 kΩ deja el NPN apagado mientras el Nano arranca o si se desconecta.
 
 ## Tabla de conexiones
 
@@ -94,7 +107,7 @@ celda → casilla del software (`CASILLA_DE_CELDA_HALL` en `config.py`) siga val
 | F6 | D8 | Y6 (pata 9) |
 | F7 | D9 | Y7 (pata 7) |
 
-El pin del Nano va por la de 1 kΩ a la base del NPN de esa fila; su colector, al bus GND de la fila.
+El pin del Nano va por la de 470 Ω a la base del NPN de esa fila; su colector, al bus de la fila.
 
 | Columna | Pin del Nano | Antes iba a |
 |---|---|---|
@@ -109,22 +122,22 @@ El pin del Nano va por la de 1 kΩ a la base del NPN de esa fila; su colector, a
 
 | Otros pines del Nano | Conexión |
 |---|---|
-| 5V | Riel de Vcc de los 64 Hall (y las pull-ups externas, si se usan) |
+| 5V | Riel de Vcc de los 64 Hall |
 | GND | Emisores de los 8 NPN y las 8 resistencias de 10 kΩ de base |
 | USB | A un puerto USB de la Pi: alimenta el Nano y transmite los datos |
-| D13, A5 | Libres (D13 tiene el LED de la placa: no usarlo como entrada) |
+| D13 | Libre (tiene el LED de la placa: no usarlo como entrada) |
+| A5, A6, A7 | Libres; se usan en el plan B |
 | D0, D1 | **No conectar**: los usa el USB |
-| A6, A7 | No sirven: solo analógicos |
 
 ## Transistores
 
-El orden de las patas cambia según el modelo (cara plana al frente, patas abajo, de izquierda a
-derecha):
-
-| Modelo | Patas |
-|---|---|
-| BC547, BC548, BC337 | C · B · E |
-| 2N3904, 2N2222A (TO-92), S8050 | E · B · C |
+| Modelo | Corriente máxima | ¿Sirve? | Patas (cara plana al frente, patas abajo) |
+|---|---|---|---|
+| BC337 | 800 mA | Sí | C · B · E |
+| 2N2222A (TO-92) | 600 mA | Sí | E · B · C |
+| S8050 | 500 mA o más | Sí | E · B · C |
+| BC547, BC548 | 100 mA | **No** | — |
+| 2N3904 | 200 mA | **No**: al límite | — |
 
 **Medir siempre antes de soldar** (hay clones con otro orden). Multímetro en modo diodo: la base
 es la pata que, con la punta roja, marca ~0,6–0,7 V contra las otras dos (si pasa con la negra, es
@@ -137,15 +150,18 @@ PNP y no sirve). De las otras dos, la que marca unas centésimas más es el emis
 2. **Sacar el 138, el 165 y sus 8 pull-ups**, marcando antes cada cable de fila (F0–F7) y de
    columna (C0–C7) con la tabla de arriba.
 3. **Pasar el riel de Vcc de los Hall al pin 5V del Nano.** Nada queda conectado a 3,3 V.
-4. **Armar los 8 drivers NPN**, midiendo las patas de cada transistor antes de soldarlo.
-5. **Conectar cada bus de GND de fila al colector de su NPN.**
+4. **Armar los 8 drivers NPN** (BC337, 2N2222 o S8050, con 470 Ω), midiendo las patas de cada
+   transistor antes de soldarlo.
+5. **Conectar cada bus de fila al colector de su NPN.**
 6. **Montar el Nano** (mejor en zócalo o tira hembra) y conectar filas y columnas.
 7. **Unir los GND**: emisores y resistencias de 10 kΩ al GND del Nano.
 8. **Verificar sin alimentar** antes de enchufar el USB.
 
-**No hacer:** conectar los Hall o las columnas a pines de la Pi (los 5 V pueden quemarla);
-conectar una base sin su resistencia de 1 kΩ; usar D0 o D1; conectar el GND de los Hall directo
-a GND (esa fila quedaría siempre encendida); alimentar el Nano por VIN con el USB conectado.
+**No hacer:** conectar los Hall o las columnas a pines de la Pi (los 5 V pueden quemarla); usar
+BC547, BC548 o 2N3904; conectar una base sin su resistencia; agregar pull-ups externas en las
+columnas (le suman corriente al Hall que detecta); alimentar los Hall con más de 5 V (sus salidas
+van directo al Nano); usar D0 o D1; conectar el bus de una fila directo a GND; alimentar el Nano
+por VIN con el USB conectado.
 
 ## Verificación sin alimentar
 
@@ -155,21 +171,23 @@ USB desenchufado, multímetro en continuidad o modo diodo.
 |---|---|---|
 | Cables de la matriz ↔ pines de la Pi | Ninguno conectado | Desconectarlos |
 | Vcc de cada Hall ↔ 5V del Nano | Continuidad | El Hall no tiene alimentación |
-| GND de cada Hall ↔ colector del NPN de su fila | Continuidad | Ese Hall no se enciende con su fila |
-| GND de cada Hall ↔ GND del Nano | **Sin** continuidad | Ese Hall está a GND directo: su fila nunca se apaga |
+| Modo diodo: roja en el GND de un Hall, negra en el colector del NPN de su fila | ~0,5–0,7 V | `OL`: diodo cortado o al revés. ~0 V: diodo en corto |
+| Mismas puntas invertidas | `OL` | ~0,5 V: diodo al revés |
+| GND de cada Hall ↔ GND del Nano | **Sin** continuidad | Ese Hall está a GND directo |
+| OUT de cada Hall ↔ pin del Nano de su columna | Continuidad | Columna cortada |
+| Cada columna ↔ otras columnas y ↔ GND | Sin continuidad | Columnas en corto |
 | Colector de cada NPN ↔ colectores de las otras filas | Sin continuidad | Buses de fila unidos |
 | Emisor de cada NPN ↔ GND del Nano | Continuidad | Ese NPN nunca conduce |
-| Pin D2–D9 ↔ base de su NPN | ~1 kΩ | Falta o está mal la resistencia |
+| Pin D2–D9 ↔ base de su NPN | ~470 Ω | Falta o está mal la resistencia |
 | Base de cada NPN ↔ GND | ~10 kΩ (algo menos) | Falta la pull-down |
-| Modo diodo, roja en la columna, negra en OUT de un Hall | ~0,5–0,7 V (1N4148) o ~0,2–0,4 V (Schottky) | `OL`: diodo al revés o cortado |
-| Mismas puntas invertidas | `OL` | ~0,5 V: diodo al revés |
 | 5V ↔ GND del Nano | Sin corto | Corto en el riel de alimentación |
 
-## Prueba con una fila
+## Prueba con un solo driver
 
-Primero con **una sola fila** armada (F0, en D2), antes de soldar las 8. Sketch de prueba para
-el Arduino IDE (placa `Arduino Nano`; en los clones, procesador `ATmega328P (Old Bootloader)` si
-no sube con el normal), monitor serie a 115200 baudios:
+Primero con **un solo driver** (F0, en D2), antes de soldar los otros 7. La medición que decide
+si el plan sirve es la de la **fila llena de piezas**. Sketch de prueba para el Arduino IDE
+(placa `Arduino Nano`; en los clones, procesador `ATmega328P (Old Bootloader)` si no sube con el
+normal), monitor serie a 115200 baudios:
 
 ```cpp
 // Prueba de la matriz Hall con el Nano: imprime 8 líneas (F0..F7) de 8 caracteres (C0..C7).
@@ -203,29 +221,43 @@ void loop() {
 ```
 
 (No está compilado todavía.) Para medir con el multímetro, dejar F0 fija: en `loop()`, solo
-`digitalWrite(FILAS[0], HIGH);` y la lectura de columnas.
+`digitalWrite(FILAS[0], HIGH);` y la lectura de columnas. Llenar F0 con 8 piezas:
 
-| Medición con F0 encendida (negra en GND del Nano) | Tiene que dar | Si no |
+| Medición con F0 llena (negra en GND del Nano) | Tiene que dar | Si no |
 |---|---|---|
 | Pin D2 | ~5 V | El sketch no corre o D2 está en corto |
-| Base del NPN de F0 | ~0,7 V | 0 V: falta la de 1 kΩ. ~5 V: transistor mal puesto |
-| Colector del NPN (bus GND de F0) | < 0,3 V | Patas cambiadas o falta corriente de base |
-| Entre GND y Vcc de un Hall de F0 | ≥ 4,5 V | Riel de 5 V mal, o el colector no baja |
-| Columna de una casilla de F0, sin pieza | ~5 V | Columna en corto o Hall dañado |
-| La misma columna, con pieza | < 1,5 V | Diodo al revés, imán con el norte abajo o Hall de cara |
+| Base del NPN de F0 | ~0,7–0,9 V | 0 V: falta la de 470 Ω. ~5 V: transistor mal puesto |
+| Colector del NPN (bus de F0) | < 0,3 V | No se satura: revisar modelo, patas y la de 470 Ω |
+| Entre GND (negra) y Vcc (roja) de un Hall de F0 | ≥ 3,8 V | Riel de 5 V mal o el colector no baja. Si da bien y no detecta, ese Hall no arranca con esa tensión |
+| Una columna de F0, con pieza | < 1,3 V | 1,3–1,5 V: funciona justo. Más de 1,5 V: plan B |
+| La misma columna, sin pieza | ~5 V | Columna en corto o Hall dañado |
+| Monitor serie | `########` en F0 | Ver "Problemas frecuentes" |
 
-Repetir la última **con la fila llena de piezas** (cada LED de KY-003 suma corriente).
+Si todo da bien, armar los otros 7 drivers y repetir con cada fila llena.
+
+## Plan B: columnas como entradas analógicas
+
+Solo si la columna con pieza queda por encima de ~1,3 V. Con `analogRead`, el umbral lo elige el
+sketch en vez de depender del umbral de la entrada digital:
+
+- Recablear 3 columnas: C0 de D10 a **A5**, C1 de D11 a **A6**, C2 de D12 a **A7**. C3–C7 quedan
+  en A0–A4.
+- Agregar una pull-up de 10 kΩ a 5 V en A6 y en A7 (no tienen pull-up interna).
+- En el sketch: `COLUMNAS[8] = {A5, A6, A7, A0, A1, A2, A3, A4}` y
+  `analogRead(COLUMNAS[c]) < 512` (2,5 V) en vez de `digitalRead(...) == LOW`.
+- El barrido baja a unas 60 lecturas del tablero por segundo, que alcanza.
 
 ## Problemas frecuentes
 
 | Síntoma en el monitor serie | Causa probable |
 |---|---|
-| Una fila siempre en `########` | El bus GND de esa fila toca GND directo, o el NPN está en corto |
-| Una columna siempre en `#` | La columna toca GND, o un Hall de esa columna tiene el GND a GND directo |
-| Una fila nunca detecta | NPN con las patas cambiadas, falta la de 1 kΩ, o el bus no llega al colector |
-| Una casilla nunca detecta | Diodo al revés o cortado, Hall de cara, o imán con el norte abajo |
-| Una pieza aparece también en otra fila | Falta el diodo de algún Hall de esa columna |
-| Casillas que parpadean | Imán débil o lejos. Con cables largos, pull-ups externas de 10 kΩ a 5 V. Si con pieza queda cerca de 1,5 V, diodos Schottky |
+| Una fila siempre en `########` | El bus de esa fila toca GND directo, o el NPN está en corto |
+| Una columna siempre en `#` | El cable de columna toca GND |
+| Una fila nunca detecta | NPN con las patas cambiadas, falta la de 470 Ω, o el bus no llega al colector |
+| Una casilla nunca detecta | Diodo del GND cortado o al revés, Hall de cara, imán con el norte abajo, o ese Hall no arranca con ~4 V |
+| Una pieza aparece también en otra fila | El diodo de algún Hall de esa columna está en corto o puenteado |
+| Con una pieza detecta, con la fila llena falla | El NPN no se satura (modelo débil o base mayor a 470 Ω), o el LOW de la columna supera el umbral: plan B |
+| Casillas que parpadean | Imán débil o lejos, o la columna con pieza queda cerca de 1,5 V: plan B |
 | Todo en `........` | Falta el 5 V en el riel, o la unión de GND entre emisores y Nano |
 | Nada en el monitor serie | Velocidad distinta de 115200, puerto equivocado, o falta el driver CH340 del clon |
 

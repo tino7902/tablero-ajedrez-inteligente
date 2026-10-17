@@ -2,8 +2,9 @@
 
 > **Versión anterior (v2), descartada.** Al probarla, la salida activa del 138 marcó 1,6 V: el
 > riesgo 1 de abajo se confirmó. La versión actual es la v3, con Arduino Nano y un NPN por fila
-> (`matriz-hall-nano.md`); historial y alternativas en `historial-deteccion.md`. El pinout, la
-> polaridad y el diodo de cada celda siguen valiendo en la v3.
+> (`matriz-hall-nano.md`); historial y alternativas en `historial-deteccion.md`. El pinout y la
+> polaridad siguen valiendo en la v3; **la conexión de la celda no**: en las celdas soldadas el
+> diodo quedó en el GND de cada Hall y la salida va directo a la columna.
 
 
 Cómo va conectado cada uno de los 64 sensores Hall en la matriz, qué puede fallar eléctricamente y

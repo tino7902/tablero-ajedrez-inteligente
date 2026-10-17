@@ -7,7 +7,7 @@ descartó. La versión actual es la **v3 (Arduino Nano)**, documentada en `matri
 |---|---|---|---|
 | v1 | 64 reed switches + diodo | Raspberry Pi → 74HC138 + 74HC165, a 3,3 V | Reemplazada |
 | v2 | 64 Hall A3144 / KY-003 + diodo | Raspberry Pi → 74HC138 + 74HC165, a 3,3 V | Descartada: el 138 no aguanta la corriente |
-| **v3** | 64 Hall A3144 / KY-003 + diodo | **Arduino Nano** → 8 NPN, Hall a 5 V, USB a la Pi | **Actual** (decidida el 2026-10-17, sin armar todavía) |
+| **v3** | 64 Hall A3144 + diodo en el GND | **Arduino Nano** → 8 NPN, Hall a 5 V, USB a la Pi | **Actual** (decidida el 2026-10-17, sin armar todavía) |
 
 ## v1: reed switches con 74HC138 + 74HC165
 
@@ -71,8 +71,9 @@ Nano se conecta a la Pi por USB, que lo alimenta y transmite los datos.
 
 Por qué esta:
 
-- **Resuelve los dos riesgos a la vez:** el NPN maneja los ~35 mA de la fila (un pin del Nano
-  solo le da ~4 mA a la base) y los Hall trabajan a 5 V, dentro de la hoja de datos del A3144.
+- **Resuelve el problema de corriente:** el NPN maneja la corriente de la fila y el pin del Nano
+  solo le da unos mA a la base. Los Hall pasan a 5 V (con la caída del diodo del GND les quedan
+  ~4,3 V; ver "Cómo quedaron soldadas las celdas").
 - **Menos piezas:** no hay chips intermedios. Por fila, un NPN y dos resistencias.
 - **Sin problemas de niveles:** el Nano y la matriz trabajan a 5 V, y la Pi lo ve solo por USB.
   Ningún pin de la Pi queda conectado a la matriz.
@@ -87,6 +88,26 @@ Lo que cuesta:
   GPIO y pasa a leer el puerto serie. Las herramientas `medir`, `calibrar` y `mapear` de
   `io/sensores.py` hay que adaptarlas. **Nada de esto está hecho todavía.**
 - **Libera 6 pines de la Pi** (29, 31, 36, 37, 38, 40), que ya no se usan para la matriz.
+
+### Cómo quedaron soldadas las celdas
+
+La guía original de la v3 ponía el diodo de cada celda en la salida (OUT → diodo → columna, GND
+directo al bus de fila). Las 64 celdas ya estaban soldadas de otra forma: **diodo en el GND**
+(GND del Hall → ánodo, cátodo → bus de fila) y **salida directa a la columna**. Eso no se puede
+cambiar, así que se adaptó el resto del circuito:
+
+- Sigue sin haber piezas fantasma: el diodo del GND impide que un Hall de una fila apagada
+  encuentre camino a GND.
+- Los Hall quedan con ~4,3 V (~3,9 V con la fila llena) por la caída del diodo, por debajo de los
+  4,5 V del A3144 original. Hay que comprobar que los clones arranquen.
+- Cuando un Hall detecta, los otros 7 de su columna le pasan ~20 mA por sus diodos internos (su
+  GND flota y su consumo sale por la salida). Por eso una fila llena puede llevar ~200 mA: los NPN
+  pasan a ser BC337, 2N2222 o S8050 (no BC547/BC548/2N3904) y la resistencia de base baja de
+  1 kΩ a 470 Ω.
+- Subir o bajar la alimentación no ayuda: con más de ~5,5 V los Hall apagados meterían corriente
+  en las entradas del Nano, y con menos les falta tensión.
+- Si el nivel bajo de la columna con pieza queda por encima de ~1,3 V, el plan B es leer las
+  columnas con `analogRead` (C0–C2 pasan a A5–A7) y elegir el umbral en el sketch.
 
 Cada fila y columna conserva el número que tenía con el 138 y el 165 (fila Fk = cable que iba a
 Yk, columna Ck = cable que iba a Dk), para que el mapeo celda → casilla
