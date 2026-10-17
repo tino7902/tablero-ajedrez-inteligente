@@ -1,5 +1,10 @@
 # Guía: prueba y mapeo de la matriz con sensores Hall
 
+> **Guía de la versión anterior (v2), descartada**: el 138 no aguantó la corriente de los Hall
+> (la Parte 3 de esta guía dio 1,6 V). La versión actual se prueba con `matriz-hall-nano.md`,
+> "Prueba con una fila". Historial en `historial-deteccion.md`.
+
+
 Vas a verificar los dos chips que leen el tablero, medir que los sensores Hall reciban bien la
 alimentación, probar que los imanes de las piezas los activen, calibrar los tiempos, mapear qué
 sensor corresponde a cada casilla, asociar cada LED a su casilla y verificar todo junto.

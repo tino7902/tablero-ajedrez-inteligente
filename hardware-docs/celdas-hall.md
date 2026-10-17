@@ -1,5 +1,11 @@
 # Celdas con sensor Hall (A3144 / KY-003)
 
+> **Versión anterior (v2), descartada.** Al probarla, la salida activa del 138 marcó 1,6 V: el
+> riesgo 1 de abajo se confirmó. La versión actual es la v3, con Arduino Nano y un NPN por fila
+> (`matriz-hall-nano.md`); historial y alternativas en `historial-deteccion.md`. El pinout, la
+> polaridad y el diodo de cada celda siguen valiendo en la v3.
+
+
 Cómo va conectado cada uno de los 64 sensores Hall en la matriz, qué puede fallar eléctricamente y
 cómo medirlo. Los chips (74HC138 y 74HC165) no cambian respecto de la versión reed: sus conexiones
 pata por pata siguen en `conexiones-matriz.md`. Software y diagnóstico en `software-docs/sensores.md`;

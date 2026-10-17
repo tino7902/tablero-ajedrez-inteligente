@@ -1,3 +1,6 @@
+> **Versiones anteriores (v1 y v2).** La versión actual (v3) reemplaza estos dos chips por un
+> Arduino Nano y un NPN por fila: ver `matriz-hall-nano.md` e `historial-deteccion.md`.
+
 ## El 74HC138 (Escaneo de Filas)
 
 Este chip es un _decodificador_. Su función principal es recibir un número binario de 3 bits (del 0 al 7) en sus pines de entrada (A, B, C) y activar una sola de sus 8 salidas (Y0 a Y7).

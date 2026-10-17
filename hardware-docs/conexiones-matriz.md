@@ -1,5 +1,10 @@
 # Conexiones de la matriz de casillas (74HC138 + 74HC165)
 
+> **Versiones anteriores (v1 reed y v2 Hall).** La versión actual (v3) ya no usa el 138 ni el
+> 165: ver `matriz-hall-nano.md` e `historial-deteccion.md`. Las patas de este archivo sirven para
+> saber qué cable de fila (Yk) y de columna (Dk) es cada uno al pasarlos al Nano.
+
+
 Qué tiene que estar conectado con qué, pata por pata, y cómo verificarlo con el multímetro.
 Funcionamiento de los chips en `funcionamiento_deteccion_de_casillas.md`; pruebas con la Pi
 encendida en `software-docs/sensores.md`, "Cómo probarlo".

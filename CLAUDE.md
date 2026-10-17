@@ -4,10 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Tablero de ajedrez físico con sensores por casilla (74HC165) y LEDs (WS2812B), controlado
-íntegramente por una Raspberry Pi 3B. Valida movimientos y mantiene el estado de la partida
-usando `python-chess`, y puede jugar contra Stockfish en modo vs-máquina. Todo corre en un único
-dispositivo, sin hardware ni proceso adicional.
+Tablero de ajedrez físico con sensores Hall por casilla y LEDs (WS2812B), controlado por una
+Raspberry Pi 3B. Valida movimientos y mantiene el estado de la partida usando `python-chess`, y
+puede jugar contra Stockfish en modo vs-máquina. La lógica, el motor y la interfaz corren en la
+Pi; desde el 2026-10-17 la única excepción es la matriz de sensores, que la barre un **Arduino
+Nano** (un NPN por fila, Hall a 5 V) conectado a la Pi por USB.
+
+**Hardware architecture change (v3, decided, not yet built or coded)**: the sensor matrix is
+being moved off the Pi's GPIO. The v2 design (Pi → 74HC138 + 74HC165 at 3.3 V, each Hall's GND
+on a 138 output) was tested and failed — the active 138 output read 1.6 V because it can't sink
+~35 mA per row. The chosen replacement is an Arduino Nano driving one NPN per row (D2–D9) and
+reading columns (D10–D12, A0–A4), reporting to the Pi over USB serial. Rows/columns keep their
+old Yk/Dk numbering so `CASILLA_DE_CELDA_HALL` stays valid. **Neither the Nano firmware nor a
+serial-reading `io/matriz.py` exists yet** — everything below about `io/matriz.py`/`io/sensores.py`
+describes the v2 GPIO code still in the repo. Build guide: `hardware-docs/matriz-hall-nano.md`;
+iterations (v1 reed, v2 Hall+138/165, v3 Nano) and every rejected alternative with its reason:
+`hardware-docs/historial-deteccion.md`.
 
 **Current state**: early-stage but with the first vertical slices implemented. Done:
 `config.py` (Stockfish + pantalla config), `logica/estado_tablero.py` (wraps `chess.Board`,
@@ -88,7 +100,8 @@ tablero-ajedrez-inteligente/
 ├── hardware/scematichs/       # Directorio vacío (.gitkeep); esquemáticos aún no subidos acá
 ├── hardware-docs/             # Componentes, pines GPIO, esquema de detección de casillas (docs + fotos),
 │                              #   conexiones pata por pata de los chips, celdas Hall, guías de prueba
-│                              #   de la matriz (Hall y reed), redes wifi de la Raspberry
+│                              #   de la matriz (Hall y reed), redes wifi de la Raspberry,
+│                              #   matriz-hall-nano.md (v3 actual) e historial-deteccion.md
 ├── software-docs/             # Notas de diseño por módulo (config, logica, eventos, partida, registro,
 │                              #   simulacion, motor, pantalla, menus, sensores, sensores-reed, leds,
 │                              #   prueba-tablero, comandos, pyproject, testing)

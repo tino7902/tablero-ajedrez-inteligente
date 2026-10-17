@@ -1,9 +1,12 @@
 # Tablero de Ajedrez Inteligente
 
-Tablero de ajedrez físico con sensores por casilla y LEDs, controlado íntegramente
-por una **Raspberry Pi 3B**. Valida movimientos, mantiene el estado de la partida
-y puede jugar contra Stockfish en modo vs-máquina — todo corriendo en un único
-dispositivo, sin hardware ni proceso adicional.
+Tablero de ajedrez físico con sensores por casilla y LEDs, controlado por una
+**Raspberry Pi 3B**. Valida movimientos, mantiene el estado de la partida y puede
+jugar contra Stockfish en modo vs-máquina. Los 64 sensores Hall los lee un
+**Arduino Nano** conectado a la Pi por USB (ver
+[`hardware-docs/matriz-hall-nano.md`](./hardware-docs/matriz-hall-nano.md) y, para
+saber por qué, [`hardware-docs/historial-deteccion.md`](./hardware-docs/historial-deteccion.md));
+todo lo demás corre en la Pi.
 
 ## Estructura del proyecto
 ```
@@ -12,7 +15,7 @@ tablero-ajedrez-inteligente/
 │ └── src/tablero/
 │ ├── main.py # Entry point / orquestador
 │ ├── config.py # Pines GPIO y configuración general
-│ ├── io/ # Sensores (74HC165), LEDs (WS2812B) y pantalla táctil (RPI LCD V3)
+│ ├── io/ # Sensores (matriz Hall vía Arduino Nano), LEDs (WS2812B) y pantalla táctil (RPI LCD V3)
 │ ├── logica/ # Reglas del juego y estado del tablero (python-chess)
 │ ├── motor/ # Integración con Stockfish (modo vs-máquina)
 │ └── web/ # Dashboard/API de estado (a futuro)
