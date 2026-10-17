@@ -95,6 +95,13 @@ Solo corren en la Raspberry, por SSH, desde `tablero/`. Misma regla que arriba: 
 los ejecuta, le da a Tino el comando. Guía paso a paso de prueba del tablero:
 `hardware-docs/checklist-prueba-hall.md`.
 
+> **Matriz de sensores: comandos de la v2.** `selector`, `lector`, `medir`, `matriz`, `calibrar`
+> y `mapear` manejan el 74HC138 + 74HC165 por GPIO, que se descartó el 2026-10-17 (el 138 no
+> aguanta la corriente de los Hall). En la v3 un Arduino Nano barre la matriz y la Pi lo lee por
+> USB serie: `selector`/`lector` dejan de tener sentido y el resto hay que adaptarlo. Hasta
+> entonces no sirven con el hardware nuevo. Ver `hardware-docs/matriz-hall-nano.md` y
+> `hardware-docs/historial-deteccion.md`.
+
 | Comando | Qué hace | Detalle |
 |---|---|---|
 | `uv run python -m tablero.io.sensores` (o `... botones`) | Loguea cada presión de los botones del reloj | [`sensores.md`](./sensores.md) |

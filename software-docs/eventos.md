@@ -13,8 +13,9 @@ actualmente ocupadas — y una función pura `casillas_ocupadas(board)` para pro
 partir de un `chess.Board`. Esto mantiene `logica/` sin dependencia de hardware (boundary
 documentado en `CLAUDE.md`) y permite testear todo el módulo con `frozenset`s armados a
 mano, sin sensores reales. El día que `io/sensores.py` exista, su trabajo es producir
-`Ocupacion` a partir de una lectura real del 74HC138/74HC165 — `eventos.py` no necesita
-cambiar.
+`Ocupacion` a partir de una lectura real de la matriz (en la v3, lo que manda el Arduino Nano
+por USB serie; en la v2, el 74HC138/74HC165) — `eventos.py` no necesita cambiar con el
+hardware.
 
 ## Flujo que resuelve
 

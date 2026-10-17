@@ -1,0 +1,564 @@
+<title>Driver de filas Hall</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: guía de armado de una columna, en el orden en que se arma: qué es, materiales, esquemas, conexiones, pasos, verificación, prueba, plan B, problemas. */
+:root {
+  --bg: #f5f7f6;
+  --surface: #ffffff;
+  --fg: #17201c;
+  --muted: #56645d;
+  --line: #d3dbd7;
+  --accent: #1b6b45;      /* verde máscara de soldadura */
+  --accent-soft: #e2efe8;
+  --wire: #24312b;
+  --rail: #b4531f;        /* riel de 5 V */
+  --col: #2f5f9e;         /* columnas */
+  --ok: #1b6b45;
+  --warn: #9a6200;
+  --warn-bg: #fbf1df;
+  --bad: #b23a1f;
+  --bad-bg: #fbe8e3;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111714; --surface: #18201c; --fg: #e3ebe6; --muted: #9aaba2; --line: #2c3832;
+    --accent: #5fc493; --accent-soft: #1d3329; --wire: #cdd8d2; --rail: #f0945e; --col: #7fb0ec;
+    --ok: #5fc493; --warn: #f0b85a; --warn-bg: #2e2617; --bad: #f08a70; --bad-bg: #33201b; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111714; --surface: #18201c; --fg: #e3ebe6; --muted: #9aaba2; --line: #2c3832;
+  --accent: #5fc493; --accent-soft: #1d3329; --wire: #cdd8d2; --rail: #f0945e; --col: #7fb0ec;
+  --ok: #5fc493; --warn: #f0b85a; --warn-bg: #2e2617; --bad: #f08a70; --bad-bg: #33201b; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 880px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 64px; display: flex; flex-direction: column; gap: 48px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: 2.3rem; font-weight: 600; }
+h2 { font-size: 1.5rem; font-weight: 600; }
+h3 { font-size: 1.12rem; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-family: var(--font-mono); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+header { display: flex; flex-direction: column; gap: 12px; }
+.lede { color: var(--muted); font-size: 1.08rem; }
+section { display: flex; flex-direction: column; gap: 14px; }
+.mono { font-family: var(--font-mono); font-size: .9em; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-family: var(--font-mono); font-size: .82rem; color: var(--accent); text-decoration: none; border: 1px solid var(--line); border-radius: 14px; padding: 3px 12px; background: var(--surface); }
+nav.toc a:hover { border-color: var(--accent); }
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.fig { border-top: 2px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+.fig b { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.fig.bad b { color: var(--bad); }
+.fig.good b { color: var(--ok); }
+.fig.warn b { color: var(--warn); }
+.fig span { color: var(--muted); font-size: .9rem; }
+.schematic { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px; overflow-x: auto; }
+.schematic svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.schematic svg text { font-family: var(--font-mono); font-size: 13px; fill: var(--fg); }
+.schematic svg .lbl { fill: var(--muted); font-size: 12px; }
+.schematic svg .acc { fill: var(--accent); font-weight: 500; }
+.schematic svg .rail { fill: var(--rail); font-size: 12px; }
+.schematic svg .coltx { fill: var(--col); font-size: 12px; }
+.schematic svg .ttl { font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+.caption { font-size: .88rem; color: var(--muted); }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+th, td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+td.mono { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pill { font-family: var(--font-mono); font-size: .8rem; padding: 1px 7px; border-radius: 10px; white-space: nowrap; }
+.pill.low { color: var(--ok); background: var(--accent-soft); }
+.pill.high { color: var(--warn); background: var(--warn-bg); }
+ul, ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 8px; max-width: 72ch; }
+ol.steps > li { padding-left: 4px; }
+ol.steps > li > b:first-child { font-weight: 600; }
+pre { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; overflow-x: auto; font-family: var(--font-mono); font-size: .86rem; line-height: 1.5; }
+.note { background: var(--warn-bg); border-radius: 6px; padding: 12px 16px; max-width: 72ch; }
+.note strong { color: var(--warn); }
+.danger { background: var(--bad-bg); border-radius: 6px; padding: 14px 18px; max-width: 72ch; display: flex; flex-direction: column; gap: 8px; }
+.danger h3 { color: var(--bad); }
+.checklist { list-style: none; padding-left: 0; }
+.checklist li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; }
+.checklist input { margin-top: 5px; width: 16px; height: 16px; accent-color: var(--accent); }
+.checklist label { cursor: pointer; }
+a { color: var(--accent); }
+a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Tablero de ajedrez · guía de armado · hardware</div>
+    <h1>Matriz Hall con Arduino Nano</h1>
+    <p class="lede">Guía para armar la detección de casillas: 64 sensores Hall A3144 en una matriz de 8 × 8, leídos por un Arduino Nano que le pasa el estado del tablero a la Raspberry Pi por USB. Un NPN por fila maneja la corriente. Reemplaza al 74HC138 y al 74HC165. Las 64 celdas ya están soldadas; esta guía cubre todo lo demás.</p>
+    <nav class="toc" aria-label="Contenido">
+      <a href="#por-que">Por qué</a>
+      <a href="#materiales">Materiales</a>
+      <a href="#general">Esquema general</a>
+      <a href="#fila">Una fila</a>
+      <a href="#celda">Una celda</a>
+      <a href="#pines">Pines</a>
+      <a href="#transistores">Transistores</a>
+      <a href="#pasos">Pasos</a>
+      <a href="#sin-alimentar">Verificación</a>
+      <a href="#prueba">Prueba</a>
+      <a href="#plan-b">Plan B</a>
+      <a href="#problemas">Problemas</a>
+    </nav>
+  </header>
+
+  <section id="por-que">
+    <h2>Por qué se cambia</h2>
+    <div class="figures">
+      <div class="fig bad"><b>1,6 V</b><span>daba la salida activa del 138 (tenía que ser &lt; 0,3 V)</span></div>
+      <div class="fig warn"><b>~200 mA</b><span>puede pasar por una fila llena de piezas con las celdas como están soldadas</span></div>
+      <div class="fig good"><b>≈ 9 mA</b><span>pone un pin del Nano en la base del NPN de la fila (con 470 Ω)</span></div>
+      <div class="fig good"><b>5 V</b><span>alimentan los Hall, en vez de 3,3 V</span></div>
+    </div>
+    <p>El 138 no podía hundir la corriente de una fila. Con el Nano, cada fila tiene un transistor que la maneja y los Hall se alimentan a 5 V. Ningún pin de la Raspberry queda conectado a la matriz: la Pi solo ve el Nano por USB.</p>
+  </section>
+
+  <section id="materiales">
+    <h2>Materiales</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Componente</th><th>Cantidad</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td>Arduino Nano (ATmega328P)</td><td class="mono">1</td><td>Original o clon. Con su cable USB (mini-USB o USB-C, según el modelo).</td></tr>
+          <tr><td>Transistor NPN</td><td class="mono">8</td><td>Uno por fila. <strong>BC337, 2N2222 o S8050.</strong> No BC547, BC548 ni 2N3904: no aguantan la corriente (ver <a href="#transistores">Transistores</a>).</td></tr>
+          <tr><td>Resistencia 470 Ω</td><td class="mono">8</td><td>Base de cada NPN.</td></tr>
+          <tr><td>Resistencia 10 kΩ</td><td class="mono">8</td><td>Entre base y GND de cada NPN (lo mantiene apagado).</td></tr>
+          <tr><td>Sensor Hall A3144 + diodo</td><td class="mono">64</td><td>Ya soldados, uno por casilla, con el diodo en el GND (ver <a href="#celda">Una celda</a>).</td></tr>
+          <tr><td>Placa perforada, cable, tira de pines o zócalo para el Nano</td><td>—</td><td>Conviene montar el Nano en zócalo o tira hembra para poder sacarlo.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Salen de la placa: el 74HC138, el 74HC165 y las 8 resistencias pull-up de 10 kΩ que iban a 3,3 V. Las columnas usan las pull-ups internas del Nano.</p>
+  </section>
+
+  <section id="general">
+    <h2>Esquema general</h2>
+    <div class="schematic" role="img" aria-label="Diagrama general: la Raspberry Pi se conecta por USB al Arduino Nano. Los pines D2 a D9 del Nano van a 8 drivers NPN, que conectan a GND el bus de cada fila de la matriz. Las salidas de los Hall de cada columna van directo a los pines D10, D11, D12 y A0 a A4. El pin 5V del Nano alimenta el Vcc de los 64 Hall.">
+      <svg viewBox="0 0 760 290" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="fa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--wire)"/></marker></defs>
+        <g stroke="var(--wire)" stroke-width="2" fill="var(--surface)">
+          <rect x="16" y="125" width="96" height="70" rx="4"/>
+          <rect x="170" y="70" width="130" height="190" rx="4"/>
+          <rect x="370" y="85" width="120" height="56" rx="4"/>
+          <rect x="560" y="70" width="180" height="190" rx="4" fill="var(--accent-soft)" stroke="var(--accent)"/>
+        </g>
+        <g stroke="var(--wire)" stroke-width="2" fill="none">
+          <path d="M112 160 H170"/>
+          <path d="M300 113 H368" marker-end="url(#fa)"/>
+          <path d="M490 113 H558" marker-end="url(#fa)"/>
+        </g>
+        <path d="M560 215 H302" stroke="var(--col)" stroke-width="2" fill="none" marker-end="url(#fa)"/>
+        <path d="M235 70 V36 H650 V68" stroke="var(--rail)" stroke-width="2" stroke-dasharray="6 4" fill="none"/>
+        <text x="30" y="155" class="ttl">Pi 3B</text>
+        <text x="30" y="176" class="lbl">puerto USB</text>
+        <text x="124" y="150" class="lbl">USB</text>
+        <text x="182" y="98" class="ttl">Arduino Nano</text>
+        <text x="182" y="128" class="lbl">D2…D9 →</text>
+        <text x="182" y="208" class="coltx">← D10 D11 D12</text>
+        <text x="182" y="226" class="coltx">  A0 A1 A2 A3 A4</text>
+        <text x="182" y="250" class="rail">5V · GND</text>
+        <text x="382" y="110" class="ttl">8 × NPN</text>
+        <text x="382" y="130" class="lbl">470 Ω + 10 kΩ</text>
+        <text x="310" y="104" class="lbl">F0…F7</text>
+        <text x="496" y="104" class="lbl">bus fila</text>
+        <text x="572" y="98" class="ttl">Matriz Hall 8 × 8</text>
+        <text x="572" y="120" class="lbl">64 A3144</text>
+        <text x="572" y="140" class="lbl">diodo en cada GND</text>
+        <text x="572" y="160" class="rail">Vcc a 5 V</text>
+        <text x="360" y="206" class="coltx">C0…C7 · salidas directas</text>
+        <text x="300" y="28" class="rail">5V del Nano → Vcc de los 64 Hall</text>
+      </svg>
+    </div>
+    <p>Cómo funciona: el Nano enciende una fila por vez (pone su pin en HIGH), espera 1 ms a que los Hall arranquen, lee las 8 columnas y pasa a la siguiente. Una columna en LOW es un imán sobre esa casilla. Recorre las 8 filas muchas veces por segundo y le manda la matriz a la Pi por el puerto serie.</p>
+
+    <h3>La matriz, cable por cable</h3>
+    <div class="schematic" id="grilla" role="img" aria-label="Matriz de 8 por 8: cada fila F0 a F7 es un bus horizontal que une, a través de un diodo cada uno, el GND de sus 8 Hall y va al colector de su NPN; cada columna C0 a C7 es un cable vertical que une directo las salidas de los 8 Hall de esa columna y va a un pin del Nano. Todos los Vcc van a 5 V."></div>
+    <p class="caption">Cada punto es un Hall. Su GND llega al bus de su fila (negro) a través de un diodo; su salida va directo al cable de su columna (azul). El Vcc de los 64 Hall va al riel de 5 V (no dibujado en la grilla).</p>
+  </section>
+
+  <section id="fila">
+    <h2>Una fila: el driver NPN</h2>
+    <p>Hay 8 iguales, uno por fila. Se pueden armar juntos en un costado de la placa, cerca del Nano.</p>
+    <div class="schematic" role="img" aria-label="Esquemático del driver de una fila: el pin del Nano va por una resistencia de 470 Ω a la base del NPN; una resistencia de 10 kΩ va de la base a GND; el colector del NPN va al bus de la fila, donde llegan los cátodos de los 8 diodos; el emisor va a GND.">
+      <svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="var(--wire)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M60 200 H230"/>
+          <rect x="230" y="190" width="70" height="20" fill="var(--surface)"/>
+          <path d="M300 200 H500"/>
+          <path d="M400 200 V222"/>
+          <rect x="390" y="222" width="20" height="56" fill="var(--surface)"/>
+          <path d="M400 278 V292"/>
+          <path d="M386 292 H414 M391 298 H409 M396 304 H404"/>
+          <path d="M500 172 V228" stroke-width="3"/>
+          <path d="M500 186 L532 160 V136"/>
+          <path d="M500 214 L532 240 V278"/>
+          <path d="M518 278 H546 M523 284 H541 M528 290 H536"/>
+          <rect x="470" y="30" width="230" height="106" rx="4" fill="var(--accent-soft)" stroke="var(--accent)"/>
+        </g>
+        <circle cx="60" cy="200" r="4" fill="var(--wire)"/>
+        <circle cx="400" cy="200" r="4" fill="var(--wire)"/>
+        <polygon points="526,236 514,237 523,226" fill="var(--wire)"/>
+        <text x="20" y="178">pin del Nano</text>
+        <text x="20" y="232" class="lbl">F0 = D2 … F7 = D9</text>
+        <text x="240" y="182" class="lbl">470 Ω</text>
+        <text x="418" y="256" class="lbl">10 kΩ</text>
+        <text x="452" y="166" class="acc">NPN</text>
+        <text x="540" y="154" class="lbl">C (colector)</text>
+        <text x="540" y="268" class="lbl">E (emisor)</text>
+        <text x="508" y="208" class="lbl">B</text>
+        <text x="482" y="56" class="acc">8 × Hall de la fila</text>
+        <text x="482" y="80" class="lbl">GND → diodo → bus</text>
+        <text x="482" y="100" class="lbl">bus de la fila → colector</text>
+        <text x="482" y="120" class="rail">Vcc de los 8 → 5 V</text>
+        <text x="330" y="314" class="lbl">GND del Nano</text>
+      </svg>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Estado</th><th>Pin del Nano</th><th>NPN</th><th>Bus de la fila</th></tr></thead>
+        <tbody>
+          <tr><td>Fila elegida</td><td><span class="pill high">HIGH (5 V)</span></td><td>conduce (≈ 9 mA de base)</td><td class="mono">≈ 0,1–0,3 V: fila encendida</td></tr>
+          <tr><td>Fila no elegida</td><td><span class="pill low">LOW (0 V)</span></td><td>cortado</td><td class="mono">flota: fila apagada</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li><strong>Por qué hasta ~200 mA:</strong> los 8 Hall de la fila consumen ~35 mA. Además, cada Hall que detecta una pieza recibe ~20 mA de los otros 7 Hall de su columna (ver <a href="#celda">Una celda</a>), y esa corriente también baja por el NPN. Con la fila llena de piezas, como en la posición inicial, son 35 + 8 × 20 ≈ 200 mA.</li>
+      <li>La resistencia de 470 Ω deja pasar ~9 mA del pin del Nano (su máximo recomendado es 20 mA), lo justo para saturar el NPN con 200 mA. <strong>Sin ella se quema el pin o el transistor.</strong></li>
+      <li>La de 10 kΩ deja el NPN apagado mientras el Nano arranca o si se desconecta.</li>
+      <li>El emisor y la de 10 kΩ van al <strong>GND del Nano</strong>. Todos los GND del circuito son el mismo.</li>
+    </ul>
+  </section>
+
+  <section id="celda">
+    <h2>Una celda: así están soldadas</h2>
+    <p>Las 64 celdas ya están armadas así y <strong>no se cambian</strong>. El diodo está en el GND de cada Hall, y la salida va directo a la columna.</p>
+    <div class="schematic" role="img" aria-label="Esquemático de una celda: el Vcc del Hall va a 5 V; el GND del Hall va al ánodo de un diodo, cuyo cátodo va al bus de su fila; la salida OUT del Hall va directo al cable de su columna.">
+      <svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg">
+        <g stroke="var(--wire)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="300" y="50" width="130" height="120" rx="4" fill="var(--surface)"/>
+          <path d="M268 140 H300"/>
+          <path d="M150 140 H238"/>
+        </g>
+        <path d="M150 80 H300" stroke="var(--rail)" stroke-width="2"/>
+        <path d="M430 110 H640" stroke="var(--col)" stroke-width="2"/>
+        <!-- diodo: ánodo a la derecha (GND del Hall), cátodo a la izquierda (bus de fila) -->
+        <polygon points="268,124 268,156 240,140" fill="var(--surface)" stroke="var(--wire)" stroke-width="2"/>
+        <path d="M238 122 V158" stroke="var(--wire)" stroke-width="4"/>
+        <text x="330" y="100" class="ttl">A3144</text>
+        <text x="330" y="122" class="lbl">cara con letras</text>
+        <text x="330" y="138" class="lbl">hacia arriba</text>
+        <text x="306" y="74" class="lbl">Vcc</text>
+        <text x="306" y="160" class="lbl">GND</text>
+        <text x="436" y="102" class="lbl">OUT</text>
+        <text x="20" y="84" class="rail">5 V del Nano</text>
+        <text x="20" y="144">bus fila Fk</text>
+        <text x="20" y="162" class="lbl">→ colector NPN</text>
+        <text x="500" y="102" class="coltx">columna Ck (directo)</text>
+        <text x="500" y="132" class="coltx">→ pin del Nano</text>
+        <text x="200" y="190" class="lbl">banda (cátodo) hacia el bus de fila,</text>
+        <text x="200" y="208" class="lbl">ánodo hacia el GND del Hall</text>
+      </svg>
+    </div>
+    <h3>Qué implica este armado</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Efecto</th><th>Valor</th><th>Consecuencia</th></tr></thead>
+        <tbody>
+          <tr><td>El diodo suma ~0,6–0,8 V en el GND de cada Hall</td><td class="mono">4,3 V · 3,9 V con fila llena</td><td>Tensión de alimentación de cada Hall, por debajo de los 4,5 V que pide la hoja de datos del A3144 original. Los clones que se venden hoy suelen funcionar igual: <strong>hay que comprobarlo</strong> en la <a href="#prueba">prueba</a>.</td></tr>
+          <tr><td>Los otros 7 Hall de la columna le pasan corriente al que detecta</td><td class="mono">~20 mA</td><td>En las filas apagadas, el GND de cada Hall flota y su consumo sale por un diodo interno hacia su salida, que está unida a la columna. Está dentro de lo que aguanta la salida del A3144 (~25 mA), pero obliga a usar un NPN más fuerte.</td></tr>
+          <tr><td>Nivel bajo de la columna con pieza</td><td class="mono">~1,1–1,3 V</td><td>El Nano tiene garantizado leer LOW hasta 1,5 V. Si queda más alto, pasar al <a href="#plan-b">plan B</a>.</td></tr>
+          <tr><td>Piezas fantasma</td><td class="mono">no hay</td><td>El diodo del GND impide que un Hall de una fila apagada encuentre camino a GND, así que no puede bajar la columna.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Sensor</th><th>Patas</th></tr></thead>
+        <tbody>
+          <tr><td>A3144 (TO-92)</td><td>Mirando la cara plana con letras, patas hacia abajo, de izquierda a derecha: <span class="mono">1 Vcc · 2 GND · 3 OUT</span>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li><strong>Polaridad:</strong> el A3144 solo detecta el <strong>polo sur</strong> de un imán puesto contra su cara con letras. Esa cara va hacia arriba y todos los imanes, con el sur hacia abajo.</li>
+      <li><strong>No puentear el diodo del GND:</strong> sin él, las filas apagadas bajarían las columnas y aparecerían piezas fantasma.</li>
+    </ul>
+  </section>
+
+  <section id="pines">
+    <h2>Tabla de conexiones</h2>
+    <p>Cada fila y cada columna conserva el número que tenía con el 138 y el 165: el cable que iba a la salida Yk del 138 ahora es la fila Fk, y el que iba a la entrada Dk del 165 ahora es la columna Ck. Así el mapeo de casillas que ya está en el software (<span class="mono">CASILLA_DE_CELDA_HALL</span>) sigue valiendo. <strong>Respetar este orden.</strong></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fila</th><th>Pin del Nano</th><th>Va a</th><th>Antes iba a</th></tr></thead>
+        <tbody id="tabla-filas"></tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Columna</th><th>Pin del Nano</th><th>Va a</th><th>Antes iba a</th></tr></thead>
+        <tbody id="tabla-columnas"></tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Otros pines del Nano</th><th>Conexión</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">5V</td><td>Riel de Vcc de los 64 Hall.</td></tr>
+          <tr><td class="mono">GND</td><td>Emisores de los 8 NPN y las 8 resistencias de 10 kΩ de base. Cualquiera de los dos pines GND del Nano.</td></tr>
+          <tr><td class="mono">USB</td><td>A un puerto USB de la Raspberry Pi. Alimenta el Nano y transmite los datos.</td></tr>
+          <tr><td class="mono">D13, A5</td><td>Libres. D13 tiene el LED de la placa: no usarlo como entrada. A5 se usa en el plan B.</td></tr>
+          <tr><td class="mono">A6, A7</td><td>Libres (solo analógicos). Se usan en el plan B.</td></tr>
+          <tr><td class="mono">D0, D1</td><td><strong>No conectar.</strong> Los usa el USB.</td></tr>
+          <tr><td class="mono">VIN, 3V3, RST, AREF</td><td>No conectar.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="transistores">
+    <h2>Transistores</h2>
+    <p>Por cada fila pueden pasar hasta ~200 mA, así que el NPN tiene que aguantar bastante más que eso. El orden de las patas también cambia según el modelo.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Modelo</th><th>Corriente máxima</th><th>¿Sirve?</th><th>Patas (cara plana al frente, patas abajo, de izq. a der.)</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">BC337</td><td class="mono">800 mA</td><td>Sí</td><td class="mono">C · B · E</td></tr>
+          <tr><td class="mono">2N2222A (TO-92)</td><td class="mono">600 mA</td><td>Sí</td><td class="mono">E · B · C</td></tr>
+          <tr><td class="mono">S8050</td><td class="mono">500 mA o más</td><td>Sí</td><td class="mono">E · B · C</td></tr>
+          <tr><td class="mono">BC547, BC548</td><td class="mono">100 mA</td><td><strong>No</strong></td><td>—</td></tr>
+          <tr><td class="mono">2N3904</td><td class="mono">200 mA</td><td><strong>No</strong>: queda al límite</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Medir siempre antes de soldar</strong>, aunque el modelo esté en la tabla (hay clones con otro orden). Multímetro en modo diodo:</p>
+    <ol>
+      <li>Buscá la pata que, con la <strong>punta roja</strong> en ella, marca ~0,6–0,7 V contra cada una de las otras dos. Esa es la <strong>base (B)</strong>. Si eso pasa con la punta negra, el transistor es PNP y no sirve.</li>
+      <li>De las otras dos, la que marca un poco <strong>más</strong> (unas centésimas) es el <strong>emisor (E)</strong>; la otra es el <strong>colector (C)</strong>.</li>
+      <li>Si el multímetro tiene zócalo hFE, confirmalo: puesto bien, marca entre 100 y 500.</li>
+    </ol>
+  </section>
+
+  <section id="pasos">
+    <h2>Pasos de armado</h2>
+    <ol class="steps">
+      <li><b>Desconectar la matriz de la Raspberry.</b> Sacar todos los cables entre la placa de la matriz y los pines 29, 31, 36, 37, 38 y 40 de la Pi, y el cable de 3,3 V que alimentaba los Hall. Al terminar, la Pi solo se conecta al Nano por USB.</li>
+      <li><b>Sacar el 138, el 165 y sus 8 pull-ups de 10 kΩ.</b> Marcar antes cada cable de fila con su número (el de la Y del 138, F0–F7) y cada cable de columna con el suyo (el de la D del 165, C0–C7). Ver <a href="#pines">Tabla de conexiones</a> para saber qué pata era cuál.</li>
+      <li><b>Pasar el riel de Vcc de los Hall a 5 V.</b> El riel que unía los Vcc de los 64 Hall ahora va al pin 5V del Nano. Nada del circuito queda conectado a 3,3 V.</li>
+      <li><b>Armar los 8 drivers NPN</b> según <a href="#fila">Una fila</a>: 470 Ω del pin del Nano a la base, 10 kΩ de la base a GND, emisor a GND. Usar BC337, 2N2222 o S8050, y medir las patas de cada uno antes de soldarlo.</li>
+      <li><b>Conectar cada bus de fila al colector de su NPN.</b> El bus que iba a la pata Yk del 138 va al colector del NPN de Fk.</li>
+      <li><b>Montar el Nano</b>, mejor en zócalo o tira hembra. Conectar las resistencias de 470 Ω a D2–D9 (F0–F7) y los cables de columna a D10, D11, D12, A0, A1, A2, A3 y A4 (C0–C7).</li>
+      <li><b>Unir los GND:</b> emisores de los NPN y resistencias de 10 kΩ al GND del Nano.</li>
+      <li><b>Verificar sin alimentar</b> (siguiente sección) antes de enchufar el USB.</li>
+    </ol>
+    <div class="danger">
+      <h3>No hacer</h3>
+      <ul>
+        <li>No conectar los Hall ni las columnas a ningún pin de la Raspberry Pi. Los 5 V de la matriz pueden quemar la Pi.</li>
+        <li>No usar BC547, BC548 ni 2N3904: se queman con la fila llena de piezas.</li>
+        <li>No conectar una base de NPN directo a un pin del Nano sin su resistencia de 470 Ω.</li>
+        <li>No agregar pull-ups externas en las columnas: le suman corriente al Hall que detecta. Alcanzan las internas del Nano.</li>
+        <li>No alimentar los Hall con más de 5 V: sus salidas van directo a los pines del Nano.</li>
+        <li>No usar D0 ni D1.</li>
+        <li>No conectar el bus de una fila directo a GND: tiene que pasar por el NPN, o esa fila queda siempre encendida.</li>
+        <li>No alimentar el Nano por VIN mientras está conectado por USB.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="sin-alimentar">
+    <h2>Verificación sin alimentar</h2>
+    <p>Con el USB desenchufado, multímetro en continuidad o en modo diodo. Las casillas se pueden tildar mientras se mide; quedan guardadas en este navegador.</p>
+    <ul class="checklist" id="checklist">
+      <li><input type="checkbox" id="w1"><label for="w1">Ningún cable de la matriz va a la Raspberry Pi (solo el USB al Nano).</label></li>
+      <li><input type="checkbox" id="w2"><label for="w2">Vcc de cada Hall ↔ pin 5V del Nano: <strong>continuidad</strong>.</label></li>
+      <li><input type="checkbox" id="w3"><label for="w3">Modo diodo, punta roja en el GND de un Hall, negra en el colector del NPN de su fila: <strong>~0,5–0,7 V</strong>. Así se prueba el diodo de cada celda. <span class="mono">OL</span> = diodo cortado o al revés; ~0 V = diodo en corto.</label></li>
+      <li><input type="checkbox" id="w4"><label for="w4">Las mismas puntas invertidas: <strong>OL</strong>. Si marca ~0,5 V, ese diodo está al revés.</label></li>
+      <li><input type="checkbox" id="w5"><label for="w5">GND de cada Hall ↔ GND del Nano: <strong>sin continuidad</strong>. Si hay, ese Hall está a GND directo.</label></li>
+      <li><input type="checkbox" id="w6"><label for="w6">OUT de cada Hall ↔ el pin del Nano de su columna: <strong>continuidad</strong>.</label></li>
+      <li><input type="checkbox" id="w7"><label for="w7">Cada columna ↔ las otras columnas, y cada columna ↔ GND: <strong>sin continuidad</strong>.</label></li>
+      <li><input type="checkbox" id="w8"><label for="w8">Cada colector de NPN ↔ los colectores de las otras filas: <strong>sin continuidad</strong> (buses de fila separados).</label></li>
+      <li><input type="checkbox" id="w9"><label for="w9">Emisor de cada NPN ↔ GND del Nano: <strong>continuidad</strong>.</label></li>
+      <li><input type="checkbox" id="w10"><label for="w10">Cada pin D2–D9 ↔ base de su NPN: <strong>~470 Ω</strong> en resistencia.</label></li>
+      <li><input type="checkbox" id="w11"><label for="w11">Base de cada NPN ↔ GND: <strong>~10 kΩ</strong> en resistencia (algo menos, porque mide en paralelo con el transistor).</label></li>
+      <li><input type="checkbox" id="w12"><label for="w12">5V ↔ GND del Nano: <strong>sin corto</strong> (no tiene que pitar).</label></li>
+    </ul>
+  </section>
+
+  <section id="prueba">
+    <h2>Prueba con alimentación</h2>
+    <p>Primero con <strong>un solo driver</strong> armado (fila F0, en D2), antes de soldar los otros 7. La medición que decide si el plan sirve es la de la fila llena de piezas.</p>
+    <ol class="steps">
+      <li><b>Cargar el sketch.</b> En el Arduino IDE: placa <span class="mono">Arduino Nano</span>; en los clones, procesador <span class="mono">ATmega328P (Old Bootloader)</span> si no sube con el normal. Abrir el monitor serie a <span class="mono">115200</span> baudios.
+<pre>// Prueba de la matriz Hall con el Nano: imprime 8 líneas (F0..F7) de 8 caracteres (C0..C7).
+// '#' = imán detectado, '.' = vacío.
+const uint8_t FILAS[8] = {2, 3, 4, 5, 6, 7, 8, 9};
+const uint8_t COLUMNAS[8] = {10, 11, 12, A0, A1, A2, A3, A4};
+const unsigned int ESPERA_ENCENDIDO_US = 1000;  // igual que HALL_ESPERA_ENCENDIDO
+
+void setup() {
+  Serial.begin(115200);
+  for (uint8_t f = 0; f &lt; 8; f++) {
+    pinMode(FILAS[f], OUTPUT);
+    digitalWrite(FILAS[f], LOW);
+  }
+  for (uint8_t c = 0; c &lt; 8; c++) pinMode(COLUMNAS[c], INPUT_PULLUP);
+}
+
+void loop() {
+  for (uint8_t f = 0; f &lt; 8; f++) {
+    digitalWrite(FILAS[f], HIGH);
+    delayMicroseconds(ESPERA_ENCENDIDO_US);
+    for (uint8_t c = 0; c &lt; 8; c++) {
+      Serial.print(digitalRead(COLUMNAS[c]) == LOW ? '#' : '.');
+    }
+    digitalWrite(FILAS[f], LOW);
+    Serial.println();
+  }
+  Serial.println();
+  delay(500);
+}</pre>
+      </li>
+      <li><b>Probar con un imán.</b> Al poner el polo sur sobre una casilla de F0, tiene que aparecer un <span class="mono">#</span> en la primera línea de cada bloque, en la columna de esa casilla. Las otras filas (todavía sin driver) quedan en <span class="mono">........</span>.</li>
+      <li><b>Medir con F0 fija.</b> Para medir con el multímetro, cambiar <span class="mono">loop()</span> por una versión que deje F0 siempre encendida:
+<pre>void loop() {
+  digitalWrite(FILAS[0], HIGH);  // F0 fija, para medir
+  for (uint8_t c = 0; c &lt; 8; c++) {
+    Serial.print(digitalRead(COLUMNAS[c]) == LOW ? '#' : '.');
+  }
+  Serial.println();
+  delay(300);
+}</pre>
+      </li>
+      <li><b>Llenar F0 con 8 piezas</b> y hacer las mediciones de la tabla.</li>
+    </ol>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Medición con F0 llena (punta negra en GND del Nano)</th><th>Tiene que dar</th><th>Si no</th></tr></thead>
+        <tbody>
+          <tr><td>Pin D2</td><td class="mono">≈ 5 V</td><td>El sketch no está corriendo o D2 está en corto.</td></tr>
+          <tr><td>Base del NPN de F0</td><td class="mono">≈ 0,7–0,9 V</td><td>0 V: falta la de 470 Ω. ~5 V: transistor mal puesto o quemado.</td></tr>
+          <tr><td>Colector del NPN de F0 (bus de la fila)</td><td class="mono">&lt; 0,3 V</td><td>El transistor no se satura: revisar el modelo, las patas y la de 470 Ω.</td></tr>
+          <tr><td>Entre GND y Vcc de un Hall de F0 (negra en su GND, roja en su Vcc)</td><td class="mono">≥ 3,8 V</td><td>Riel de 5 V mal o el colector no baja. Si da bien pero no detecta, ese Hall no arranca con esa tensión.</td></tr>
+          <tr><td>Una columna de F0, con pieza</td><td class="mono">&lt; 1,3 V</td><td>Entre 1,3 y 1,5 V: funciona pero justo. Más de 1,5 V: pasar al <a href="#plan-b">plan B</a>.</td></tr>
+          <tr><td>La misma columna, sin pieza</td><td class="mono">≈ 5 V</td><td>Columna en corto a GND o Hall dañado.</td></tr>
+          <tr><td>Monitor serie</td><td class="mono">########</td><td>Ver <a href="#problemas">Problemas</a>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Si todo da bien, armar los otros 7 drivers y repetir con cada fila llena.</p>
+  </section>
+
+  <section id="plan-b">
+    <h2>Plan B: leer las columnas como analógicas</h2>
+    <p>Solo si la columna con pieza queda por encima de ~1,3 V. Con <span class="mono">analogRead</span>, el umbral lo elige el sketch (por ejemplo 2,5 V) en vez de depender del umbral de la entrada digital del Nano.</p>
+    <ul>
+      <li><strong>Recablear solo 3 columnas:</strong> C0 de D10 a <span class="mono">A5</span>, C1 de D11 a <span class="mono">A6</span>, C2 de D12 a <span class="mono">A7</span>. C3–C7 quedan en A0–A4.</li>
+      <li><strong>Agregar una pull-up de 10 kΩ a 5 V en A6 y en A7</strong>: esos dos pines no tienen pull-up interna. Las demás columnas siguen con la interna.</li>
+      <li>El barrido baja a unas 60 lecturas del tablero por segundo, que alcanza de sobra.</li>
+    </ul>
+<pre>// Cambios en el sketch de prueba para el plan B.
+const uint8_t COLUMNAS[8] = {A5, A6, A7, A0, A1, A2, A3, A4};
+const int UMBRAL = 512;  // 2,5 V: por debajo es imán
+
+// en setup(): pinMode(COLUMNAS[c], INPUT_PULLUP) sirve para A0–A5; A6 y A7 usan la externa.
+// en loop(), en vez de digitalRead:
+Serial.print(analogRead(COLUMNAS[c]) &lt; UMBRAL ? '#' : '.');</pre>
+  </section>
+
+  <section id="problemas">
+    <h2>Problemas frecuentes</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Síntoma en el monitor serie</th><th>Causa probable</th></tr></thead>
+        <tbody>
+          <tr><td>Una fila entera siempre en <span class="mono">########</span></td><td>El bus de esa fila toca GND directo (sin pasar por el NPN), o el NPN está en corto.</td></tr>
+          <tr><td>Una columna entera siempre en <span class="mono">#</span></td><td>El cable de columna toca GND.</td></tr>
+          <tr><td>Una fila nunca detecta</td><td>NPN con las patas cambiadas, falta la de 470 Ω, o el bus de fila no llega al colector.</td></tr>
+          <tr><td>Una casilla nunca detecta</td><td>Diodo del GND cortado o al revés, Hall de cara (letras abajo), imán con el norte abajo, o ese Hall no arranca con ~4 V.</td></tr>
+          <tr><td>Una pieza aparece también en otra fila</td><td>El diodo de algún Hall de esa columna está en corto o puenteado.</td></tr>
+          <tr><td>Con una pieza sola detecta, con la fila llena falla</td><td>El NPN no se satura (modelo débil o resistencia de base mayor a 470 Ω), o el nivel bajo de la columna supera el umbral: pasar al plan B.</td></tr>
+          <tr><td>Casillas que parpadean</td><td>Imán débil o lejos del sensor, o la columna con pieza queda cerca de 1,5 V: pasar al plan B.</td></tr>
+          <tr><td>Todo en <span class="mono">........</span></td><td>Falta el 5 V en el riel de Vcc, o la unión de GND entre los emisores y el Nano.</td></tr>
+          <tr><td>No aparece nada en el monitor serie</td><td>Velocidad distinta de 115200, puerto equivocado, o el clon necesita el driver CH340.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Del lado del software</h2>
+    <p>Esta parte la resuelve el equipo de software: el sketch definitivo del Nano manda la matriz a la Pi por USB, y la Pi la lee del puerto serie en vez de manejar los pines. Para el armado alcanza con el sketch de prueba de esta página.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  // Pines del Nano y patas que usaban el 138 (Yk) y el 165 (Dk), en el mismo orden que io/matriz.py.
+  const PIN_FILA = ["D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9"];
+  const PIN_COLUMNA = ["D10", "D11", "D12", "A0", "A1", "A2", "A3", "A4"];
+  const PATA_138 = [15, 14, 13, 12, 11, 10, 9, 7];
+  const PATA_165 = [11, 12, 13, 14, 3, 4, 5, 6];
+
+  const filas = document.getElementById("tabla-filas");
+  const columnas = document.getElementById("tabla-columnas");
+  for (let k = 0; k < 8; k++) {
+    filas.insertAdjacentHTML("beforeend",
+      `<tr><td class="mono">F${k}</td><td class="mono">${PIN_FILA[k]}</td><td>470 Ω → base del NPN de F${k}; su colector al bus de la fila</td><td class="mono">Y${k} del 138 (pata ${PATA_138[k]})</td></tr>`);
+    columnas.insertAdjacentHTML("beforeend",
+      `<tr><td class="mono">C${k}</td><td class="mono">${PIN_COLUMNA[k]}</td><td>Cable de la columna (salidas OUT de sus 8 Hall)</td><td class="mono">D${k} del 165 (pata ${PATA_165[k]})</td></tr>`);
+  }
+
+  // Grilla de la matriz: buses de fila horizontales, columnas verticales, un punto por Hall.
+  const x0 = 150, y0 = 40, paso = 62, n = 8;
+  const ancho = x0 + paso * (n - 1) + 70, alto = y0 + paso * (n - 1) + 90;
+  let s = `<svg viewBox="0 0 ${ancho} ${alto}" xmlns="http://www.w3.org/2000/svg">`;
+  for (let f = 0; f < n; f++) {
+    const y = y0 + f * paso;
+    s += `<path d="M96 ${y} H${x0 + paso * (n - 1) + 24}" stroke="var(--wire)" stroke-width="2" fill="none"/>`;
+    s += `<rect x="44" y="${y - 13}" width="52" height="26" rx="3" fill="var(--surface)" stroke="var(--wire)" stroke-width="1.5"/>`;
+    s += `<text x="50" y="${y + 5}" class="lbl">NPN</text>`;
+    s += `<text x="6" y="${y + 5}">F${f}</text>`;
+  }
+  for (let c = 0; c < n; c++) {
+    const x = x0 + c * paso;
+    s += `<path d="M${x + 14} ${y0 - 20} V${y0 + paso * (n - 1) + 40}" stroke="var(--col)" stroke-width="2" fill="none"/>`;
+    s += `<text x="${x + 2}" y="${y0 + paso * (n - 1) + 60}" class="coltx">C${c}</text>`;
+    s += `<text x="${x - 4}" y="${y0 + paso * (n - 1) + 78}" class="lbl">${PIN_COLUMNA[c]}</text>`;
+  }
+  for (let f = 0; f < n; f++) {
+    for (let c = 0; c < n; c++) {
+      const x = x0 + c * paso, y = y0 + f * paso;
+      // Hall (círculo) arriba del bus: su GND baja al bus por el diodo (triángulo), su OUT va a la columna.
+      s += `<path d="M${x} ${y - 4} V${y - 1}" stroke="var(--wire)" stroke-width="1.5"/>`;
+      s += `<polygon points="${x - 4},${y - 4} ${x + 4},${y - 4} ${x},${y}" fill="var(--wire)"/>`;
+      s += `<circle cx="${x}" cy="${y - 12}" r="7" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>`;
+      s += `<path d="M${x + 7} ${y - 12} H${x + 14}" stroke="var(--col)" stroke-width="1.5"/>`;
+    }
+  }
+  s += `<text x="${x0 - 8}" y="${y0 + paso * (n - 1) + 60}" class="lbl" text-anchor="end">al Nano:</text>`;
+  s += `</svg>`;
+  document.getElementById("grilla").innerHTML = s;
+
+  // Checklist de verificación: se guarda en este navegador.
+  const CLAVE = "matriz-hall-nano:checklist-v2";
+  let marcadas = {};
+  try { marcadas = JSON.parse(localStorage.getItem(CLAVE)) || {}; } catch (e) {}
+  document.querySelectorAll("#checklist input").forEach(cb => {
+    cb.checked = !!marcadas[cb.id];
+    cb.addEventListener("change", () => {
+      marcadas[cb.id] = cb.checked;
+      try { localStorage.setItem(CLAVE, JSON.stringify(marcadas)); } catch (e) {}
+    });
+  });
+})();
+</script>

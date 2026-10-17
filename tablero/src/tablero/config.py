@@ -33,6 +33,10 @@ PIN_BOTON_RELOJ_JUGADOR_2: int = 35  # GPIO 19 (BCM)
 # Ver io/matriz.py y hardware-docs/funcionamiento_deteccion_de_casillas.md. El 74HC138
 # elige qué fila se pone en LOW y el 74HC165 lee las 8 columnas; numeración BOARD,
 # igual que los botones.
+# OJO: esto es la v2, descartada el 2026-10-17 (el 138 no aguanta la corriente de los
+# Hall). En la v3 un Arduino Nano barre la matriz y la Pi lo lee por USB serie, así que
+# estos 6 pines quedan libres; se borran cuando io/matriz.py pase a leer el puerto serie.
+# Ver hardware-docs/matriz-hall-nano.md e historial-deteccion.md.
 PIN_MATRIZ_SELECTOR_A: int = 38  # GPIO 20 (BCM) → 74HC138 A
 PIN_MATRIZ_SELECTOR_B: int = 40  # GPIO 21 (BCM) → 74HC138 B
 PIN_MATRIZ_SELECTOR_C: int = 37  # GPIO 26 (BCM) → 74HC138 C

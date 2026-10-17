@@ -96,7 +96,8 @@ pisan; y cerrar dos veces no duplica nada.
 
 Tests de `logica/matriz.py` ([`sensores.md`](./sensores.md#matriz-de-casillas-sensores-hall)), lo
 que se hace con las lecturas de la matriz de sensores Hall sin tocar GPIO. Sin hardware: las
-lecturas crudas del 74HC138/74HC165 se arman a mano como `MatrizCruda`.
+lecturas crudas se arman a mano como `MatrizCruda` (8 × 8, igual con el 74HC138/74HC165 de la v2
+que con el Arduino Nano de la v3, porque filas y columnas conservan su numeración Yk/Dk).
 
 Casos cubiertos: la validación de `CASILLA_DE_CELDA_HALL` (cantidad de filas, fila corta, nombre
 inválido, casilla repetida, mayúsculas y espacios) y que la tabla de `config.py` sea válida, la
