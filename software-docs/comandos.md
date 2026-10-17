@@ -125,8 +125,8 @@ enchufado, así que los corre Tino. Detalle, protocolo y prueba con el Nano suel
 
 | Comando | Qué hace |
 |---|---|
-| `arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old firmware/matriz-nano` | Compila el firmware (agregar `--build-property "compiler.cpp.extra_flags=-DPLAN_B=1"` para el plan B) |
-| `arduino-cli compile --upload -p /dev/ttyUSB0 --fqbn arduino:avr:nano:cpu=atmega328old firmware/matriz-nano` | Compila y lo sube al Nano (`cpu=atmega328` si da `not in sync`) |
+| `arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328 firmware/matriz-nano` | Compila el firmware (agregar `--build-property "compiler.cpp.extra_flags=-DPLAN_B=1"` para el plan B) |
+| `arduino-cli compile --upload -p /dev/ttyUSB0 --fqbn arduino:avr:nano:cpu=atmega328 firmware/matriz-nano` | Compila y lo sube al Nano (si da `not in sync`, el Nano tiene el bootloader viejo: `cpu=atmega328old`) |
 | `arduino-cli monitor -p /dev/ttyUSB0 -c baudrate=115200` | Monitor serie, para escribirle comandos (`?`, `L`, `F 0`, `C`, `X`, `A`, `V`) |
 | `arduino-cli board list` | En qué puerto quedó el Nano (`/dev/ttyUSB0` en los clones con CH340, si no `/dev/ttyACM0`) |
 

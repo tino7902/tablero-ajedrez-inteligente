@@ -32,22 +32,26 @@ CH340 aparecen como `/dev/ttyUSB0`; otros, como `/dev/ttyACM0` (`arduino-cli boa
 
 ```bash
 # Solo compilar (no necesita el Nano):
-arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old firmware/matriz-nano
+arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328 firmware/matriz-nano
 
 # Compilar y subir:
-arduino-cli compile --upload -p /dev/ttyUSB0 --fqbn arduino:avr:nano:cpu=atmega328old firmware/matriz-nano
+arduino-cli compile --upload -p /dev/ttyUSB0 --fqbn arduino:avr:nano:cpu=atmega328 firmware/matriz-nano
 
 # Monitor serie para escribirle comandos (Ctrl+C sale):
 arduino-cli monitor -p /dev/ttyUSB0 -c baudrate=115200
 ```
 
-- `cpu=atmega328old` es el bootloader viejo que traen casi todos los clones. Si la subida falla con
-  `not in sync`, probar `cpu=atmega328`.
+- `cpu=atmega328` es el bootloader nuevo (Optiboot, sube a 115200), el que tiene el Nano del
+  proyecto: verificado el 2026-10-17 leyendo la firma del chip (`1E 95 0F`, ATmega328P, bootloader
+  4.4). Con `cpu=atmega328old` (bootloader viejo, 57600) ese Nano no contesta y la subida falla
+  con `not in sync`. Si algún día se cambia el Nano y con `cpu=atmega328` da `not in sync`, ese
+  tiene el bootloader viejo: usar `cpu=atmega328old`.
 - Si da `Permission denied` sobre el puerto: `sudo usermod -aG uucp $USER` (en CachyOS/Arch el
   puerto es del grupo `uucp`) y volver a iniciar sesión.
 - El monitor no se puede usar mientras se sube: cerrarlo antes.
 - Con el Arduino IDE: abrir `firmware/matriz-nano/matriz-nano.ino`, placa `Arduino Nano`,
-  procesador `ATmega328P (Old Bootloader)`, monitor serie a 115200 con fin de línea "Nueva línea".
+  procesador `ATmega328P` (no el `Old Bootloader`), monitor serie a 115200 con fin de línea
+  "Nueva línea".
 
 Compilado con `arduino-cli` 1.5.1 y el core `arduino:avr` 1.8.8: usa ~4,2 kB de flash (13 %) y
 239 bytes de RAM (11 %).
@@ -62,7 +66,10 @@ Compilado con `arduino-cli` 1.5.1 y el core `arduino:avr` 1.8.8: usa ~4,2 kB de 
   medio (`F3` = `F 3` = ` f 3 `). Máximo 15 caracteres por línea.
 - **Arranque:** abrir el puerto resetea el Nano (por la señal DTR del USB). Tarda 1–2 s en
   arrancar; al hacerlo apaga todas las filas y manda `LISTO matriz-nano 1`. Quien abre el puerto
-  tiene que esperar esa línea antes de mandar nada (lo que llegue antes se pierde). El `1` es la
+  tiene que esperar esa línea antes de mandar nada (lo que llegue antes se pierde). Antes del `LISTO`
+  el Nano manda una línea vacía: con el reset suele entrar basura por el USB (se vio `�1�X�`), y
+  así queda sola en su propia línea. Quien lee tiene que descartar todo lo que llegue antes de una
+  línea igual a `LISTO matriz-nano 1`. El `1` es la
   versión del protocolo: si cambia de forma incompatible, se sube.
 
 | Comando | Respuesta | Qué hace |
@@ -153,7 +160,7 @@ Si en la prueba con un driver la columna con pieza queda por encima de ~1,3 V
 (`matriz-hall-nano.md`, "Plan B"), se recablean C0–C2 a A5–A7 y se compila con `PLAN_B=1`:
 
 ```bash
-arduino-cli compile --upload -p /dev/ttyUSB0 --fqbn arduino:avr:nano:cpu=atmega328old \
+arduino-cli compile --upload -p /dev/ttyUSB0 --fqbn arduino:avr:nano:cpu=atmega328 \
   --build-property "compiler.cpp.extra_flags=-DPLAN_B=1" firmware/matriz-nano
 ```
 

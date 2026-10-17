@@ -160,7 +160,7 @@ The Nano firmware builds from the **repo root** (not `tablero/`) with the `ardui
 `arduino:avr` core installed on the notebook:
 
 ```bash
-arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old firmware/matriz-nano   # add --build-property "compiler.cpp.extra_flags=-DPLAN_B=1" for plan B
+arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328 firmware/matriz-nano   # add --build-property "compiler.cpp.extra_flags=-DPLAN_B=1" for plan B
 ```
 
 Upload/monitor commands (Tino runs them) are in `software-docs/comandos.md`.

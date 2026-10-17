@@ -290,6 +290,9 @@ void setup() {
     pinMode(COLUMNAS[c], INPUT_PULLUP);
   }
   Serial.begin(115200);
+  // Al abrir el puerto el Nano se resetea y por el USB suele entrar algo de basura; el salto de
+  // línea la deja sola en su línea y el LISTO llega limpio.
+  Serial.println();
   anunciar();
 }
 
