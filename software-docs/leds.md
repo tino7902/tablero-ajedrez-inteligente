@@ -12,6 +12,7 @@ el prototipo**.
 | `TiraLeds(brillo)` | Inicializa la tira (`PixelStrip.begin()`) |
 | `.encender(casilla, color)` / `.encender_indice(i, color)` | Fija el color de un LED (no se ve hasta `mostrar()`) |
 | `.limpiar()` / `.mostrar()` / `.apagar()` | Todo en negro / enviar a la tira / las dos cosas |
+| `formatear_led_de_casilla(tabla)` | Bloque `LED_DE_CASILLA` listo para pegar en `config.py`; lo usan `calibrar` y `prueba_tablero leds` |
 | `ROJO`, `VERDE`, `AZUL`, `AMARILLO`, `BLANCO`, `APAGADO` | Colores (`rpi_ws281x.Color`) |
 
 ## Configuración (`config.py`)
@@ -68,6 +69,11 @@ uv run python -m tablero.io.leds verificar  # recorre a1, b1, ..., h8 con el map
 Orden recomendado: `todos` (¿prenden todos? ¿colores correctos, o rojo y verde invertidos?
 Eso sería `strip_type` GRB/RGB), después `calibrar` y por último `verificar`/`esquinas` para
 confirmar el mapeo. `Ctrl+C` apaga la tira y sale.
+
+**Con los sensores Hall ya mapeados**, en vez de `calibrar` conviene
+`uv run python -m tablero.io.prueba_tablero leds`: prende cada LED y la casilla la dicen los Hall
+al poner una pieza en la casilla iluminada, sin tipear nada. Después,
+`prueba_tablero recorrido` verifica LEDs y sensores juntos. Ver [`prueba-tablero.md`](./prueba-tablero.md).
 
 ### `calibrar`
 

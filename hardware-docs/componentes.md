@@ -4,9 +4,9 @@
 - _1x Pantalla Táctil LCD 3.5” (320x480, V3):_ Interfaz principal. Selector de oponentes (2 Jugadores Humanos o Humano vs. Máquina). Configuración del reloj
 - _2x Interruptores Fin de Carrera (Limit Switches):_ Utilizados como los botones físicos del reloj de ajedrez (Jugador 1 y Jugador 2). Al ser de pulsación corta y mecánica, ofrecen una respuesta táctil rápida.
 - _2x Resistencias (ej. 10 kΩ):_ Configuradas como Pull-down (o Pull-up) a 3.3V para fijar el estado lógico de los botones del reloj y evitar falsos disparos.
-- _64x Switches Magnéticos (Reed Switches):_ Detectan la presencia física de las piezas en cada casilla.
-- _64x Imanes de Neodimio:_ Instalados en la base de las piezas para activar los Reed switches.
-- _64x Diodos (ej. 1N4148):_ Conectados a cada Reed switch para prevenir lecturas fantasma (ghosting).
+- _64x Sensores Hall A3144 (módulos KY-003):_ Detectan la presencia física de las piezas en cada casilla. Digitales y unipolares: solo reaccionan al polo sur del imán. Cada fila se alimenta desde su salida del 74HC138 (GND de cada Hall a la salida Y de su fila); conexión y riesgos eléctricos en `celdas-hall.md`. Reemplazaron a los 64 reed switches de la versión anterior (ver `conexiones-matriz.md`, "Celdas reed + diodo").
+- _64x Imanes de Neodimio:_ Instalados en la base de las piezas para activar los sensores Hall, **todos con el polo sur hacia abajo** (el A3144 no detecta el polo norte).
+- _64x Diodos (ej. 1N4148, o mejor Schottky como BAT85 o 1N5819):_ En serie con la salida de cada Hall, con la banda hacia el Hall, para prevenir lecturas fantasma (ghosting). Un Schottky deja más margen en el nivel bajo de la columna.
 - _1x IC 74HC138 (Demultiplexor de 3 a 8):_ Selector de filas para el barrido del tablero (Alimentado a 3.3V).
 - _1x IC 74HC165 (Registro de Desplazamiento):_ Lector paralelo/serie de columnas (Alimentado a 3.3V).
 - _8x Resistencias Pull-up (10 kΩ):_ Para mantener las columnas del tablero en 3.3V en estado de reposo.

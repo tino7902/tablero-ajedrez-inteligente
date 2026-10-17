@@ -168,13 +168,18 @@ def _probar_calibrar(tira: TiraLeds) -> None:
     if faltantes:
         print(f"\nFaltan casillas sin LED: {', '.join(faltantes)}. Revisar la tira y repetir.")
         return
-    tabla = tuple(asignadas[c] for c in chess.SQUARES)
     print("\nCopiar en tablero/src/tablero/config.py (reemplazando el LED_DE_CASILLA actual):\n")
-    print("LED_DE_CASILLA: tuple[int, ...] = (")
+    print(formatear_led_de_casilla(tuple(asignadas[c] for c in chess.SQUARES)))
+
+
+def formatear_led_de_casilla(tabla: tuple[int, ...]) -> str:
+    """Bloque `LED_DE_CASILLA` listo para pegar en config.py, una fila de ajedrez por línea."""
+    lineas = ["LED_DE_CASILLA: tuple[int, ...] = ("]
     for fila in range(8):
         valores = ", ".join(f"{i:2d}" for i in tabla[fila * 8 : fila * 8 + 8])
-        print(f"    {valores},  # fila {fila + 1}: a..h")
-    print(")")
+        lineas.append(f"    {valores},  # fila {fila + 1}: a..h")
+    lineas.append(")")
+    return "\n".join(lineas)
 
 
 if __name__ == "__main__":

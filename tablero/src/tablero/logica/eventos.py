@@ -1,9 +1,9 @@
 """Traducción de diffs de ocupación de casillas a `chess.Move`.
 
-Los sensores físicos (reed switches, ver `hardware-docs/`) solo van a poder reportar
+Los sensores físicos (sensores Hall, ver `hardware-docs/`) solo van a poder reportar
 presencia/ausencia de pieza por casilla, no identidad — este módulo reconstruye qué
 movimiento se está haciendo comparando snapshots sucesivos de ocupación contra el
-estado de `EstadoTablero`. No depende de `io/sensores.py` (todavía vacío): define su
+estado de `EstadoTablero`. No depende de `io/sensores.py`: define su
 propia entrada (`Ocupacion`, un `frozenset[chess.Square]`) para mantenerse testable sin
 hardware, siguiendo el boundary documentado en `CLAUDE.md`.
 

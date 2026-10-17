@@ -1,4 +1,7 @@
-# Guía: prueba y mapeo de la matriz de casillas
+# Guía: prueba y mapeo de la matriz de casillas (versión reed, la anterior)
+
+> **Versión anterior, con reed switches.** El tablero ahora usa sensores Hall: la guía actual
+> es `checklist-prueba-hall.md`. Esta se conserva por si se vuelve a los reed.
 
 Vas a verificar los dos chips que leen el tablero, probar que los imanes de las piezas activan
 los sensores, calibrar qué sensor corresponde a cada casilla y verificar las 64 casillas.
@@ -52,7 +55,7 @@ cd ~/tablero-ajedrez-inteligente/tablero && git pull && uv sync
 ### 3. Chip de las filas (74HC138)
 
 ```bash
-uv run python -m tablero.io.sensores selector
+uv run python -m tablero.io.sensores_reed selector
 ```
 
 El programa activa las salidas Y0 a Y7 de a una y espera Enter entre cada una. En cada paso:
@@ -88,7 +91,7 @@ Las patas del chip, mirándolo desde arriba con la muesca hacia arriba:
 Con el tablero vacío:
 
 ```bash
-uv run python -m tablero.io.sensores lector
+uv run python -m tablero.io.sensores_reed lector
 ```
 
 ✅ La última línea empieza con `OK`.
@@ -103,7 +106,7 @@ uv run python -m tablero.io.sensores lector
 ### 5. Tablero vacío
 
 ```bash
-uv run python -m tablero.io.sensores matriz
+uv run python -m tablero.io.sensores_reed matriz
 ```
 
 El programa queda corriendo y redibuja la pantalla cada vez que cambia algo. Muestra dos
@@ -164,7 +167,7 @@ Cuando termines, cortá el programa con `Ctrl+C`.
 Con el tablero vacío y una pieza a mano:
 
 ```bash
-uv run python -m tablero.io.sensores calibrar
+uv run python -m tablero.io.sensores_reed calibrar
 ```
 
 Te va a pedir 15 casillas de a una: a1, b1, … h1 y después a2, a3, … a8. Para cada una:
@@ -213,7 +216,7 @@ No hace falta commitear: Tino se encarga.
 ### 11. Recorrer las 64 casillas
 
 ```bash
-uv run python -m tablero.io.sensores matriz
+uv run python -m tablero.io.sensores_reed matriz
 ```
 
 Ahora mirá el dibujo de abajo, "Tablero mapeado", y los mensajes `aparece pieza en ...`. Llevá una
@@ -260,5 +263,6 @@ Cortá el programa con `Ctrl+C`.
 Pasale a Tino tu copia con todas las líneas 📝 completas.
 
 El detalle técnico de cada prueba y cómo interpretar las fallas está en
-`software-docs/sensores.md` ("Cómo probarlo" → "Matriz"). Las conexiones de los chips pata por
+`software-docs/sensores-reed.md` ("Cómo probarlo") y, para las pruebas de los chips, en
+`software-docs/sensores.md` ("Pruebas por chip"). Las conexiones de los chips pata por
 pata, para revisar el cableado con el multímetro, están en `hardware-docs/conexiones-matriz.md`.

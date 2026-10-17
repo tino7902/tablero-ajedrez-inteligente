@@ -3,7 +3,7 @@
 Este chip es un _decodificador_. Su función principal es recibir un número binario de 3 bits (del 0 al 7) en sus pines de entrada (A, B, C) y activar una sola de sus 8 salidas (Y0 a Y7).
 
 - _Lógica activa en BAJA:_ Cuando una salida se activa, su voltaje cae a 0V (LOW o GND). Las otras 7 salidas permanecen en 5V/3.3V (HIGH).
-- _Rol en el tablero:_ Actúa como el "selector". La Raspberry Pi le dice a este chip: "Conecta la fila 'a' a tierra". Solo los sensores de esa fila tendrán el potencial de cerrar un circuito hacia tierra.
+- _Rol en el tablero:_ Actúa como el "selector". La Raspberry Pi le dice a este chip: "Conecta la fila 'a' a tierra". Solo los sensores de esa fila tendrán el potencial de cerrar un circuito hacia tierra. Con los sensores Hall, como el GND de cada uno va a la salida Y de su fila, además son los únicos que reciben alimentación (ver `celdas-hall.md`).
 
 ## El 74HC165 (Lectura de Columnas)
 

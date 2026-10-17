@@ -29,10 +29,10 @@ CALIBRACION_TOUCH_PATH: Path = Path(__file__).resolve().parent.parent.parent / "
 PIN_BOTON_RELOJ_JUGADOR_1: int = 33  # GPIO 13 (BCM)
 PIN_BOTON_RELOJ_JUGADOR_2: int = 35  # GPIO 19 (BCM)
 
-# Matriz de detección de casillas (64 reed switches), ver io/sensores.py y
-# hardware-docs/funcionamiento_deteccion_de_casillas.md. El 74HC138 elige qué fila
-# se pone en LOW y el 74HC165 lee las 8 columnas; numeración BOARD, igual que los
-# botones.
+# -- Matriz de detección de casillas: chips (comunes a las dos versiones de sensor) --
+# Ver io/matriz.py y hardware-docs/funcionamiento_deteccion_de_casillas.md. El 74HC138
+# elige qué fila se pone en LOW y el 74HC165 lee las 8 columnas; numeración BOARD,
+# igual que los botones.
 PIN_MATRIZ_SELECTOR_A: int = 38  # GPIO 20 (BCM) → 74HC138 A
 PIN_MATRIZ_SELECTOR_B: int = 40  # GPIO 21 (BCM) → 74HC138 B
 PIN_MATRIZ_SELECTOR_C: int = 37  # GPIO 26 (BCM) → 74HC138 C
@@ -40,9 +40,39 @@ PIN_MATRIZ_CARGA: int = 29  # GPIO 5 (BCM) → 74HC165 SH/LD
 PIN_MATRIZ_RELOJ: int = 31  # GPIO 6 (BCM) → 74HC165 CLK
 PIN_MATRIZ_DATOS: int = 36  # GPIO 16 (BCM) ← 74HC165 Q7
 
+# -- Matriz: versión Hall (la actual, io/sensores.py) --------------------------------
+# 64 sensores Hall A3144 / KY-003, con el GND de cada uno en la salida Y del 138 de su
+# fila: el 138 enciende solo los Hall de la fila elegida (ver hardware-docs/celdas-hall.md).
+#
+# Segundos que se espera en cada fila, después de elegirla, antes de leer las columnas:
+# lo que tardan los Hall en encender. 1 ms es un placeholder generoso; el valor real lo
+# mide `uv run python -m tablero.io.sensores calibrar` (ver software-docs/sensores.md).
+HALL_ESPERA_ENCENDIDO: float = 0.001
+# Lecturas iguales seguidas que tiene que dar la matriz antes de reportar un cambio
+# (antirrebote del paso de la mano y de los Hall que dudan en el borde de la casilla).
+# También lo recomienda `calibrar`.
+HALL_LECTURAS_ESTABLES: int = 3
+# Mapeo celda → casilla, uno por sensor: CASILLA_DE_CELDA_HALL[salida Y del 138][entrada
+# D del 165] = nombre de la casilla. Sirve aunque el cableado no sea una grilla. El valor
+# de abajo es un placeholder (identidad); se genera el real con
+# `uv run python -m tablero.io.sensores mapear` (ver software-docs/sensores.md).
+CASILLA_DE_CELDA_HALL: tuple[tuple[str, ...], ...] = (
+    ("a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1"),  # Y0: D0..D7
+    ("a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2"),  # Y1: D0..D7
+    ("a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"),  # Y2: D0..D7
+    ("a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4"),  # Y3: D0..D7
+    ("a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5"),  # Y4: D0..D7
+    ("a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"),  # Y5: D0..D7
+    ("a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7"),  # Y6: D0..D7
+    ("a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"),  # Y7: D0..D7
+)
+
+# -- Matriz: versión reed (la anterior, io/sensores_reed.py) -------------------------
+# Se conserva por si se vuelve a los reed switches (ver software-docs/sensores-reed.md).
+#
 # Lecturas iguales seguidas que tiene que dar la matriz antes de reportar un cambio
 # (antirrebote de los reed switches y del paso de la mano sobre el tablero).
-MATRIZ_LECTURAS_ESTABLES: int = 3
+REED_LECTURAS_ESTABLES: int = 3
 
 # Mapeo matriz cruda → casilla de ajedrez. La matriz se lee como
 # [salida Y0..Y7 del 74HC138][entrada D0..D7 del 74HC165]; cada salida es una fila
@@ -51,7 +81,7 @@ MATRIZ_LECTURAS_ESTABLES: int = 3
 #   COLUMNA_DE_ENTRADA_165[d] = columna de ajedrez (0 = columna a, 7 = columna h)
 # Los valores de abajo son un placeholder (identidad): en el esquemático las columnas
 # no entran en orden al 74HC165. Se generan con
-# `uv run python -m tablero.io.sensores calibrar` (ver software-docs/sensores.md).
+# `uv run python -m tablero.io.sensores_reed calibrar` (ver software-docs/sensores-reed.md).
 FILA_DE_SALIDA_138: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6, 7)
 COLUMNA_DE_ENTRADA_165: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6, 7)
 

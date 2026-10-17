@@ -92,10 +92,28 @@ botones ignorados, cambios de turno con el estado del reloj y el tiempo agotado;
 rotación deja 15 PGN y 5 logs borrando los más viejos; dos partidas del mismo segundo no se
 pisan; y cerrar dos veces no duplica nada.
 
+## `test_matriz.py`
+
+Tests de `logica/matriz.py` ([`sensores.md`](./sensores.md#matriz-de-casillas-sensores-hall)), lo
+que se hace con las lecturas de la matriz de sensores Hall sin tocar GPIO. Sin hardware: las
+lecturas crudas del 74HC138/74HC165 se arman a mano como `MatrizCruda`.
+
+Casos cubiertos: la validación de `CASILLA_DE_CELDA_HALL` (cantidad de filas, fila corta, nombre
+inválido, casilla repetida, mayúsculas y espacios) y que la tabla de `config.py` sea válida, la
+conversión de matriz cruda a ocupación con una tabla no identidad, que el bloque que imprime
+`mapear` se pueda releer y dé la misma tabla, la detección de cableado en grilla, la elección de
+la espera de encendido (incluido ignorar un acierto por debajo de una espera que falló) y la
+recomendación de antirrebote a partir de la racha más larga de lecturas falsas.
+
+El test de la tabla de `config.py` sirve también en la Raspberry: después de pegar el resultado
+de `mapear`, `uv run pytest tests/test_matriz.py -q` confirma que no quedó mal pegada.
+
 ## Qué no está cubierto todavía
 
-`test_sensores.py` sigue vacío: `io/sensores.py` necesita hardware real para probarse de
-forma significativa (ver el boundary documentado en `CLAUDE.md`). Tampoco hay tests
+`test_sensores.py` sigue vacío: `io/sensores.py` (y `io/matriz.py`, `io/sensores_reed.py`,
+`io/prueba_tablero.py`) necesitan hardware real para probarse de forma significativa (ver el
+boundary documentado en `CLAUDE.md`); lo que no necesita GPIO de la matriz vive en
+`logica/matriz.py` y está cubierto por `test_matriz.py`. Tampoco hay tests
 automáticos de `tablero/simulacion.py` ni de `io/menus.py`: son capas de entrada/salida
 (terminal y pygame) sobre lógica que ya está cubierta por `test_partida.py`,
 `test_reloj.py` y `test_registro.py`; se prueban a mano corriéndolas (ver

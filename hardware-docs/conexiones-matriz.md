@@ -4,6 +4,10 @@ Qué tiene que estar conectado con qué, pata por pata, y cómo verificarlo con 
 Funcionamiento de los chips en `funcionamiento_deteccion_de_casillas.md`; pruebas con la Pi
 encendida en `software-docs/sensores.md`, "Cómo probarlo".
 
+Los chips y sus conexiones son los mismos con sensores Hall (la versión actual) o con reed
+switches (la anterior). Lo que cambia es cada celda: la conexión de cada Hall, sus riesgos
+eléctricos y qué medir están en `celdas-hall.md`; las celdas reed, al final de este archivo.
+
 ## Cómo medir
 
 - **Pi apagada y desenchufada**, multímetro en continuidad.
@@ -64,9 +68,10 @@ Los nombres de las patas 4, 5 y 6 cambian según el fabricante: Texas Instrument
 G2B y G1, y el esquemático de Proteus del proyecto las rotula E2, E3 y E1. Lo que importa es el
 número: **4 y 5 a GND, 6 a 3,3 V**.
 
-**Filas:** cada salida Y tiene continuidad con los cátodos (el lado de la banda) de los 8 diodos
-de una fila del tablero. El orden no importa, porque lo resuelve `calibrar`, pero cada Y tiene que
-ir a una fila distinta y ninguna fila puede quedar sin su Y.
+**Filas:** cada salida Y tiene continuidad con el GND de los 8 sensores Hall de una fila del
+tablero (en la versión reed, con los cátodos de sus 8 diodos). El orden no importa, porque lo
+resuelve `mapear` (`calibrar` en la versión reed), pero cada Y tiene que ir a una fila distinta y
+ninguna fila puede quedar sin su Y.
 
 ## 74HC165 (lector de columnas)
 
@@ -106,9 +111,11 @@ Las patas 2 y 15 del 165 son intercambiables (el chip las combina internamente),
 están cruzadas entre sí funciona igual. Las patas 1 y 2 no: si los cables de los pines 29 y 31
 están cruzados, siempre se lee D7.
 
-**Columnas:** cada entrada D tiene continuidad con una pata de cada uno de los 8 reeds de una
-columna del tablero. El orden no importa, porque lo resuelve `calibrar`. En el esquemático, la
-columna de más a la izquierda entra en D7 y la de más a la derecha, en D0.
+**Columnas:** cada entrada D tiene continuidad con los ánodos de los 8 diodos de una columna del
+tablero, que del otro lado van a la salida de cada Hall (en la versión reed, con una pata de cada
+uno de los 8 reeds). El orden no importa, porque lo resuelve `mapear` (`calibrar` en la versión
+reed). En el esquemático, la columna de más a la izquierda entra en D7 y la de más a la derecha,
+en D0.
 
 ## Resistencias pull-up (8 × 10 kΩ)
 
@@ -117,7 +124,9 @@ Cada una tiene una punta a 3,3 V y la otra a una columna (una entrada D del 165)
 **Verificación:** con el multímetro en resistencia, entre cada pata D del 165 y el 3,3 V tiene que
 dar **~10 kΩ**. Si da infinito, la pull-up de esa columna está suelta y la entrada flota.
 
-## Celdas (reed + diodo)
+## Celdas reed + diodo (versión anterior)
+
+> Para las celdas con sensor Hall, ver `celdas-hall.md`.
 
 Cada casilla es un reed en serie con un diodo: **columna → reed → diodo → fila**. El cátodo del
 diodo (la banda) va hacia la fila, es decir, hacia la salida Y del 138.
@@ -146,3 +155,5 @@ casos:
 - [ ] La pata 1 del 165 con GND.
 - [ ] La pata 7 del 165 con cualquier cosa.
 - [ ] El pin 31 de la Pi con la pata 1 del 165, porque eso significa que SH/LD y CLK están cruzados.
+- [ ] Con los Hall: el GND de cualquier Hall con el GND de la Pi. Tiene que ir solo a la salida Y
+  de su fila; si va a GND común, una pieza en esa casilla enciende la columna entera.

@@ -27,7 +27,7 @@ uv run pytest -v      # toda la suite
 Corre en notebook o Raspberry. Solo `test_motor.py` necesita algo especial (el binario
 `stockfish` en el `PATH`, y se saltea solo si no está); el resto —`test_logica.py`,
 `test_eventos.py`, `test_reloj.py`, `test_notacion.py`, `test_partida.py`,
-`test_registro.py`— no requiere nada. `test_sensores.py` está vacío todavía. Detalle
+`test_registro.py`, `test_matriz.py`— no requiere nada. `test_sensores.py` está vacío todavía. Detalle
 completo: [`testing.md`](./testing.md).
 
 ## Simulación de partida (terminal, sin hardware)
@@ -88,6 +88,25 @@ cd tablero && uv run python -m tablero.io.menus
 # En el notebook, sin la Raspberry, para iterar el diseño visual:
 cd tablero && env TABLERO_PANTALLA_VENTANA=1 uv run python -m tablero.io.menus
 ```
+
+## Scripts de `io/` (sensores y LEDs)
+
+Solo corren en la Raspberry, por SSH, desde `tablero/`. Misma regla que arriba: Claude Code nunca
+los ejecuta, le da a Tino el comando. Guía paso a paso de prueba del tablero:
+`hardware-docs/checklist-prueba-hall.md`.
+
+| Comando | Qué hace | Detalle |
+|---|---|---|
+| `uv run python -m tablero.io.sensores` (o `... botones`) | Loguea cada presión de los botones del reloj | [`sensores.md`](./sensores.md) |
+| `uv run python -m tablero.io.sensores selector` / `lector` | Prueba el 74HC138 / el 74HC165 por separado | [`sensores.md`](./sensores.md#pruebas-por-chip) |
+| `uv run python -m tablero.io.sensores medir Y0` | Deja una fila fija para medir tensiones con el multímetro (también acepta una casilla: `medir e4`) | [`sensores.md`](./sensores.md#medir) |
+| `uv run python -m tablero.io.sensores matriz` | Matriz cruda y tablero mapeado, en vivo | [`sensores.md`](./sensores.md#matriz-en-vivo) |
+| `uv run python -m tablero.io.sensores calibrar` | Mide la espera de encendido de los Hall y el antirrebote | [`sensores.md`](./sensores.md#calibrar) |
+| `uv run python -m tablero.io.sensores mapear` | Genera `CASILLA_DE_CELDA_HALL` (las 64 casillas) | [`sensores.md`](./sensores.md#mapear) |
+| `uv run python -m tablero.io.leds todos` / `recorrer` / `esquinas` / `calibrar` / `verificar` | Pruebas de la tira de LEDs (se relanza con `sudo`) | [`leds.md`](./leds.md) |
+| `uv run python -m tablero.io.prueba_tablero leds` / `recorrido` / `espejo` / `inicial` | Sensores y LEDs juntos: asociar LEDs, verificar las 64 casillas, espejo en vivo, posición inicial (se relanza con `sudo`) | [`prueba-tablero.md`](./prueba-tablero.md) |
+| `uv run python -m tablero.io.sensores_reed selector` / `lector` / `matriz` / `calibrar` | La versión anterior, con reed switches | [`sensores-reed.md`](./sensores-reed.md) |
+| `uv run python -m tablero.io.menus_gpio` | La interfaz completa con los botones físicos del reloj | [`menus.md`](./menus.md) |
 
 ## Ver también
 
