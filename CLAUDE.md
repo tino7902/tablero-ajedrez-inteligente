@@ -88,7 +88,7 @@ tablero-ajedrez-inteligente/
 ├── hardware/scematichs/       # Directorio vacío (.gitkeep); esquemáticos aún no subidos acá
 ├── hardware-docs/             # Componentes, pines GPIO, esquema de detección de casillas (docs + fotos),
 │                              #   conexiones pata por pata de los chips, celdas Hall, guías de prueba
-│                              #   de la matriz (Hall y reed)
+│                              #   de la matriz (Hall y reed), redes wifi de la Raspberry
 ├── software-docs/             # Notas de diseño por módulo (config, logica, eventos, partida, registro,
 │                              #   simulacion, motor, pantalla, menus, sensores, sensores-reed, leds,
 │                              #   prueba-tablero, comandos, pyproject, testing)
