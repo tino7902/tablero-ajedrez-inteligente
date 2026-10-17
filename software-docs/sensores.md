@@ -13,10 +13,11 @@ La matriz empezó con reed switches. Esa versión se conserva en `io/sensores_re
 > (la Pi barriendo el 74HC138 + 74HC165 por GPIO) es la v2 del hardware, que se descartó: el 138
 > no aguanta la corriente de los Hall. Desde el 2026-10-17 la arquitectura es la v3: un Arduino
 > Nano barre la matriz (un NPN por fila, Hall a 5 V) y le manda el estado a la Pi por USB. Ver
-> `hardware-docs/matriz-hall-nano.md` y `hardware-docs/historial-deteccion.md`. Falta escribir el
-> firmware del Nano y que `io/matriz.py` lea el puerto serie en vez de manejar GPIO; `medir`,
-> `calibrar` y `mapear` también hay que adaptarlas. La API de arriba (`ocupacion()`, el mapeo
-> celda → casilla) debería poder mantenerse.
+> `hardware-docs/matriz-hall-nano.md` y `hardware-docs/historial-deteccion.md`. El firmware del
+> Nano ya está escrito (`firmware/matriz-nano/`, ver [`firmware-nano.md`](./firmware-nano.md),
+> que también dice qué comando del Nano reemplaza a cada función de `io/matriz.py`); falta que
+> `io/matriz.py` hable con él por el puerto serie en vez de manejar GPIO, y adaptar `medir`. La
+> API de arriba (`ocupacion()`, el mapeo celda → casilla) debería poder mantenerse.
 
 ## Por qué existe este módulo
 

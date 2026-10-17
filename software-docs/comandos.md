@@ -99,8 +99,9 @@ los ejecuta, le da a Tino el comando. Guía paso a paso de prueba del tablero:
 > y `mapear` manejan el 74HC138 + 74HC165 por GPIO, que se descartó el 2026-10-17 (el 138 no
 > aguanta la corriente de los Hall). En la v3 un Arduino Nano barre la matriz y la Pi lo lee por
 > USB serie: `selector`/`lector` dejan de tener sentido y el resto hay que adaptarlo. Hasta
-> entonces no sirven con el hardware nuevo. Ver `hardware-docs/matriz-hall-nano.md` y
-> `hardware-docs/historial-deteccion.md`.
+> entonces no sirven con el hardware nuevo; para probar la matriz v3, el firmware del Nano tiene
+> sus propios comandos (ver "Firmware del Arduino Nano", abajo). Ver
+> `hardware-docs/matriz-hall-nano.md` y `hardware-docs/historial-deteccion.md`.
 
 | Comando | Qué hace | Detalle |
 |---|---|---|
@@ -114,6 +115,20 @@ los ejecuta, le da a Tino el comando. Guía paso a paso de prueba del tablero:
 | `uv run python -m tablero.io.prueba_tablero leds` / `recorrido` / `espejo` / `inicial` | Sensores y LEDs juntos: asociar LEDs, verificar las 64 casillas, espejo en vivo, posición inicial (se relanza con `sudo`) | [`prueba-tablero.md`](./prueba-tablero.md) |
 | `uv run python -m tablero.io.sensores_reed selector` / `lector` / `matriz` / `calibrar` | La versión anterior, con reed switches | [`sensores-reed.md`](./sensores-reed.md) |
 | `uv run python -m tablero.io.menus_gpio` | La interfaz completa con los botones físicos del reloj | [`menus.md`](./menus.md) |
+
+## Firmware del Arduino Nano
+
+Desde la **raíz del repo** (no desde `tablero/`), en la notebook. Compilar sirve para chequear el
+firmware sin el Nano, y Claude Code lo puede correr; subirlo y abrir el monitor necesitan el Nano
+enchufado, así que los corre Tino. Detalle, protocolo y prueba con el Nano suelto en
+[`firmware-nano.md`](./firmware-nano.md).
+
+| Comando | Qué hace |
+|---|---|
+| `arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old firmware/matriz-nano` | Compila el firmware (agregar `--build-property "compiler.cpp.extra_flags=-DPLAN_B=1"` para el plan B) |
+| `arduino-cli compile --upload -p /dev/ttyUSB0 --fqbn arduino:avr:nano:cpu=atmega328old firmware/matriz-nano` | Compila y lo sube al Nano (`cpu=atmega328` si da `not in sync`) |
+| `arduino-cli monitor -p /dev/ttyUSB0 -c baudrate=115200` | Monitor serie, para escribirle comandos (`?`, `L`, `F 0`, `C`, `X`, `A`, `V`) |
+| `arduino-cli board list` | En qué puerto quedó el Nano (`/dev/ttyUSB0` en los clones con CH340, si no `/dev/ttyACM0`) |
 
 ## Ver también
 

@@ -10,7 +10,7 @@ puede jugar contra Stockfish en modo vs-máquina. La lógica, el motor y la inte
 Pi; desde el 2026-10-17 la única excepción es la matriz de sensores, que la barre un **Arduino
 Nano** (un NPN por fila, Hall a 5 V) conectado a la Pi por USB.
 
-**Hardware architecture change (v3, decided, not yet built or coded)**: the sensor matrix is
+**Hardware architecture change (v3, decided, not yet built; firmware written, Pi side not)**: the sensor matrix is
 being moved off the Pi's GPIO. The v2 design (Pi → 74HC138 + 74HC165 at 3.3 V, each Hall's GND
 on a 138 output) was tested and failed — the active 138 output read 1.6 V because it can't sink
 ~35 mA per row. The chosen replacement is an Arduino Nano driving one NPN per row (D2–D9) and
@@ -18,9 +18,15 @@ reading columns (D10–D12, A0–A4), reporting to the Pi over USB serial. Rows/
 old Yk/Dk numbering so `CASILLA_DE_CELDA_HALL` stays valid. The 64 cells are already soldered
 with the diode in each Hall's GND and OUT straight to the column (not the diode-on-OUT layout
 first planned), which is why the drivers use BC337/2N2222/S8050 with 470 Ω bases (up to ~200 mA
-per full row) and why there's an analog-read "plan B" for the columns. **Neither the Nano firmware nor a
-serial-reading `io/matriz.py` exists yet** — everything below about `io/matriz.py`/`io/sensores.py`
-describes the v2 GPIO code still in the repo. Build guide: `hardware-docs/matriz-hall-nano.md`;
+per full row) and why there's an analog-read "plan B" for the columns. **The Nano firmware exists**
+(`firmware/matriz-nano/matriz-nano.ino`): a command/response text protocol over USB serial at
+115200 (`?`, `L [µs]`, `F k`, `C`, `X`, `A`, `V`) where the Nano only runs scan primitives and all
+debounce/calibration/mapping stays in Python; each command maps to an `io/matriz.py` function, and
+the same commands serve for manual hardware tests from a serial monitor. Plan B is a compile-time
+switch (`-DPLAN_B=1`). Protocol spec and that mapping: `software-docs/firmware-nano.md`. It compiles
+warning-free but **hasn't run on a real Nano**. **A serial-reading `io/matriz.py` doesn't exist
+yet** — everything below about `io/matriz.py`/`io/sensores.py` describes the v2 GPIO code still in
+the repo. Build guide: `hardware-docs/matriz-hall-nano.md`;
 iterations (v1 reed, v2 Hall+138/165, v3 Nano) and every rejected alternative with its reason:
 `hardware-docs/historial-deteccion.md`.
 
@@ -100,6 +106,7 @@ tablero-ajedrez-inteligente/
 │       │                      #   matriz.py (implementados)
 │       ├── motor/             # stockfish.py (implementado)
 │       └── web/                # Dashboard/API de estado (a futuro, vacío)
+├── firmware/matriz-nano/      # Firmware del Arduino Nano (matriz Hall v3), un solo .ino; arduino-cli
 ├── hardware/scematichs/       # Directorio vacío (.gitkeep); esquemáticos aún no subidos acá
 ├── hardware-docs/             # Componentes, pines GPIO, esquema de detección de casillas (docs + fotos),
 │                              #   conexiones pata por pata de los chips, celdas Hall, guías de prueba
@@ -107,7 +114,7 @@ tablero-ajedrez-inteligente/
 │                              #   matriz-hall-nano.md (v3 actual) e historial-deteccion.md
 ├── software-docs/             # Notas de diseño por módulo (config, logica, eventos, partida, registro,
 │                              #   simulacion, motor, pantalla, menus, sensores, sensores-reed, leds,
-│                              #   prueba-tablero, comandos, pyproject, testing)
+│                              #   prueba-tablero, firmware-nano, comandos, pyproject, testing)
 └── README.md
 ```
 
@@ -127,7 +134,9 @@ attempt here doesn't prove anything and isn't wanted. Instead, give Tino the exa
 run over his SSH session and wait for him to report the result. This still applies even for
 `io/menus.py`'s windowed mode (`TABLERO_PANTALLA_VENTANA=1`, see `software-docs/menus.md`) — that
 mode exists so **Tino** can visually iterate the UI on his own notebook without the Raspberry, not
-so Claude Code runs it.
+so Claude Code runs it. The same split applies to the Nano firmware: compiling it locally with
+`arduino-cli compile` is fine (it's the firmware's syntax check), but uploading it and opening the
+serial monitor need the physical Nano, so give Tino those commands.
 
 ## Commands
 
@@ -146,6 +155,15 @@ uv run python -m tablero  # alternative way to run the package
 uv run pytest -v                       # the whole suite (see software-docs/testing.md)
 uv run python -m tablero.simulacion    # terminal game simulation, no hardware
 ```
+
+The Nano firmware builds from the **repo root** (not `tablero/`) with the `arduino-cli` +
+`arduino:avr` core installed on the notebook:
+
+```bash
+arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old firmware/matriz-nano   # add --build-property "compiler.cpp.extra_flags=-DPLAN_B=1" for plan B
+```
+
+Upload/monitor commands (Tino runs them) are in `software-docs/comandos.md`.
 
 Only `test_motor.py` needs anything special (the `stockfish` binary in PATH; it skips itself
 via `pytest.mark.skipif` if missing) — everything else runs anywhere. `test_sensores.py` is

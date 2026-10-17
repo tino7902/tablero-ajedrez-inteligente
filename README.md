@@ -19,6 +19,7 @@ tablero-ajedrez-inteligente/
 │ ├── logica/ # Reglas del juego y estado del tablero (python-chess)
 │ ├── motor/ # Integración con Stockfish (modo vs-máquina)
 │ └── web/ # Dashboard/API de estado (a futuro)
+├── firmware/matriz-nano/ # Firmware del Arduino Nano que barre la matriz Hall
 ├── hardware/ # Esquemáticos y documentación de electrónica
 │ └── schematics/
 └── docs/ # Documentación adicional del proyecto

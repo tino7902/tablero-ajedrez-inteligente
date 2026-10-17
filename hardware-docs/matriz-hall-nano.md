@@ -6,8 +6,9 @@ maneja la corriente. Reemplaza al 74HC138 y al 74HC165 de las versiones anterior
 cambió y qué se descartó, en `historial-deteccion.md`.
 
 **Estado:** decidida el 2026-10-17. Las 64 celdas ya están soldadas (con el diodo en el GND, ver
-"Una celda"); los drivers NPN y el Nano **no están armados ni probados todavía**, y el firmware
-del Nano y el lector del lado Pi tampoco están escritos (ver "Software" al final).
+"Una celda"); los drivers NPN y el Nano **no están armados ni probados todavía**. El firmware del
+Nano está escrito (`firmware/matriz-nano/`) pero no corrió en hardware; el lector del lado Pi
+todavía no existe (ver "Software" al final).
 
 Versión web de esta guía, con esquemas dibujados y checklist para tildar, para el equipo de
 hardware: https://claude.ai/artifact/Y4zNzHhxoWoaWzvcRwRLkU (su fuente es `matriz-hall-nano.html`,
@@ -24,7 +25,8 @@ en esta misma carpeta; si se cambia uno, cambiar el otro).
 
 El Nano enciende una fila por vez (pone su pin en HIGH y el NPN conecta a GND el bus de esa fila),
 espera ~1 ms a que los Hall arranquen, lee las 8 columnas y pasa a la siguiente. Una columna en
-LOW es un imán sobre esa casilla. Le manda la matriz a la Pi por el puerto serie.
+LOW es un imán sobre esa casilla. Hace ese recorrido cada vez que la Pi se lo pide (muchas veces por
+segundo) y le contesta la matriz por el puerto serie.
 
 | Estado | Pin del Nano | NPN | Bus de la fila |
 |---|---|---|---|
@@ -185,71 +187,55 @@ USB desenchufado, multímetro en continuidad o modo diodo.
 ## Prueba con un solo driver
 
 Primero con **un solo driver** (F0, en D2), antes de soldar los otros 7. La medición que decide
-si el plan sirve es la de la **fila llena de piezas**. Sketch de prueba para el Arduino IDE
-(placa `Arduino Nano`; en los clones, procesador `ATmega328P (Old Bootloader)` si no sube con el
-normal), monitor serie a 115200 baudios:
+si el plan sirve es la de la **fila llena de piezas**.
 
-```cpp
-// Prueba de la matriz Hall con el Nano: imprime 8 líneas (F0..F7) de 8 caracteres (C0..C7).
-// '#' = imán detectado, '.' = vacío.
-const uint8_t FILAS[8] = {2, 3, 4, 5, 6, 7, 8, 9};
-const uint8_t COLUMNAS[8] = {10, 11, 12, A0, A1, A2, A3, A4};
-const unsigned int ESPERA_ENCENDIDO_US = 1000;  // igual que HALL_ESPERA_ENCENDIDO
+Se usa el firmware definitivo del Nano (`firmware/matriz-nano/` del repo), que también sirve para
+las pruebas: se le escriben comandos desde el monitor serie y contesta. Cómo subirlo, todos los
+comandos y una prueba previa con el Nano suelto (sin matriz) en `software-docs/firmware-nano.md`;
+si el equipo de hardware no tiene el repo, el de software le pasa el Nano ya cargado. Monitor
+serie a 115200 baudios; al abrirlo tiene que aparecer `LISTO matriz-nano 1`.
 
-void setup() {
-  Serial.begin(115200);
-  for (uint8_t f = 0; f < 8; f++) {
-    pinMode(FILAS[f], OUTPUT);
-    digitalWrite(FILAS[f], LOW);
-  }
-  for (uint8_t c = 0; c < 8; c++) pinMode(COLUMNAS[c], INPUT_PULLUP);
-}
+Para esta prueba alcanza con tres comandos:
 
-void loop() {
-  for (uint8_t f = 0; f < 8; f++) {
-    digitalWrite(FILAS[f], HIGH);
-    delayMicroseconds(ESPERA_ENCENDIDO_US);
-    for (uint8_t c = 0; c < 8; c++) {
-      Serial.print(digitalRead(COLUMNAS[c]) == LOW ? '#' : '.');
-    }
-    digitalWrite(FILAS[f], LOW);
-    Serial.println();
-  }
-  Serial.println();
-  delay(500);
-}
-```
+| Comando | Qué hace |
+|---|---|
+| `V` | Muestra la grilla en vivo cada medio segundo: una línea por fila (F0..F7), un carácter por columna (C0..C7), `#` = imán. Se corta escribiendo cualquier cosa |
+| `F 0` | Deja F0 encendida fija para medir con el multímetro (barriendo, cada fila está encendida 1/8 del tiempo y el multímetro marca un promedio). `X` la apaga |
+| `A` | Con `F 0` puesta: el nivel de las columnas C3–C7 de 0 (0 V) a 1023 (~5 V). Por debajo de 307 el Nano lee el imán sin dudar. C0–C2 salen como `-` (sus pines no miden tensión): esas se miden con el multímetro |
 
-(No está compilado todavía.) Para medir con el multímetro, dejar F0 fija: en `loop()`, solo
-`digitalWrite(FILAS[0], HIGH);` y la lectura de columnas. Llenar F0 con 8 piezas:
+Llenar F0 con 8 piezas y escribir `F 0`:
 
 | Medición con F0 llena (negra en GND del Nano) | Tiene que dar | Si no |
 |---|---|---|
-| Pin D2 | ~5 V | El sketch no corre o D2 está en corto |
+| Pin D2 | ~5 V | No se escribió `F 0`, el firmware no está cargado o D2 está en corto |
 | Base del NPN de F0 | ~0,7–0,9 V | 0 V: falta la de 470 Ω. ~5 V: transistor mal puesto |
 | Colector del NPN (bus de F0) | < 0,3 V | No se satura: revisar modelo, patas y la de 470 Ω |
 | Entre GND (negra) y Vcc (roja) de un Hall de F0 | ≥ 3,8 V | Riel de 5 V mal o el colector no baja. Si da bien y no detecta, ese Hall no arranca con esa tensión |
-| Una columna de F0, con pieza | < 1,3 V | 1,3–1,5 V: funciona justo. Más de 1,5 V: plan B |
-| La misma columna, sin pieza | ~5 V | Columna en corto o Hall dañado |
-| Monitor serie | `########` en F0 | Ver "Problemas frecuentes" |
+| Una columna de F0, con pieza (o `A`, C3–C7) | < 1,3 V (`A`: < 270) | 1,3–1,5 V (`A`: 270–307): funciona justo. Más de 1,5 V (`A`: más de 307): plan B |
+| La misma columna, sin pieza | ~5 V (`A`: ~1020) | Columna en corto o Hall dañado |
+| `C` | `C FF` (las 8 columnas de F0 con imán) | Ver "Problemas frecuentes" |
 
-Si todo da bien, armar los otros 7 drivers y repetir con cada fila llena.
+Después `X` y `V`: tiene que aparecer `F0 ########` y las otras filas en `........`. Si todo da
+bien, armar los otros 7 drivers y repetir con cada fila llena (`F 1`, `F 2`, …).
 
 ## Plan B: columnas como entradas analógicas
 
 Solo si la columna con pieza queda por encima de ~1,3 V. Con `analogRead`, el umbral lo elige el
-sketch en vez de depender del umbral de la entrada digital:
+firmware en vez de depender del umbral de la entrada digital:
 
 - Recablear 3 columnas: C0 de D10 a **A5**, C1 de D11 a **A6**, C2 de D12 a **A7**. C3–C7 quedan
   en A0–A4.
 - Agregar una pull-up de 10 kΩ a 5 V en A6 y en A7 (no tienen pull-up interna).
-- En el sketch: `COLUMNAS[8] = {A5, A6, A7, A0, A1, A2, A3, A4}` y
-  `analogRead(COLUMNAS[c]) < 512` (2,5 V) en vez de `digitalRead(...) == LOW`.
-- El barrido baja a unas 60 lecturas del tablero por segundo, que alcanza.
+- Volver a subir el firmware compilado con `PLAN_B=1` (comando en `software-docs/firmware-nano.md`;
+  con el Arduino IDE, cambiar `#define PLAN_B 0` por `1` al principio del sketch). No hay que
+  tocar nada más del código.
+- El umbral por defecto es 512 (~2,5 V). Para ajustarlo: llenar una fila, `F k` y `A` (con el
+  plan B mide las 8 columnas); va entre el valor más alto con pieza y el más bajo sin pieza.
+- El barrido baja a unas 40 lecturas del tablero por segundo, que alcanza.
 
 ## Problemas frecuentes
 
-| Síntoma en el monitor serie | Causa probable |
+| Síntoma en el monitor serie (con `V`) | Causa probable |
 |---|---|
 | Una fila siempre en `########` | El bus de esa fila toca GND directo, o el NPN está en corto |
 | Una columna siempre en `#` | El cable de columna toca GND |
@@ -260,16 +246,17 @@ sketch en vez de depender del umbral de la entrada digital:
 | Casillas que parpadean | Imán débil o lejos, o la columna con pieza queda cerca de 1,5 V: plan B |
 | Todo en `........` | Falta el 5 V en el riel, o la unión de GND entre emisores y Nano |
 | Nada en el monitor serie | Velocidad distinta de 115200, puerto equivocado, o falta el driver CH340 del clon |
+| No aparece `LISTO matriz-nano 1` al abrir el monitor | Escribir `?`. Si contesta, el monitor se abrió después del arranque; si no, el firmware no está cargado |
+| `ERR comando` o `ERR argumento` | El comando se escribió mal (por ejemplo `F 8`: las filas van de 0 a 7) |
 
-## Software (pendiente)
+## Software
 
-Nada de esto está escrito todavía:
-
-- **Firmware del Nano**: barre las 8 filas y manda la matriz a la Pi por el puerto serie
-  (`/dev/ttyUSB0` en los clones con CH340, `/dev/ttyACM0` en otros).
-- **Lado Pi**: `io/matriz.py` deja de manejar GPIO y pasa a leer el puerto serie (con `pyserial`
-  como dependencia nueva). Si entrega la matriz en el mismo formato, `io/sensores.py` y
-  `logica/matriz.py` casi no cambian.
-- **Herramientas**: `medir`, `calibrar` y `mapear` de `io/sensores.py` manejan los pines
-  directamente; hay que adaptarlas o moverlas al firmware.
+- **Firmware del Nano** (`firmware/matriz-nano/`): escrito y compilado, todavía no probado en
+  hardware. Barre las filas cuando la Pi se lo pide y contesta la matriz por el puerto serie
+  (`/dev/ttyUSB0` en los clones con CH340, `/dev/ttyACM0` en otros). Protocolo, comandos y cómo
+  subirlo en `software-docs/firmware-nano.md`.
+- **Lado Pi (pendiente)**: `io/matriz.py` deja de manejar GPIO y pasa a hablar con el firmware
+  por el puerto serie (con `pyserial` como dependencia nueva). Como entrega la matriz en el mismo
+  formato, `io/sensores.py` y `logica/matriz.py` casi no cambian; `medir` pasa a usar los
+  comandos `F` y `C` del firmware, y `calibrar` y `mapear` siguen igual.
 - **`config.py`**: los `PIN_MATRIZ_*` quedan sin uso cuando cambie `io/matriz.py`.

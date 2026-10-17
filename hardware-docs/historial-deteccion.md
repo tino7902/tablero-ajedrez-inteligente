@@ -86,7 +86,9 @@ Lo que cuesta:
   juego, el motor y la interfaz siguen en la Pi.
 - **Hay que escribir firmware** para el Nano y cambiar el lado Pi: `io/matriz.py` deja de manejar
   GPIO y pasa a leer el puerto serie. Las herramientas `medir`, `calibrar` y `mapear` de
-  `io/sensores.py` hay que adaptarlas. **Nada de esto está hecho todavía.**
+  `io/sensores.py` hay que adaptarlas. El firmware ya está escrito (`firmware/matriz-nano/`,
+  protocolo en `software-docs/firmware-nano.md`) pero no corrió en hardware; **el lado Pi
+  todavía no está hecho.**
 - **Libera 6 pines de la Pi** (29, 31, 36, 37, 38, 40), que ya no se usan para la matriz.
 
 ### Cómo quedaron soldadas las celdas

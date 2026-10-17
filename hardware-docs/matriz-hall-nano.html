@@ -177,7 +177,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline
         <text x="300" y="28" class="rail">5V del Nano → Vcc de los 64 Hall</text>
       </svg>
     </div>
-    <p>Cómo funciona: el Nano enciende una fila por vez (pone su pin en HIGH), espera 1 ms a que los Hall arranquen, lee las 8 columnas y pasa a la siguiente. Una columna en LOW es un imán sobre esa casilla. Recorre las 8 filas muchas veces por segundo y le manda la matriz a la Pi por el puerto serie.</p>
+    <p>Cómo funciona: el Nano enciende una fila por vez (pone su pin en HIGH), espera 1 ms a que los Hall arranquen, lee las 8 columnas y pasa a la siguiente. Una columna en LOW es un imán sobre esa casilla. Hace ese recorrido cada vez que la Pi se lo pide (muchas veces por segundo) y le contesta la matriz por el puerto serie.</p>
 
     <h3>La matriz, cable por cable</h3>
     <div class="schematic" id="grilla" role="img" aria-label="Matriz de 8 por 8: cada fila F0 a F7 es un bus horizontal que une, a través de un diodo cada uno, el GND de sus 8 Hall y va al colector de su NPN; cada columna C0 a C7 es un cable vertical que une directo las salidas de los 8 Hall de esa columna y va a un pin del Nano. Todos los Vcc van a 5 V."></div>
@@ -397,89 +397,70 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline
   <section id="prueba">
     <h2>Prueba con alimentación</h2>
     <p>Primero con <strong>un solo driver</strong> armado (fila F0, en D2), antes de soldar los otros 7. La medición que decide si el plan sirve es la de la fila llena de piezas.</p>
+    <p>Se usa el firmware definitivo del Nano, que también sirve para probar: se le escriben comandos desde el monitor serie y contesta una línea. Está en el repo del proyecto, en <span class="mono">firmware/matriz-nano/</span>; cómo subirlo y la lista completa de comandos, en <span class="mono">software-docs/firmware-nano.md</span>. Si no tenés el repo, pedile al equipo de software el Nano ya cargado.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Comando</th><th>Qué hace</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">V</td><td>Muestra la grilla en vivo cada medio segundo: una línea por fila (F0…F7), un carácter por columna (C0…C7), <span class="mono">#</span> = imán. Escribir cualquier cosa la corta.</td></tr>
+          <tr><td class="mono">F 0</td><td>Deja F0 encendida fija, para medir con el multímetro (barriendo, cada fila está encendida 1/8 del tiempo y el multímetro marca un promedio).</td></tr>
+          <tr><td class="mono">X</td><td>Apaga todas las filas.</td></tr>
+          <tr><td class="mono">A</td><td>Con una fila fija: el nivel de las columnas C3–C7, de 0 (0 V) a 1023 (~5 V). Por debajo de 307 el Nano lee el imán sin dudar. C0–C2 salen como <span class="mono">-</span> porque sus pines no miden tensión: esas, con el multímetro.</td></tr>
+          <tr><td class="mono">C</td><td>Con una fila fija: qué columnas ven imán, en hexadecimal (<span class="mono">C FF</span> = las 8).</td></tr>
+        </tbody>
+      </table>
+    </div>
     <ol class="steps">
-      <li><b>Cargar el sketch.</b> En el Arduino IDE: placa <span class="mono">Arduino Nano</span>; en los clones, procesador <span class="mono">ATmega328P (Old Bootloader)</span> si no sube con el normal. Abrir el monitor serie a <span class="mono">115200</span> baudios.
-<pre>// Prueba de la matriz Hall con el Nano: imprime 8 líneas (F0..F7) de 8 caracteres (C0..C7).
-// '#' = imán detectado, '.' = vacío.
-const uint8_t FILAS[8] = {2, 3, 4, 5, 6, 7, 8, 9};
-const uint8_t COLUMNAS[8] = {10, 11, 12, A0, A1, A2, A3, A4};
-const unsigned int ESPERA_ENCENDIDO_US = 1000;  // igual que HALL_ESPERA_ENCENDIDO
-
-void setup() {
-  Serial.begin(115200);
-  for (uint8_t f = 0; f &lt; 8; f++) {
-    pinMode(FILAS[f], OUTPUT);
-    digitalWrite(FILAS[f], LOW);
-  }
-  for (uint8_t c = 0; c &lt; 8; c++) pinMode(COLUMNAS[c], INPUT_PULLUP);
-}
-
-void loop() {
-  for (uint8_t f = 0; f &lt; 8; f++) {
-    digitalWrite(FILAS[f], HIGH);
-    delayMicroseconds(ESPERA_ENCENDIDO_US);
-    for (uint8_t c = 0; c &lt; 8; c++) {
-      Serial.print(digitalRead(COLUMNAS[c]) == LOW ? '#' : '.');
-    }
-    digitalWrite(FILAS[f], LOW);
-    Serial.println();
-  }
-  Serial.println();
-  delay(500);
-}</pre>
+      <li><b>Abrir el monitor serie</b> a <span class="mono">115200</span> baudios (en el Arduino IDE, con fin de línea "Nueva línea"). Tiene que aparecer <span class="mono">LISTO matriz-nano 1</span>; si no aparece, escribir <span class="mono">?</span> y Enter.</li>
+      <li><b>Probar con un imán.</b> Escribir <span class="mono">V</span>. Al poner el polo sur sobre una casilla de F0, tiene que aparecer un <span class="mono">#</span> en la línea de F0, en la columna de esa casilla. Las otras filas (todavía sin driver) quedan en <span class="mono">........</span>.
+<pre>   01234567
+F0 ...#....
+F1 ........
+F2 ........
+F3 ........
+F4 ........
+F5 ........
+F6 ........
+F7 ........</pre>
+        <p class="caption">Así se ve con un imán sobre la casilla F0 / C3. La primera línea numera las columnas.</p>
       </li>
-      <li><b>Probar con un imán.</b> Al poner el polo sur sobre una casilla de F0, tiene que aparecer un <span class="mono">#</span> en la primera línea de cada bloque, en la columna de esa casilla. Las otras filas (todavía sin driver) quedan en <span class="mono">........</span>.</li>
-      <li><b>Medir con F0 fija.</b> Para medir con el multímetro, cambiar <span class="mono">loop()</span> por una versión que deje F0 siempre encendida:
-<pre>void loop() {
-  digitalWrite(FILAS[0], HIGH);  // F0 fija, para medir
-  for (uint8_t c = 0; c &lt; 8; c++) {
-    Serial.print(digitalRead(COLUMNAS[c]) == LOW ? '#' : '.');
-  }
-  Serial.println();
-  delay(300);
-}</pre>
-      </li>
-      <li><b>Llenar F0 con 8 piezas</b> y hacer las mediciones de la tabla.</li>
+      <li><b>Llenar F0 con 8 piezas</b> y escribir <span class="mono">F 0</span>: F0 queda encendida hasta el próximo comando.</li>
+      <li><b>Hacer las mediciones de la tabla</b>, con el multímetro y con <span class="mono">A</span> y <span class="mono">C</span>.</li>
     </ol>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Medición con F0 llena (punta negra en GND del Nano)</th><th>Tiene que dar</th><th>Si no</th></tr></thead>
         <tbody>
-          <tr><td>Pin D2</td><td class="mono">≈ 5 V</td><td>El sketch no está corriendo o D2 está en corto.</td></tr>
+          <tr><td>Pin D2</td><td class="mono">≈ 5 V</td><td>No se escribió <span class="mono">F 0</span>, el firmware no está cargado o D2 está en corto.</td></tr>
           <tr><td>Base del NPN de F0</td><td class="mono">≈ 0,7–0,9 V</td><td>0 V: falta la de 470 Ω. ~5 V: transistor mal puesto o quemado.</td></tr>
           <tr><td>Colector del NPN de F0 (bus de la fila)</td><td class="mono">&lt; 0,3 V</td><td>El transistor no se satura: revisar el modelo, las patas y la de 470 Ω.</td></tr>
           <tr><td>Entre GND y Vcc de un Hall de F0 (negra en su GND, roja en su Vcc)</td><td class="mono">≥ 3,8 V</td><td>Riel de 5 V mal o el colector no baja. Si da bien pero no detecta, ese Hall no arranca con esa tensión.</td></tr>
-          <tr><td>Una columna de F0, con pieza</td><td class="mono">&lt; 1,3 V</td><td>Entre 1,3 y 1,5 V: funciona pero justo. Más de 1,5 V: pasar al <a href="#plan-b">plan B</a>.</td></tr>
-          <tr><td>La misma columna, sin pieza</td><td class="mono">≈ 5 V</td><td>Columna en corto a GND o Hall dañado.</td></tr>
-          <tr><td>Monitor serie</td><td class="mono">########</td><td>Ver <a href="#problemas">Problemas</a>.</td></tr>
+          <tr><td>Una columna de F0, con pieza (o <span class="mono">A</span>, C3–C7)</td><td class="mono">&lt; 1,3 V<br>A: &lt; 270</td><td>Entre 1,3 y 1,5 V (A: 270–307): funciona pero justo. Más de 1,5 V (A: más de 307): pasar al <a href="#plan-b">plan B</a>.</td></tr>
+          <tr><td>La misma columna, sin pieza</td><td class="mono">≈ 5 V<br>A: ≈ 1020</td><td>Columna en corto a GND o Hall dañado.</td></tr>
+          <tr><td><span class="mono">C</span></td><td class="mono">C FF</td><td>Ver <a href="#problemas">Problemas</a>.</td></tr>
         </tbody>
       </table>
     </div>
-    <p>Si todo da bien, armar los otros 7 drivers y repetir con cada fila llena.</p>
+    <p>Después, <span class="mono">X</span> y <span class="mono">V</span>: tiene que aparecer <span class="mono">F0 ########</span> y las otras filas en <span class="mono">........</span>. Si todo da bien, armar los otros 7 drivers y repetir con cada fila llena (<span class="mono">F 1</span>, <span class="mono">F 2</span>, …).</p>
   </section>
 
   <section id="plan-b">
     <h2>Plan B: leer las columnas como analógicas</h2>
-    <p>Solo si la columna con pieza queda por encima de ~1,3 V. Con <span class="mono">analogRead</span>, el umbral lo elige el sketch (por ejemplo 2,5 V) en vez de depender del umbral de la entrada digital del Nano.</p>
+    <p>Solo si la columna con pieza queda por encima de ~1,3 V. Con <span class="mono">analogRead</span>, el umbral lo elige el firmware (por defecto 2,5 V) en vez de depender del umbral de la entrada digital del Nano.</p>
     <ul>
       <li><strong>Recablear solo 3 columnas:</strong> C0 de D10 a <span class="mono">A5</span>, C1 de D11 a <span class="mono">A6</span>, C2 de D12 a <span class="mono">A7</span>. C3–C7 quedan en A0–A4.</li>
       <li><strong>Agregar una pull-up de 10 kΩ a 5 V en A6 y en A7</strong>: esos dos pines no tienen pull-up interna. Las demás columnas siguen con la interna.</li>
-      <li>El barrido baja a unas 60 lecturas del tablero por segundo, que alcanza de sobra.</li>
+      <li><strong>Volver a subir el firmware compilado con <span class="mono">PLAN_B=1</span></strong> (el comando está en <span class="mono">software-docs/firmware-nano.md</span>; con el Arduino IDE, cambiar <span class="mono">#define PLAN_B 0</span> por <span class="mono">1</span> al principio del sketch). No hay que tocar nada más del código, y los comandos siguen siendo los mismos.</li>
+      <li><strong>Ajustar el umbral si hace falta.</strong> Por defecto es 512 (~2,5 V). Llenar una fila, <span class="mono">F k</span> y <span class="mono">A</span>: con el plan B mide las 8 columnas. El umbral va entre el valor más alto de las columnas con pieza y el más bajo de las vacías.</li>
+      <li>El barrido baja a unas 40 lecturas del tablero por segundo, que alcanza de sobra.</li>
     </ul>
-<pre>// Cambios en el sketch de prueba para el plan B.
-const uint8_t COLUMNAS[8] = {A5, A6, A7, A0, A1, A2, A3, A4};
-const int UMBRAL = 512;  // 2,5 V: por debajo es imán
-
-// en setup(): pinMode(COLUMNAS[c], INPUT_PULLUP) sirve para A0–A5; A6 y A7 usan la externa.
-// en loop(), en vez de digitalRead:
-Serial.print(analogRead(COLUMNAS[c]) &lt; UMBRAL ? '#' : '.');</pre>
   </section>
 
   <section id="problemas">
     <h2>Problemas frecuentes</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Síntoma en el monitor serie</th><th>Causa probable</th></tr></thead>
+        <thead><tr><th>Síntoma en el monitor serie (con <span class="mono">V</span>)</th><th>Causa probable</th></tr></thead>
         <tbody>
           <tr><td>Una fila entera siempre en <span class="mono">########</span></td><td>El bus de esa fila toca GND directo (sin pasar por el NPN), o el NPN está en corto.</td></tr>
           <tr><td>Una columna entera siempre en <span class="mono">#</span></td><td>El cable de columna toca GND.</td></tr>
@@ -490,6 +471,8 @@ Serial.print(analogRead(COLUMNAS[c]) &lt; UMBRAL ? '#' : '.');</pre>
           <tr><td>Casillas que parpadean</td><td>Imán débil o lejos del sensor, o la columna con pieza queda cerca de 1,5 V: pasar al plan B.</td></tr>
           <tr><td>Todo en <span class="mono">........</span></td><td>Falta el 5 V en el riel de Vcc, o la unión de GND entre los emisores y el Nano.</td></tr>
           <tr><td>No aparece nada en el monitor serie</td><td>Velocidad distinta de 115200, puerto equivocado, o el clon necesita el driver CH340.</td></tr>
+          <tr><td>No aparece <span class="mono">LISTO matriz-nano 1</span> al abrir el monitor</td><td>Escribir <span class="mono">?</span>. Si contesta, el monitor se abrió después del arranque; si no, el firmware no está cargado.</td></tr>
+          <tr><td><span class="mono">ERR comando</span> o <span class="mono">ERR argumento</span></td><td>El comando se escribió mal (por ejemplo <span class="mono">F 8</span>: las filas van de 0 a 7).</td></tr>
         </tbody>
       </table>
     </div>
@@ -497,7 +480,7 @@ Serial.print(analogRead(COLUMNAS[c]) &lt; UMBRAL ? '#' : '.');</pre>
 
   <section>
     <h2>Del lado del software</h2>
-    <p>Esta parte la resuelve el equipo de software: el sketch definitivo del Nano manda la matriz a la Pi por USB, y la Pi la lee del puerto serie en vez de manejar los pines. Para el armado alcanza con el sketch de prueba de esta página.</p>
+    <p>El firmware del Nano ya está escrito: es el mismo que se usa en la <a href="#prueba">prueba</a>, y en la partida le pasa la matriz a la Pi por USB cuando ella se la pide. Falta que la Pi lo lea del puerto serie en vez de manejar los pines; eso lo resuelve el equipo de software y no cambia nada del armado.</p>
   </section>
 </div>
 
