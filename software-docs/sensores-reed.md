@@ -1,9 +1,13 @@
 # `io/sensores_reed.py` (versión anterior, con reed switches)
 
 > **Versión anterior.** El tablero ahora usa sensores Hall (`io/sensores.py`, ver
-> [`sensores.md`](./sensores.md)). Esta versión se conserva por si se vuelve a los reed: los
-> chips son los mismos, así que comparte con la versión Hall el driver del 74HC138 + 74HC165
-> (`io/matriz.py`) y sus pruebas por chip.
+> [`sensores.md`](./sensores.md)). Esta versión se conserva por si se vuelve a los reed. Se
+> escribió para el 74HC138 + 74HC165 (v2), pero comparte con la versión Hall el driver
+> `io/matriz.py`, que hoy le pide cada barrido al Arduino Nano (v3): un reed con su diodo baja la
+> columna cuando el NPN enciende su fila igual que un Hall, así que sirve con los dos. Las pruebas
+> por chip (`selector`, `lector`) se fueron con el 138 y el 165. Lo que sigue describe el cableado
+> de la v2; los nombres `FILA_DE_SALIDA_138` / `COLUMNA_DE_ENTRADA_165` quedaron de entonces (la
+> salida Yk es la fila Fk del Nano y la entrada Dk, la columna Ck).
 
 Matriz de ocupación con 64 reed switches, cada uno en serie con un diodo:
 **columna → reed → diodo → fila** (ver "Celdas (reed + diodo)" en
@@ -55,25 +59,25 @@ con importar `sensores_reed` en vez de `sensores`.
 
 ## Cómo probarlo
 
-Desde `tablero/`, por SSH en la Raspberry. Las pruebas de cada chip (`selector`, `lector`) son
-las mismas que en la versión Hall: ver "Pruebas por chip" en [`sensores.md`](./sensores.md).
+Desde `tablero/`, por SSH en la Raspberry, con el Nano enchufado (ver "Cómo probarlo" en
+[`sensores.md`](./sensores.md#matriz)).
 
 ```bash
-uv run python -m tablero.io.sensores_reed selector
-uv run python -m tablero.io.sensores_reed lector
 uv run python -m tablero.io.sensores_reed matriz
 uv run python -m tablero.io.sensores_reed calibrar
 ```
 
 ### Matriz en vivo
 
-`matriz` limpia la terminal y dibuja la matriz cruda (Y0–Y7 × D0–D7) y el tablero ya mapeado cada
+`matriz` limpia la terminal y dibuja la matriz cruda (F0–F7 × C0–C7) y el tablero ya mapeado cada
 vez que cambia algo, y loguea `aparece pieza en e4` / `se levanta pieza de e2`.
 
 Qué mirar: con el tablero vacío no tiene que haber ninguna celda `#`; al apoyar una pieza tiene
 que encenderse **una sola** celda. Si con una sola pieza se encienden varias, el imán está cerrando
 reeds vecinos o hay un puente de estaño: con una pieza sola los diodos no influyen. Hasta correr
 `calibrar`, el tablero mapeado no significa nada.
+
+Las causas de abajo son de cuando la matriz la leían el 138 y el 165:
 
 | Qué se ve | Causa probable |
 |---|---|

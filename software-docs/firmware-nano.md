@@ -4,9 +4,10 @@ Firmware del Arduino Nano que barre la matriz de 64 sensores Hall en la v3 de la
 casillas (cableado en `hardware-docs/matriz-hall-nano.md`, por qué un Nano en
 `hardware-docs/historial-deteccion.md`). Es un solo archivo, `matriz-nano.ino`.
 
-**Estado:** escrito y compilado (variante normal y plan B, sin warnings), y con el protocolo
-ejercitado sobre un Arduino simulado. **Todavía no corrió en un Nano real**, y del lado Pi nada lo
-usa: `io/matriz.py` sigue manejando el 74HC138 + 74HC165 por GPIO (ver "Qué falta").
+**Estado:** probado en el Nano real con la matriz completa, en el cableado normal (plan A,
+columnas digitales): desde el monitor serie de la notebook detecta las 64 casillas. Del lado Pi,
+`io/matriz.py` ya le habla por el puerto serie (ver "Del lado Pi: `io/matriz.py`"), pero
+**todavía no se probó con el Nano enchufado a la Pi** (ver "Qué falta").
 
 ## Por qué un Nano "tonto"
 
@@ -137,22 +138,28 @@ Un `L` con la espera por defecto tarda ~9 ms en barrer y ~2 ms en mandar la resp
 para unas 90 lecturas por segundo. Con el plan B cada columna se lee dos veces con el ADC (ver
 abajo) y baja a unas 40. `L 50000` tarda 0,4 s.
 
-## Correspondencia con `io/matriz.py`
+## Del lado Pi: `io/matriz.py`
 
-Para el próximo paso, reescribir `io/matriz.py` sobre el puerto serie (con `pyserial`):
+`io/matriz.py` habla con el firmware por el puerto serie (`pyserial`), con la misma API que tenía
+el driver GPIO de la v2. Armar los comandos y decodificar las respuestas está en
+`logica/matriz.py` ("Protocolo del Nano"), testeado en `tests/test_matriz.py`. Detalle (puerto,
+errores, reintentos) en [`sensores.md`](./sensores.md).
 
-| Hoy, por GPIO | Con el Nano |
+| Función de `io/matriz.py` | Comando del Nano |
 |---|---|
-| `configurar_matriz()` | Abrir el puerto a 115200 y esperar `LISTO matriz-nano 1` (~3 s como máximo) |
-| `liberar_matriz()` | `X` y cerrar el puerto |
-| `elegir_fila(salida)` | `F <salida>` |
+| `configurar_matriz()` | Abre el puerto a 115200 y descarta todo hasta `LISTO matriz-nano 1` (3 s; si no llega, `?` y 1 s más) |
+| `liberar_matriz()` | `X` y cierra el puerto |
+| `elegir_fila(k)` | `F k`, espera `OK Fk` |
 | `leer_columnas()` | `C` |
-| `leer_matriz(espera)` | `L <espera en µs, redondeada>` y decodificar los 8 bytes |
-| `LectorMatriz`, `mostrar_en_vivo` | Igual que hoy, sobre `leer_matriz` |
-| `probar_selector`, `probar_lector` | Sin equivalente: ya no hay chips que probar por separado |
+| `leer_analogico()` | `A` |
+| `apagar_filas()` | `X`, espera `OK X` |
+| `leer_matriz(espera)` | `L <espera en µs, redondeada>` y decodifica los 8 bytes |
+| `LectorMatriz`, `mostrar_en_vivo` | Ningún comando propio: usan `leer_matriz` |
 
-`medir` puede seguir igual (`F` una vez y `C` en bucle) y sumar `A` para mostrar la tensión de
-las columnas C3–C7. `calibrar` y `mapear` no cambian: solo usan `leer_matriz` y `LectorMatriz`.
+`V` no lo usa la Pi: es solo para una persona en el monitor serie. Cada respuesta tiene plazo
+(0,3 s más lo que tarda el barrido); si no llega o llega mal formada, se repite el comando hasta
+3 veces. `medir` usa `F` una vez y `C` + `A` en bucle; `calibrar` y `mapear` solo usan
+`leer_matriz` y `LectorMatriz`.
 
 ## Plan B: columnas analógicas
 
@@ -210,7 +217,6 @@ Después viene la prueba con la matriz real, con un solo driver (F0), en
 
 ## Qué falta
 
-- Probarlo en un Nano real (la tabla de arriba) y después con la matriz (`matriz-hall-nano.md`).
-- Lado Pi: `io/matriz.py` sobre el puerto serie, con `pyserial` como dependencia nueva; adaptar
-  `medir` y sacar `selector`/`lector` de `io/sensores.py`. Los `PIN_MATRIZ_*` de `config.py`
-  quedan sin uso, y hace falta configurar el puerto (`/dev/ttyUSB0` o `/dev/ttyACM0`).
+- Probarlo enchufado a la Pi: `sensores matriz`, `medir`, `calibrar` y `mapear` (ver "Cómo
+  probarlo" en [`sensores.md`](./sensores.md)). Con el Nano alimentado por el USB de la Pi,
+  comparar los valores de `A` con los que daba en la notebook.

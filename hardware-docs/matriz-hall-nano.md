@@ -5,10 +5,10 @@ un Arduino Nano que le pasa el estado del tablero a la Raspberry Pi por USB. Un 
 maneja la corriente. Reemplaza al 74HC138 y al 74HC165 de las versiones anteriores; por qué se
 cambió y qué se descartó, en `historial-deteccion.md`.
 
-**Estado:** decidida el 2026-10-17. Las 64 celdas ya están soldadas (con el diodo en el GND, ver
-"Una celda"); los drivers NPN y el Nano **no están armados ni probados todavía**. El firmware del
-Nano está escrito (`firmware/matriz-nano/`) pero no corrió en hardware; el lector del lado Pi
-todavía no existe (ver "Software" al final).
+**Estado:** decidida el 2026-10-17. Armada y probada: con el cableado normal (plan A, columnas
+digitales) y el firmware de `firmware/matriz-nano/`, el Nano detecta las 64 casillas desde el
+monitor serie de la notebook. El lector del lado Pi (`io/matriz.py`) está escrito pero todavía
+no se probó con el Nano enchufado a la Pi (ver "Software" al final).
 
 Versión web de esta guía, con esquemas dibujados y checklist para tildar, para el equipo de
 hardware: https://claude.ai/artifact/Y4zNzHhxoWoaWzvcRwRLkU (su fuente es `matriz-hall-nano.html`,
@@ -251,12 +251,12 @@ firmware en vez de depender del umbral de la entrada digital:
 
 ## Software
 
-- **Firmware del Nano** (`firmware/matriz-nano/`): escrito y compilado, todavía no probado en
-  hardware. Barre las filas cuando la Pi se lo pide y contesta la matriz por el puerto serie
-  (`/dev/ttyUSB0` en los clones con CH340, `/dev/ttyACM0` en otros). Protocolo, comandos y cómo
-  subirlo en `software-docs/firmware-nano.md`.
-- **Lado Pi (pendiente)**: `io/matriz.py` deja de manejar GPIO y pasa a hablar con el firmware
-  por el puerto serie (con `pyserial` como dependencia nueva). Como entrega la matriz en el mismo
-  formato, `io/sensores.py` y `logica/matriz.py` casi no cambian; `medir` pasa a usar los
-  comandos `F` y `C` del firmware, y `calibrar` y `mapear` siguen igual.
-- **`config.py`**: los `PIN_MATRIZ_*` quedan sin uso cuando cambie `io/matriz.py`.
+- **Firmware del Nano** (`firmware/matriz-nano/`): probado con la matriz completa. Barre las
+  filas cuando la Pi se lo pide y contesta la matriz por el puerto serie (`/dev/ttyUSB0` en los
+  clones con CH340, `/dev/ttyACM0` en otros). Protocolo, comandos y cómo subirlo en
+  `software-docs/firmware-nano.md`.
+- **Lado Pi**: `io/matriz.py` habla con el firmware por el puerto serie (`pyserial`) y entrega la
+  matriz en el mismo formato que en la v2. `sensores matriz`, `calibrar` y `mapear` siguen igual;
+  `medir F0` deja una fila fija con el comando `F` y muestra `C` y `A` en vivo. El puerto se
+  autodetecta (o se fija en `NANO_PUERTO` de `config.py`) y el usuario tiene que estar en el grupo
+  `dialout`. Detalle en `software-docs/sensores.md`; falta probarlo enchufado a la Pi.

@@ -47,6 +47,7 @@ Configuración del paquete `tablero`, gestionado con `uv`.
 | `dependencies` | `rpi-lgpio>=0.6` | Acceso a GPIO para `io/sensores.py` (todavía no implementado) |
 | `dependencies` | `rpi-ws281x>=5.0.0` | Control de LEDs WS2812B para `io/leds.py` (todavía no implementado) |
 | `dependencies` | `pygame>=2.6.1` | Renderizado sobre DRM/KMS para `io/pantalla.py` (ver [`docs/pantalla.md`](./pantalla.md)), agregado vía `uv add pygame` |
+| `dependencies` | `pyserial>=3.5` | Puerto serie del Arduino Nano que barre la matriz, para `io/matriz.py` (ver [`firmware-nano.md`](./firmware-nano.md)), agregado vía `uv add pyserial`. Sin marker: es Python puro y se instala en cualquier máquina |
 | `dependency-groups.dev` | `pytest>=9.1.1` | Test runner para `tablero/tests/` |
 
 `[project.scripts]` mapea el comando `tablero` a `tablero:main` (`main()` en

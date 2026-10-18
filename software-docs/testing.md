@@ -95,9 +95,9 @@ pisan; y cerrar dos veces no duplica nada.
 ## `test_matriz.py`
 
 Tests de `logica/matriz.py` ([`sensores.md`](./sensores.md#matriz-de-casillas-sensores-hall)), lo
-que se hace con las lecturas de la matriz de sensores Hall sin tocar GPIO. Sin hardware: las
-lecturas crudas se arman a mano como `MatrizCruda` (8 × 8, igual con el 74HC138/74HC165 de la v2
-que con el Arduino Nano de la v3, porque filas y columnas conservan su numeración Yk/Dk).
+que se hace con las lecturas de la matriz de sensores Hall sin tocar el hardware. Sin hardware:
+las lecturas crudas se arman a mano como `MatrizCruda` (8 × 8, `matriz[fila Fk][columna Ck]`), y
+las respuestas del Arduino Nano se escriben como el texto que mandaría por el puerto serie.
 
 Casos cubiertos: la validación de `CASILLA_DE_CELDA_HALL` (cantidad de filas, fila corta, nombre
 inválido, casilla repetida, mayúsculas y espacios) y que la tabla de `config.py` sea válida, la
@@ -106,6 +106,15 @@ conversión de matriz cruda a ocupación con una tabla no identidad, que el bloq
 la espera de encendido (incluido ignorar un acierto por debajo de una espera que falló) y la
 recomendación de antirrebote a partir de la racha más larga de lecturas falsas.
 
+Del protocolo del Nano ([`firmware-nano.md`](./firmware-nano.md)): reconocer el `LISTO` y su
+versión (y no confundirlo con la basura del reset); armar `L <µs>` redondeando la espera al
+microsegundo y rechazar esperas fuera de 0–50 ms; decodificar `M …` con los ejemplos del
+protocolo (tablero vacío, posición inicial, una pieza en F2/C3), los bits extremos y el hex en
+minúscula; rechazar respuestas mal formadas (`ERR …`, 7 o 9 bytes, hex inválido, prefijo
+equivocado, basura del reset); y decodificar `C bb` y `A …` (con `-` en las columnas no
+analógicas y valores fuera de 0–1023 rechazados). La parte que habla con el puerto
+(`io/matriz.py`: plazos, reintentos, errores) no tiene tests automáticos: se prueba en la Pi.
+
 El test de la tabla de `config.py` sirve también en la Raspberry: después de pegar el resultado
 de `mapear`, `uv run pytest tests/test_matriz.py -q` confirma que no quedó mal pegada.
 
@@ -113,8 +122,8 @@ de `mapear`, `uv run pytest tests/test_matriz.py -q` confirma que no quedó mal 
 
 `test_sensores.py` sigue vacío: `io/sensores.py` (y `io/matriz.py`, `io/sensores_reed.py`,
 `io/prueba_tablero.py`) necesitan hardware real para probarse de forma significativa (ver el
-boundary documentado en `CLAUDE.md`); lo que no necesita GPIO de la matriz vive en
-`logica/matriz.py` y está cubierto por `test_matriz.py`. Tampoco hay tests
+boundary documentado en `CLAUDE.md`); lo que no necesita el hardware de la matriz (incluido el
+texto del protocolo del Nano) vive en `logica/matriz.py` y está cubierto por `test_matriz.py`. Tampoco hay tests
 automáticos de `tablero/simulacion.py` ni de `io/menus.py`: son capas de entrada/salida
 (terminal y pygame) sobre lógica que ya está cubierta por `test_partida.py`,
 `test_reloj.py` y `test_registro.py`; se prueban a mano corriéndolas (ver

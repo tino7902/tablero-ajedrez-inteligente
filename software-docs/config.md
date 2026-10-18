@@ -12,6 +12,12 @@ y, por ahora, la configuración del motor Stockfish.
 | `PANTALLA_ANCHO` | `480` | Ancho en píxeles de la pantalla, usado por `io/pantalla.py` para abrir la superficie de `pygame` |
 | `PANTALLA_ALTO` | `320` | Alto en píxeles de la pantalla |
 | `PANTALLA_TAMANO_FUENTE` | `48` | Tamaño de fuente por default para `mostrar_texto` |
+| `NANO_PUERTO` | `None` (autodetectar: el único `/dev/ttyUSB*` o `/dev/ttyACM*`) | Puerto serie del Arduino Nano que barre la matriz, usado por `io/matriz.py`. Se fija a mano solo si hay varios puertos serie |
+
+Las demás constantes de la matriz (`HALL_ESPERA_ENCENDIDO`, `HALL_LECTURAS_ESTABLES`,
+`CASILLA_DE_CELDA_HALL`) las generan `calibrar` y `mapear`: ver "Configuración" en
+[`sensores.md`](./sensores.md#configuración-configpy). Los pines `PIN_MATRIZ_*` del 74HC138 y
+el 74HC165 se borraron cuando `io/matriz.py` pasó al puerto serie del Nano.
 
 ## Por qué autodetectar `STOCKFISH_PATH`
 

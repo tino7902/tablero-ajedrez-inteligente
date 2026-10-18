@@ -92,28 +92,26 @@ cd tablero && env TABLERO_PANTALLA_VENTANA=1 uv run python -m tablero.io.menus
 ## Scripts de `io/` (sensores y LEDs)
 
 Solo corren en la Raspberry, por SSH, desde `tablero/`. Misma regla que arriba: Claude Code nunca
-los ejecuta, le da a Tino el comando. Guía paso a paso de prueba del tablero:
-`hardware-docs/checklist-prueba-hall.md`.
+los ejecuta, le da a Tino el comando. Armado y prueba de la matriz:
+`hardware-docs/matriz-hall-nano.md`; pruebas desde la Pi: "Cómo probarlo" en
+[`sensores.md`](./sensores.md#matriz).
 
-> **Matriz de sensores: comandos de la v2.** `selector`, `lector`, `medir`, `matriz`, `calibrar`
-> y `mapear` manejan el 74HC138 + 74HC165 por GPIO, que se descartó el 2026-10-17 (el 138 no
-> aguanta la corriente de los Hall). En la v3 un Arduino Nano barre la matriz y la Pi lo lee por
-> USB serie: `selector`/`lector` dejan de tener sentido y el resto hay que adaptarlo. Hasta
-> entonces no sirven con el hardware nuevo; para probar la matriz v3, el firmware del Nano tiene
-> sus propios comandos (ver "Firmware del Arduino Nano", abajo). Ver
-> `hardware-docs/matriz-hall-nano.md` y `hardware-docs/historial-deteccion.md`.
+> **Matriz de sensores (v3).** `medir`, `matriz`, `calibrar` y `mapear` le piden cada lectura al
+> Arduino Nano por USB serie: el Nano tiene que estar enchufado a la Pi con el firmware cargado, y
+> el usuario en el grupo `dialout`. Cada comando tarda ~2 s en arrancar (abrir el puerto resetea
+> el Nano). Primera vez, problemas de conexión y el puerto (`NANO_PUERTO`): "Cómo probarlo" en
+> [`sensores.md`](./sensores.md#matriz).
 
 | Comando | Qué hace | Detalle |
 |---|---|---|
 | `uv run python -m tablero.io.sensores` (o `... botones`) | Loguea cada presión de los botones del reloj | [`sensores.md`](./sensores.md) |
-| `uv run python -m tablero.io.sensores selector` / `lector` | Prueba el 74HC138 / el 74HC165 por separado | [`sensores.md`](./sensores.md#pruebas-por-chip) |
-| `uv run python -m tablero.io.sensores medir Y0` | Deja una fila fija para medir tensiones con el multímetro (también acepta una casilla: `medir e4`) | [`sensores.md`](./sensores.md#medir) |
+| `uv run python -m tablero.io.sensores medir F0` | Deja una fila fija para medir tensiones con el multímetro y muestra las columnas y su nivel (`ADC`) en vivo (también acepta una casilla: `medir e4`; la fila va con F mayúscula) | [`sensores.md`](./sensores.md#medir) |
 | `uv run python -m tablero.io.sensores matriz` | Matriz cruda y tablero mapeado, en vivo | [`sensores.md`](./sensores.md#matriz-en-vivo) |
 | `uv run python -m tablero.io.sensores calibrar` | Mide la espera de encendido de los Hall y el antirrebote | [`sensores.md`](./sensores.md#calibrar) |
 | `uv run python -m tablero.io.sensores mapear` | Genera `CASILLA_DE_CELDA_HALL` (las 64 casillas) | [`sensores.md`](./sensores.md#mapear) |
 | `uv run python -m tablero.io.leds todos` / `recorrer` / `esquinas` / `calibrar` / `verificar` | Pruebas de la tira de LEDs (se relanza con `sudo`) | [`leds.md`](./leds.md) |
 | `uv run python -m tablero.io.prueba_tablero leds` / `recorrido` / `espejo` / `inicial` | Sensores y LEDs juntos: asociar LEDs, verificar las 64 casillas, espejo en vivo, posición inicial (se relanza con `sudo`) | [`prueba-tablero.md`](./prueba-tablero.md) |
-| `uv run python -m tablero.io.sensores_reed selector` / `lector` / `matriz` / `calibrar` | La versión anterior, con reed switches | [`sensores-reed.md`](./sensores-reed.md) |
+| `uv run python -m tablero.io.sensores_reed matriz` / `calibrar` | La versión anterior, con reed switches | [`sensores-reed.md`](./sensores-reed.md) |
 | `uv run python -m tablero.io.menus_gpio` | La interfaz completa con los botones físicos del reloj | [`menus.md`](./menus.md) |
 
 ## Firmware del Arduino Nano

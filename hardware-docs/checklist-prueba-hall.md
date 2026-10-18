@@ -2,7 +2,9 @@
 
 > **Guía de la versión anterior (v2), descartada**: el 138 no aguantó la corriente de los Hall
 > (la Parte 3 de esta guía dio 1,6 V). La versión actual se prueba con `matriz-hall-nano.md`,
-> "Prueba con una fila". Historial en `historial-deteccion.md`.
+> "Prueba con un solo driver", y desde la Pi con "Cómo probarlo" de `software-docs/sensores.md`
+> (los comandos `selector` y `lector` de esta guía ya no existen, y `medir` ahora toma una fila
+> F0..F7). Historial en `historial-deteccion.md`.
 
 
 Vas a verificar los dos chips que leen el tablero, medir que los sensores Hall reciban bien la

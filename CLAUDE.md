@@ -10,8 +10,8 @@ puede jugar contra Stockfish en modo vs-máquina. La lógica, el motor y la inte
 Pi; desde el 2026-10-17 la única excepción es la matriz de sensores, que la barre un **Arduino
 Nano** (un NPN por fila, Hall a 5 V) conectado a la Pi por USB.
 
-**Hardware architecture change (v3, decided, not yet built; firmware written, Pi side not)**: the sensor matrix is
-being moved off the Pi's GPIO. The v2 design (Pi → 74HC138 + 74HC165 at 3.3 V, each Hall's GND
+**Hardware architecture change (v3, built and working from the Nano side; Pi side written, not yet tested on the Pi)**: the sensor matrix
+moved off the Pi's GPIO. The v2 design (Pi → 74HC138 + 74HC165 at 3.3 V, each Hall's GND
 on a 138 output) was tested and failed — the active 138 output read 1.6 V because it can't sink
 ~35 mA per row. The chosen replacement is an Arduino Nano driving one NPN per row (D2–D9) and
 reading columns (D10–D12, A0–A4), reporting to the Pi over USB serial. Rows/columns keep their
@@ -23,10 +23,14 @@ per full row) and why there's an analog-read "plan B" for the columns. **The Nan
 115200 (`?`, `L [µs]`, `F k`, `C`, `X`, `A`, `V`) where the Nano only runs scan primitives and all
 debounce/calibration/mapping stays in Python; each command maps to an `io/matriz.py` function, and
 the same commands serve for manual hardware tests from a serial monitor. Plan B is a compile-time
-switch (`-DPLAN_B=1`). Protocol spec and that mapping: `software-docs/firmware-nano.md`. It compiles
-warning-free but **hasn't run on a real Nano**. **A serial-reading `io/matriz.py` doesn't exist
-yet** — everything below about `io/matriz.py`/`io/sensores.py` describes the v2 GPIO code still in
-the repo. Build guide: `hardware-docs/matriz-hall-nano.md`;
+switch (`-DPLAN_B=1`). Protocol spec and that mapping: `software-docs/firmware-nano.md`. **Tested
+on the real Nano with the full matrix** (plan A, digital columns; all 64 squares detected) from
+the serial monitor on the notebook. **`io/matriz.py` now talks to the Nano over USB serial**
+(`pyserial`, port from `config.NANO_PUERTO` or autodetected, `ErrorNano` with a what-to-check
+message on any port/protocol failure) with the same public API the v2 GPIO driver had; the
+protocol text (building `L <µs>`, decoding `M`/`C`/`A`/`LISTO`) is pure code in
+`logica/matriz.py`, tested in `tests/test_matriz.py`. **Not yet run with the Nano plugged into the
+Pi.** Build guide: `hardware-docs/matriz-hall-nano.md`;
 iterations (v1 reed, v2 Hall+138/165, v3 Nano) and every rejected alternative with its reason:
 `hardware-docs/historial-deteccion.md`.
 
@@ -50,22 +54,21 @@ notebook-only keyboard-testing code path and the Raspberry-only GPIO code path c
 other — see "Modo hardware real" in `software-docs/menus.md`), `io/sensores.py` (chess-clock
 buttons — GPIO event detection on the two limit-switch buttons, BOARD pins 33/35,
 hardware-verified by Tino, consumed by `io/menus_gpio.py` — plus the occupancy matrix with
-**Hall sensors**, the default since the last-minute switch from reed switches to A3144/KY-003
-Halls: each Hall's GND goes to its 74HC138 row output so only the selected row is powered, a
-calibrable per-row power-on wait (`HALL_ESPERA_ENCENDIDO`), a 64-entry celda→casilla table
-(`CASILLA_DE_CELDA_HALL` in `config.py`), and `medir`/`matriz`/`calibrar`/`mapear` CLIs —
-step-by-step guide in `hardware-docs/checklist-prueba-hall.md`, wiring and electrical risks
-(a 74HC138 output can't sink 8 A3144s, A3144 at 3.3 V is below its datasheet minimum) in
-`hardware-docs/celdas-hall.md`; the matrix is **not yet tested on the prototype** and nothing
-consumes `ocupacion()` yet — see `software-docs/sensores.md`), `io/matriz.py` (74HC138/74HC165
-scan driver shared by both sensor versions: bit-banged scan, debounced `LectorMatriz`, live
-view, `selector`/`lector` per-chip tests), `io/sensores_reed.py` (the previous reed-switch
-version, kept on purpose in case of a switch back: same API, two-permutation mapping, own CLI —
-see `software-docs/sensores-reed.md`, guide in `hardware-docs/checklist-prueba-matriz-reed.md`),
+**Hall sensors** (A3144, scanned by the Nano): a calibrable per-row power-on wait
+(`HALL_ESPERA_ENCENDIDO`, sent to the Nano in µs on each scan), a 64-entry celda→casilla table
+(`CASILLA_DE_CELDA_HALL` in `config.py`, rows/columns printed as F0..F7/C0..C7), and
+`medir`/`matriz`/`calibrar`/`mapear` CLIs (`medir F0` pins one row on and shows the `C`/`A`
+readings live; the row takes an uppercase F because `f3` is a square) — Pi-side test steps in
+"Cómo probarlo" of `software-docs/sensores.md`; nothing consumes `ocupacion()` yet),
+`io/matriz.py` (Nano serial driver shared by both sensor versions: open port + wait for `LISTO`,
+one function per firmware command, retries on malformed replies, debounced `LectorMatriz`, live
+view), `io/sensores_reed.py` (the previous reed-switch version, kept on purpose in case of a
+switch back: same API, two-permutation mapping, own CLI; works over the Nano too since a reed +
+diode pulls its column like a Hall — see `software-docs/sensores-reed.md`),
 `io/prueba_tablero.py` (sensors + LEDs together: sensor-assisted LED↔square association, guided
 a1..h8 walk, live mirror, initial-position check; re-execs itself via `sudo` like `io/leds.py` —
 see `software-docs/prueba-tablero.md`), `logica/matriz.py` (hardware-free processing of raw
-matrix reads: table validation, celda→casilla, the math behind `calibrar`; tested in
+matrix reads: table validation, celda→casilla, the math behind `calibrar`, the Nano protocol text; tested in
 `tests/test_matriz.py`), `io/leds.py` (WS2812B via `rpi-ws281x` on BCM 12, needs root (the `__main__` re-execs itself via `sudo` so `uv run python -m tablero.io.leds` works) +
 `dtparam=audio=off`, casilla→LED table `LED_DE_CASILLA` generated by a `calibrar` CLI (or, with the Halls mapped, by `prueba_tablero leds`), `todos`/`recorrer`/`esquinas`/`verificar` test CLIs;
 **not yet tested on hardware** — see `software-docs/leds.md`), `logica/reloj.py` (`RelojAjedrez`, the project's **only** chess
@@ -83,7 +86,7 @@ clock; runs anywhere, no hardware — see `software-docs/simulacion.md`). Still 
 to `logica/eventos.py`/`logica/partida.py` — `Partida` only accepts typed moves and
 `RastreadorMovimientos` applies moves to its own `EstadoTablero`, bypassing the clock rule.
 `pytest` is a declared dev dependency (`uv add --dev pytest`) and
-`uv run pytest` works (109 tests, all hardware-free except `test_motor.py`, which skips itself
+`uv run pytest` works (144 tests, all hardware-free except `test_motor.py`, which skips itself
 without the `stockfish` binary). Don't assume implementations exist just because a file is present; check
 its actual contents. See `software-docs/` (per-module design notes) and `hardware-docs/`
 (componentes, pines GPIO, esquema de detección de casillas) for details beyond this file.
@@ -168,8 +171,8 @@ Upload/monitor commands (Tino runs them) are in `software-docs/comandos.md`.
 Only `test_motor.py` needs anything special (the `stockfish` binary in PATH; it skips itself
 via `pytest.mark.skipif` if missing) — everything else runs anywhere. `test_sensores.py` is
 still empty: it needs real hardware to test meaningfully, see `software-docs/testing.md`.
-`io/sensores.py` covers the chess-clock buttons and the Hall-sensor occupancy matrix (the
-74HC138/74HC165 driver itself is in `io/matriz.py`; the old reed version in `io/sensores_reed.py`).
+`io/sensores.py` covers the chess-clock buttons and the Hall-sensor occupancy matrix (the Nano
+serial driver itself is in `io/matriz.py`; the old reed version in `io/sensores_reed.py`).
 
 `tablero/simulacion.py` is the way to exercise the game logic (move validation + clock rules)
 off-device: it lives at the package root, **not** under `io/`, precisely so it can be run here
@@ -179,8 +182,9 @@ off-device: it lives at the package root, **not** under `io/`, precisely so it c
 
 - `python-chess` (installed as the `python-chess==1.999` compat shim, which pulls in the real
   `chess` package) — move validation and board state
-- `rpi-lgpio` — GPIO access; used by `io/sensores.py` for the chess-clock buttons and by
-  `io/matriz.py` for the occupancy matrix
+- `rpi-lgpio` — GPIO access; used by `io/sensores.py` for the chess-clock buttons
+- `pyserial` — USB serial link to the Arduino Nano that scans the sensor matrix, used by
+  `io/matriz.py`; pure Python, no platform marker. On the Pi the user must be in `dialout`
 - `rpi-ws281x` — WS2812B LED strip control, used by `io/leds.py` (and `io/prueba_tablero.py`)
 - `pygame` — renders to the RPI LCD V3 touchscreen via DRM/KMS in `io/pantalla.py`; must be
   compiled from source (`[tool.uv] no-binary-package = ["pygame"]` in `pyproject.toml`) because
