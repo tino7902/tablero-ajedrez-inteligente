@@ -95,7 +95,9 @@ LED_GPIO_BCM: int = 12
 LED_CANAL_PWM: int = 0
 LED_CANTIDAD: int = 65
 LED_INDICE_SACRIFICIO: int = 0
-LED_BRILLO: int = 32  # 0-255; bajo por defecto: 64 LEDs en blanco al máximo son ~3,8 A
+LED_BRILLO: int = 32  # 0-LED_BRILLO_MAX; bajo por defecto: 64 LEDs en blanco al máximo son ~3,8 A
+# Tope del brillo (75 % de 255): TiraLeds no pasa de acá aunque se pida más con --brillo.
+LED_BRILLO_MAX: int = 191
 # Mapeo casilla → índice en la tira: LED_DE_CASILLA[chess.Square] (0 = a1, 1 = b1, ...,
 # 63 = h8). Generado con `uv run python -m tablero.io.prueba_tablero leds` el
 # 2026-10-18 (ver software-docs/prueba-tablero.md): la tira va en serpentina desde h1

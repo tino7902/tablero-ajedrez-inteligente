@@ -239,7 +239,7 @@ if __name__ == "__main__":
             "espejo: los LEDs siguen a las piezas; inicial: comparar con la posición inicial"
         ),
     )
-    parser.add_argument("--brillo", type=int, default=config.LED_BRILLO, help="0-255")
+    parser.add_argument("--brillo", type=int, default=config.LED_BRILLO, help=f"0-{config.LED_BRILLO_MAX}")
     argumentos = parser.parse_args()
     pruebas = {
         "leds": asociar_leds,

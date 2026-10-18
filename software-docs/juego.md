@@ -31,8 +31,8 @@ uv run python -m tablero.io.juego -v                  # loguea cada pieza que se
 ```
 
 Usa los LEDs, así que necesita root: igual que `prueba_tablero`, se relanza solo con `sudo`
-(con `--sin-leds` no hace falta). `--brillo` cambia el brillo (0-255; por defecto
-`LED_BRILLO`).
+(con `--sin-leds` no hace falta). `--brillo` cambia el brillo (0-191, el tope es
+`LED_BRILLO_MAX`; por defecto `LED_BRILLO`).
 
 1. **Arranque:** "Acomodá las piezas". Los LEDs marcan en rojo dónde falta una pieza y en
    amarillo dónde sobra. Cuando la posición coincide, se prende todo en verde y pide

@@ -25,7 +25,8 @@ celular que comparte con el Nano (ver `hardware-docs/componentes.md`).
 | `LED_CANAL_PWM` | 0 | GPIO 12 es PWM0 |
 | `LED_CANTIDAD` | 65 | Incluye el LED de sacrificio |
 | `LED_INDICE_SACRIFICIO` | 0 | Siempre apagado: `mostrar()` lo fuerza a negro antes de enviar |
-| `LED_BRILLO` | 32 | Brillo global 0–255 |
+| `LED_BRILLO` | 32 | Brillo global, de 0 a `LED_BRILLO_MAX` |
+| `LED_BRILLO_MAX` | 191 | Tope del brillo (75 %): `TiraLeds` lo aplica aunque `--brillo` pida más, y avisa por el log |
 | `LED_DE_CASILLA` | Generado el 2026-10-18: serpentina desde h1 (fila 1 h→a, fila 2 a→h, …) | Tabla de 64 índices (`[chess.Square]`); se regenera con `calibrar` o `prueba_tablero leds` |
 
 ## Decisiones de diseño
@@ -35,8 +36,12 @@ celular que comparte con el Nano (ver `hardware-docs/componentes.md`).
   cómo se haya soldado la tira (serpentina, filas en el mismo sentido, arrancando en h8...) ni
   si algún tramo quedó salteado: se mide con `calibrar` y se pega el resultado. El valor por
   defecto supone serpentina desde a1 justo después del LED de sacrificio.
-- **Brillo bajo por defecto**: 64 LEDs en blanco al 100 % consumen ~3,8 A, en el límite de la
-  fuente de 5 V >4 A. Para las pruebas alcanza con 32; `--brillo` permite subirlo.
+- **Brillo bajo por defecto y con tope**: 64 LEDs en blanco al 100 % consumen ~3,8 A, en el
+  límite de la fuente de 5 V >4 A. Para las pruebas alcanza con 32; `--brillo` permite
+  subirlo hasta `LED_BRILLO_MAX` (75 %). El tope está en `TiraLeds`, así vale para todos los
+  programas. Al 75 %, el peor caso (`leds todos` en blanco) es ~2,9 A. En `juego`, en uso
+  normal, lo más que se prende es la posición inicial en verde o en rojo (32 casillas de un
+  solo color, ~0,5 A).
 - **LED de sacrificio siempre apagado**: su único trabajo es regenerar la señal de datos a
   nivel de 5 V para el resto de la tira (alimentado a ~4,3 V por el 1N4007), así que no importa
   qué color muestre.

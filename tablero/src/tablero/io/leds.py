@@ -45,6 +45,9 @@ class TiraLeds:
     """Envoltorio de `PixelStrip` que habla en casillas y mantiene apagado el LED de sacrificio."""
 
     def __init__(self, brillo: int = config.LED_BRILLO) -> None:
+        if brillo > config.LED_BRILLO_MAX:
+            logger.warning("Brillo %d por encima del tope: se usa %d (LED_BRILLO_MAX)", brillo, config.LED_BRILLO_MAX)
+            brillo = config.LED_BRILLO_MAX
         self._tira = PixelStrip(
             config.LED_CANTIDAD,
             config.LED_GPIO_BCM,
@@ -198,7 +201,7 @@ if __name__ == "__main__":
             "calibrar: generar LED_DE_CASILLA; verificar: recorrer a1..h8 con el mapeo"
         ),
     )
-    parser.add_argument("--brillo", type=int, default=config.LED_BRILLO, help="0-255")
+    parser.add_argument("--brillo", type=int, default=config.LED_BRILLO, help=f"0-{config.LED_BRILLO_MAX}")
     argumentos = parser.parse_args()
     tira = TiraLeds(argumentos.brillo)
     pruebas = {

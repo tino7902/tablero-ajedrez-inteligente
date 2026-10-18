@@ -193,7 +193,7 @@ def _parsear_argumentos(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--minutos", type=float, default=5, help="minutos por jugador (5 por defecto)")
     parser.add_argument("--fen", help="posición de arranque en FEN (por defecto, la inicial)")
-    parser.add_argument("--brillo", type=int, default=config.LED_BRILLO, help="0-255")
+    parser.add_argument("--brillo", type=int, default=config.LED_BRILLO, help=f"0-{config.LED_BRILLO_MAX}")
     parser.add_argument("--sin-leds", action="store_true", help="no usa los LEDs (y no necesita sudo)")
     parser.add_argument("--sin-registro", action="store_true", help="no escribe el PGN ni el log en registros/")
     parser.add_argument("-v", "--detalle", action="store_true", help="loguea cada pieza que se levanta o apoya")

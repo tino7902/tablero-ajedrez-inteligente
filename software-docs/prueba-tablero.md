@@ -30,7 +30,7 @@ uv run python -m tablero.io.prueba_tablero espejo      # los LEDs muestran las c
 uv run python -m tablero.io.prueba_tablero inicial     # compara con la posición inicial
 ```
 
-Todas aceptan `--brillo 0-255` (por defecto `LED_BRILLO`).
+Todas aceptan `--brillo 0-191` (tope `LED_BRILLO_MAX`, por defecto `LED_BRILLO`).
 
 ### `leds`
 
