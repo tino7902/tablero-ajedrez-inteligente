@@ -40,8 +40,9 @@ si te olvidás de apretar el reloj.
    pantalla, ver [`menus.md`](./menus.md)) o un valor libre. Se puede fijar con
    `--minutos N`.
 
-Otras opciones: `--fen` para arrancar en una posición dada y `--sin-registro` para no
-escribir nada en `registros/` (ver [`registro.md`](./registro.md)).
+Otras opciones: `--fen` para arrancar en una posición dada (el formato está explicado en
+[`juego.md`](./juego.md#posición-de-arranque---fen)) y `--sin-registro` para no escribir
+nada en `registros/` (ver [`registro.md`](./registro.md)).
 
 ## Comandos
 

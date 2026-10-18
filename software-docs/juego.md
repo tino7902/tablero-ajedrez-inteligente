@@ -24,7 +24,7 @@ En la Pi, desde `tablero/`:
 ```bash
 uv run python -m tablero.io.juego                     # 5 minutos por jugador, posición inicial
 uv run python -m tablero.io.juego --minutos 3
-uv run python -m tablero.io.juego --fen "<FEN>"       # arrancar desde otra posición
+uv run python -m tablero.io.juego --fen "<FEN>"       # arrancar desde otra posición (ver abajo)
 uv run python -m tablero.io.juego --sin-leds          # sin LEDs (y sin sudo)
 uv run python -m tablero.io.juego --sin-registro      # no escribe en registros/
 uv run python -m tablero.io.juego -v                  # loguea cada pieza que se levanta o apoya
@@ -44,6 +44,72 @@ Usa los LEDs, así que necesita root: igual que `prueba_tablero`, se relanza sol
    LEDs y se liberan el puerto del Nano y los botones.
 
 `boton_1` es el de blancas y `boton_2` el de negras, igual que en `io/menus.py`.
+
+## Posición de arranque (`--fen`)
+
+Sin `--fen` se arranca desde la posición inicial. Con `--fen`, desde la posición que se le
+pase en **FEN** (notación Forsyth-Edwards), el formato estándar para escribir una posición
+en una línea. La lee python-chess (`chess.Board(fen)`), y vale lo mismo para
+`tablero.simulacion --fen`. Hay que ponerla **entre comillas**, porque tiene espacios.
+
+La posición inicial en FEN es:
+
+```
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+```
+
+Son seis campos separados por espacios:
+
+| Campo | En el ejemplo | Qué es |
+|---|---|---|
+| Piezas | `rnbqkbnr/…/RNBQKBNR` | Las 8 filas, **de la 8 a la 1**, separadas por `/`. Cada fila va de la columna a a la h |
+| Turno | `w` | `w` = juegan blancas, `b` = juegan negras |
+| Enroques | `KQkq` | Los que siguen disponibles: `K` corto y `Q` largo de blancas, `k` y `q` de negras. `-` si no queda ninguno |
+| Al paso | `-` | La casilla donde se puede capturar al paso (por ejemplo `e3` justo después de e2-e4), o `-` |
+| Medias jugadas | `0` | Para la regla de los 50 movimientos: medias jugadas desde la última captura o jugada de peón |
+| Número de jugada | `1` | Desde qué número se cuentan las jugadas. Sube después de cada jugada de negras |
+
+En el campo de piezas, cada pieza es una letra **en inglés**, aunque la simulación use
+notación en castellano. Las mayúsculas son blancas y las minúsculas, negras:
+
+| `K` / `k` | `Q` / `q` | `R` / `r` | `B` / `b` | `N` / `n` | `P` / `p` |
+|---|---|---|---|---|---|
+| rey | dama | torre | alfil | caballo | peón |
+
+Un número es esa cantidad de casillas vacías seguidas, y cada fila tiene que sumar 8. Por
+ejemplo, `8` es una fila vacía, y `4P3` son 4 vacías (a–d), un peón blanco en e y 3 vacías
+(f–h). Así, `8/4p3/8/8/8/8/4P3/8 w - - 0 1` es un peón negro en e7 y uno blanco en e2, y
+juegan blancas.
+
+Detalles:
+
+- **Solo el primer campo es obligatorio.** Lo que falte toma `w - - 0 1`:
+  `--fen "8/4p3/8/8/8/8/4P3/8"` es lo mismo que el ejemplo anterior.
+- **No hace falta que haya reyes.** python-chess genera las jugadas igual, y por eso
+  alcanza con pocos imanes (ver abajo). Eso sí: el bando que no tiene rey no puede recibir
+  jaque, así que a ese bando no se le puede dar mate.
+- **Enroques y al paso imposibles se descartan sin aviso.** Por ejemplo, `K` sin el rey en
+  e1 y la torre en h1.
+- **Si el FEN está mal escrito, el programa no arranca**: `FEN inválido: …`, con el mensaje
+  de python-chess en inglés. Por ejemplo, `expected 8 rows` si faltan filas, o `invalid
+  character` si se usó una letra en castellano (`T` en vez de `R`).
+
+Qué hace el programa con el FEN:
+
+- **Antes de arrancar**, espera a que las piezas físicas ocupen exactamente las casillas
+  del FEN (como siempre: rojo falta, amarillo sobra). Los sensores no distinguen piezas, así
+  que cualquier imán sirve: el programa asume que en cada casilla está la pieza que dice el
+  FEN.
+- **El reloj** arranca con el turno del FEN: con `b`, corre primero el de negras.
+- **El PGN del registro** guarda el FEN (`[FEN "…"]` y `[SetUp "1"]`) y numera las jugadas
+  desde el número del FEN, así Lichess lo abre en esa posición.
+
+Para armar un FEN sin escribirlo a mano:
+
+- Con el editor de Lichess (lichess.org/editor): se ponen las piezas con el mouse y se
+  copia el FEN que aparece abajo.
+- Con la simulación: se juegan unas jugadas y el comando `fen` imprime el FEN de la
+  posición actual, listo para pasárselo a `juego --fen`.
 
 ## LEDs
 
@@ -68,8 +134,8 @@ Si no, la simulación, que corre sin root, no podría escribir ni rotar los regi
 
 ## Cómo probarlo sin las 32 piezas
 
-`--fen` arranca desde cualquier posición, y python-chess genera jugadas aunque no haya reyes.
-Así alcanza con pocos imanes (con el polo sur hacia el sensor):
+`--fen` arranca desde cualquier posición ([formato](#posición-de-arranque---fen)), y python-chess
+genera jugadas aunque no haya reyes. Así alcanza con pocos imanes (con el polo sur hacia el sensor):
 
 | Imanes | FEN | Qué probar |
 |---|---|---|
