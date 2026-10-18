@@ -19,7 +19,9 @@ PANTALLA_TAMANO_FUENTE: int = 48
 # Coeficientes de calibración táctil generados por io/calibracion_touch.py (ver
 # "Precisión táctil" en software-docs/pantalla.md). No se trackea en git: depende
 # del panel físico específico, igual que el rotate= del overlay piscreen.
-CALIBRACION_TOUCH_PATH: Path = Path(__file__).resolve().parent.parent.parent / "calibracion_touch.json"
+CALIBRACION_TOUCH_PATH: Path = (
+    Path(__file__).resolve().parent.parent.parent / "calibracion_touch.json"
+)
 
 # Reloj de ajedrez: botones físicos (2x interruptores fin de carrera / limit
 # switches), ver io/sensores.py. Cada uno conecta el pin a GND al presionarse
@@ -57,14 +59,14 @@ HALL_LECTURAS_ESTABLES: int = 3
 # no sea una grilla. El valor de abajo es un placeholder (identidad); se genera el real con
 # `uv run python -m tablero.io.sensores mapear` (ver software-docs/sensores.md).
 CASILLA_DE_CELDA_HALL: tuple[tuple[str, ...], ...] = (
-    ("a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1"),  # F0: C0..C7
-    ("a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2"),  # F1: C0..C7
-    ("a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"),  # F2: C0..C7
-    ("a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4"),  # F3: C0..C7
-    ("a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5"),  # F4: C0..C7
-    ("a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"),  # F5: C0..C7
-    ("a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7"),  # F6: C0..C7
-    ("a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"),  # F7: C0..C7
+    ("a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"),  # F0: C0..C7
+    ("a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7"),  # F1: C0..C7
+    ("a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"),  # F2: C0..C7
+    ("a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5"),  # F3: C0..C7
+    ("a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4"),  # F4: C0..C7
+    ("a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"),  # F5: C0..C7
+    ("a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2"),  # F6: C0..C7
+    ("a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1"),  # F7: C0..C7
 )
 
 # -- Matriz: versión reed (la anterior, io/sensores_reed.py) -------------------------
@@ -99,7 +101,9 @@ LED_BRILLO: int = 32  # 0-255; bajo por defecto: 64 LEDs en blanco al máximo so
 # genera el real con `uv run python -m tablero.io.leds calibrar`
 # (ver software-docs/leds.md).
 LED_DE_CASILLA: tuple[int, ...] = tuple(
-    1 + fila * 8 + (7 - columna if fila % 2 else columna) for fila in range(8) for columna in range(8)
+    1 + fila * 8 + (7 - columna if fila % 2 else columna)
+    for fila in range(8)
+    for columna in range(8)
 )
 
 # Registro de partidas (ver logica/registro.py y software-docs/registro.md). No se
