@@ -2,19 +2,15 @@
 
 - Botones del reloj: dos interruptores fin de carrera, detectados por flanco
   (ver hardware-docs/componentes.md, sección "Asignación de Pines GPIO").
-- Matriz de ocupación: 64 sensores Hall A3144 / KY-003 barridos con un 74HC138 (elige
-  la fila y, como el GND de cada Hall va a su salida Y, también la enciende) y un
-  74HC165 (lee las 8 columnas). El barrido de los chips vive en io/matriz.py, común con
-  la versión anterior de reed switches (io/sensores_reed.py); conexión de cada Hall en
-  hardware-docs/celdas-hall.md.
+- Matriz de ocupación: 64 sensores Hall A3144 / KY-003 que barre un Arduino Nano (un NPN
+  por fila, que enciende los Hall de esa fila) y que la Pi le pide por USB serie. El
+  diálogo con el Nano vive en io/matriz.py, común con la versión anterior de reed switches
+  (io/sensores_reed.py); cableado en hardware-docs/matriz-hall-nano.md.
 
-Pruebas manuales en la Raspberry (ver software-docs/sensores.md y
-hardware-docs/checklist-prueba-hall.md):
+Pruebas manuales en la Raspberry (ver software-docs/sensores.md):
 
     uv run python -m tablero.io.sensores botones
-    uv run python -m tablero.io.sensores selector
-    uv run python -m tablero.io.sensores lector
-    uv run python -m tablero.io.sensores medir Y0      (o una casilla: medir e4)
+    uv run python -m tablero.io.sensores medir F0      (o una casilla: medir e4)
     uv run python -m tablero.io.sensores matriz
     uv run python -m tablero.io.sensores calibrar
     uv run python -m tablero.io.sensores mapear
@@ -23,6 +19,7 @@ hardware-docs/checklist-prueba-hall.md):
 import argparse
 import functools
 import logging
+import sys
 import time
 from collections.abc import Callable
 
@@ -132,7 +129,7 @@ def _tabla() -> dict[Celda, chess.Square]:
 
 
 def casilla_de(salida: int, entrada: int) -> chess.Square:
-    """Casilla de ajedrez de la celda cruda (salida Y del 138, entrada D del 165)."""
+    """Casilla de ajedrez de la celda cruda (fila Fk, columna Ck)."""
     return _tabla()[(salida, entrada)]
 
 
@@ -142,7 +139,7 @@ def ocupacion(lectura: MatrizCruda) -> frozenset[chess.Square]:
 
 
 def _formatear_celdas(celdas: list[Celda]) -> str:
-    return ", ".join(f"Y{s} D{d}" for s, d in celdas)
+    return ", ".join(f"F{s} C{d}" for s, d in celdas)
 
 
 def _formatear_espera(segundos: float) -> str:
@@ -158,46 +155,67 @@ def probar_matriz() -> None:
 
 
 def _celda_a_medir(objetivo: str) -> tuple[int, int | None]:
-    """'Y3' → (3, None); una casilla → su celda según CASILLA_DE_CELDA_HALL. ValueError si no."""
-    objetivo = objetivo.strip().lower()
-    if len(objetivo) == 2 and objetivo[0] == "y" and objetivo[1] in "01234567":
+    """'F3' → (3, None); una casilla → su celda según CASILLA_DE_CELDA_HALL. ValueError si no.
+
+    La fila va con F mayúscula: en minúscula, 'f3' es la casilla f3.
+    """
+    objetivo = objetivo.strip()
+    if len(objetivo) == 2 and objetivo[0] == "F" and objetivo[1] in "01234567":
         return int(objetivo[1]), None
-    casilla = chess.parse_square(objetivo)
+    casilla = chess.parse_square(objetivo.lower())
     return next(celda for celda, sq in _tabla().items() if sq == casilla)
 
 
+def _voltios(valor: int) -> str:
+    # 1023 es la tensión del USB, ~5 V.
+    return f"{valor * 5 / 1023:.1f} V".replace(".", ",")
+
+
+def _lineas_medir(columnas: tuple[bool, ...], valores: tuple[int | None, ...]) -> list[str]:
+    return [
+        "  pieza   " + "".join(f"{'#' if activa else '.':>7}" for activa in columnas),
+        "  ADC     " + "".join(f"{'-' if v is None else v:>7}" for v in valores),
+        "  tensión " + "".join(f"{'-' if v is None else _voltios(v):>7}" for v in valores),
+    ]
+
+
 def medir(objetivo: str) -> None:
-    """Deja fija una fila del 138 para medir con el multímetro y muestra lo que lee el 165.
+    """Deja fija una fila para medir con el multímetro y muestra lo que lee el Nano en las columnas.
 
     Barriendo, cada fila está encendida 1/8 del tiempo y el multímetro marca un promedio
-    que no sirve; acá la fila queda fija hasta Ctrl+C. Sirve para medir lo que puede fallar
-    con los Hall: que el 138 aguante la corriente de la fila, que los Hall tengan tensión y
-    que la columna baje lo suficiente (ver hardware-docs/celdas-hall.md).
+    que no sirve; acá la fila queda fija (`F k` del Nano) hasta Ctrl+C. Cada 0,2 s se leen
+    las columnas (`C`) y su nivel con el ADC (`A`, solo las analógicas). Qué medir y qué
+    tiene que dar: "Prueba con un solo driver" en hardware-docs/matriz-hall-nano.md.
     """
     try:
-        salida, entrada = _celda_a_medir(objetivo)
+        fila, columna = _celda_a_medir(objetivo)
     except ValueError:
-        print(f"No entiendo {objetivo!r}: usá una salida del 138 (Y0..Y7) o una casilla (por ejemplo e4).")
+        print(f"No entiendo {objetivo!r}: usá una fila (F0..F7, con F mayúscula) o una casilla (por ejemplo e4).")
         return
     configurar_matriz()
-    matriz.elegir_fila(salida)
-    print(f"Y{salida} encendida fija. Multímetro en voltaje continuo, punta negra en GND (pata 8 del 138):")
-    print(f"  1. Pata {matriz.PATA_DE_SALIDA_138[salida]} del 138 (Y{salida}): menos de 0,3 V.")
-    print("  2. Punta negra en el GND de un Hall de esta fila y roja en su Vcc: 3 V o más.")
-    if entrada is None:
-        patas = ", ".join(map(str, matriz.PATA_DE_ENTRADA_165))
-        print("  3. Poné una pieza en una casilla de esta fila: se marca un # abajo. La pata del 165")
-        print(f"     de esa columna tiene que dar menos de 0,8 V (D0..D7 = patas {patas}).")
-    else:
-        pata = matriz.PATA_DE_ENTRADA_165[entrada]
-        print(f"  3. Con la pieza en {objetivo.strip().lower()} (Y{salida} D{entrada}), pata {pata} del 165:")
-        print("     menos de 0,8 V; sin la pieza, ~3,3 V.")
-    print("Ctrl+C para salir.\n")
-    print("        " + " ".join(f"D{d}" for d in range(8)))
     try:
+        matriz.elegir_fila(fila)
+        print(f"F{fila} encendida fija. Multímetro en voltaje continuo, punta negra en GND del Nano:")
+        print(f"  1. Pin {matriz.PIN_DE_FILA[fila]} del Nano: ~5 V.")
+        print(f"  2. Base del NPN de F{fila}: 0,7–0,9 V. Colector (bus de la fila): menos de 0,3 V.")
+        print("  3. Punta negra en el GND de un Hall de esta fila y roja en su Vcc: 3,8 V o más.")
+        if columna is None:
+            print("  4. Poné piezas en esta fila: se marca un # abajo. Una columna con pieza tiene que dar")
+            print("     menos de 1,3 V (ADC < 270); sin pieza, ~5 V (ADC ~1020). Más de 1,5 V: plan B.")
+        else:
+            print(
+                f"  4. Con la pieza en {objetivo.strip().lower()} (F{fila} C{columna}), pin "
+                f"{matriz.PIN_DE_COLUMNA[columna]} del Nano: menos de 1,3 V; sin la pieza, ~5 V."
+            )
+        print("C0–C2 no son analógicas (salen como -): esas se miden con el multímetro. Ctrl+C para salir.\n")
+        print("          " + "".join(f"{f'C{c}':>7}" for c in range(8)))
+        primera = True
         while True:
-            marcas = "  ".join("#" if activa else "." for activa in matriz.leer_columnas())
-            print(f"\r  Y{salida}     {marcas}   ", end="", flush=True)
+            lineas = _lineas_medir(matriz.leer_columnas(), matriz.leer_analogico())
+            if not primera:
+                print(f"\033[{len(lineas)}F", end="")  # vuelve al principio de las líneas anteriores
+            print("\n".join(f"{linea}\033[K" for linea in lineas), flush=True)
+            primera = False
             time.sleep(0.2)
     except KeyboardInterrupt:
         print()
@@ -249,7 +267,7 @@ def _paso_encendido() -> tuple[MatrizCruda, float] | None:
     if minima is None:
         print(
             f"  FALLA: ni con {_formatear_espera(_ESPERA_REFERENCIA)} por fila se lee siempre igual. No es un "
-            "problema de tiempo: revisar las tensiones con `medir` (ver hardware-docs/celdas-hall.md)."
+            "problema de tiempo: revisar las tensiones con `medir` (ver hardware-docs/matriz-hall-nano.md)."
         )
         return None
     espera = logica_matriz.recomendar_espera(minima)
@@ -270,7 +288,7 @@ def _paso_estabilidad(referencia: MatrizCruda, espera: float) -> int:
     cambios = logica_matriz.cambios_por_celda(lecturas)
     print(f"  {len(lecturas)} lecturas en {_SEGUNDOS_ESTABILIDAD} s.")
     if cambios:
-        detalle = ", ".join(f"Y{s} D{d} ({n} cambios)" for (s, d), n in sorted(cambios.items()))
+        detalle = ", ".join(f"F{s} C{d} ({n} cambios)" for (s, d), n in sorted(cambios.items()))
         print(f"  Celdas que parpadearon: {detalle}.")
         print(f"  Racha más larga de lecturas falsas iguales: {racha}.")
     else:
@@ -346,12 +364,12 @@ def mapear() -> None:
             anterior = next((sq for sq, c in asignacion.items() if c == celda), None)
             if anterior is not None:
                 print(
-                    f"  Y{celda[0]} D{celda[1]} ya quedó como {chess.square_name(anterior)}: ¿la pieza sigue ahí? "
+                    f"  F{celda[0]} C{celda[1]} ya quedó como {chess.square_name(anterior)}: ¿la pieza sigue ahí? "
                     "Si te equivocaste antes, 'r'. Se repite."
                 )
                 continue
             asignacion[casilla] = celda
-            print(f"  {nombre} → Y{celda[0]} D{celda[1]}")
+            print(f"  {nombre} → F{celda[0]} C{celda[1]}")
             posicion += 1
     except KeyboardInterrupt:
         print("\nMapeo cancelado.")
@@ -362,10 +380,10 @@ def mapear() -> None:
     print("\nCopiar en tablero/src/tablero/config.py, reemplazando las 10 líneas del CASILLA_DE_CELDA_HALL actual:\n")
     print(logica_matriz.formatear_tabla_config(asignacion))
     if logica_matriz.es_grilla(asignacion):
-        print("\nEl cableado es una grilla: cada salida Y es una fila del tablero y cada entrada D una columna.")
+        print("\nEl cableado es una grilla: cada fila F es una fila del tablero y cada columna C una columna.")
     else:
         print(
-            "\nOjo: el cableado no es una grilla (hay salidas Y con casillas de varias filas, o entradas D de "
+            "\nOjo: el cableado no es una grilla (hay filas F con casillas de varias filas del tablero, o columnas C de "
             "varias columnas). La tabla funciona igual; si no era lo esperado, revisar el cableado."
         )
 
@@ -377,28 +395,31 @@ if __name__ == "__main__":
         "prueba",
         nargs="?",
         default="botones",
-        choices=["botones", "selector", "lector", "medir", "matriz", "calibrar", "mapear"],
+        choices=["botones", "medir", "matriz", "calibrar", "mapear"],
         help=(
-            "botones: reloj (por defecto); selector: medir las salidas del 74HC138; "
-            "lector: ver si el 74HC165 maneja el pin de datos y desplaza; medir: dejar una fila fija "
-            "para el multímetro; matriz: ver la grilla en vivo; calibrar: espera de encendido y "
-            "antirrebote; mapear: generar la tabla celda → casilla"
+            "botones: reloj (por defecto); medir: dejar una fila fija para el multímetro; "
+            "matriz: ver la grilla en vivo; calibrar: espera de encendido y antirrebote; "
+            "mapear: generar la tabla celda → casilla"
         ),
     )
-    parser.add_argument("objetivo", nargs="?", help="solo para medir: una salida del 138 (Y0..Y7) o una casilla (e4)")
+    parser.add_argument(
+        "objetivo", nargs="?", help="solo para medir: una fila (F0..F7, F mayúscula) o una casilla (e4)"
+    )
     argumentos = parser.parse_args()
-    if argumentos.prueba == "medir":
-        if argumentos.objetivo is None:
-            parser.error("medir necesita una salida del 138 o una casilla, por ejemplo: medir Y0")
-        medir(argumentos.objetivo)
-    elif argumentos.objetivo is not None:
+    if argumentos.prueba == "medir" and argumentos.objetivo is None:
+        parser.error("medir necesita una fila o una casilla, por ejemplo: medir F0")
+    if argumentos.prueba != "medir" and argumentos.objetivo is not None:
         parser.error(f"{argumentos.prueba} no lleva argumentos")
-    else:
-        {
-            "botones": probar_botones_reloj,
-            "selector": matriz.probar_selector,
-            "lector": matriz.probar_lector,
-            "matriz": probar_matriz,
-            "calibrar": calibrar,
-            "mapear": mapear,
-        }[argumentos.prueba]()
+    try:
+        if argumentos.prueba == "medir":
+            medir(argumentos.objetivo)
+        else:
+            {
+                "botones": probar_botones_reloj,
+                "matriz": probar_matriz,
+                "calibrar": calibrar,
+                "mapear": mapear,
+            }[argumentos.prueba]()
+    except matriz.ErrorNano as error:
+        print(f"Error con el Nano: {error}", file=sys.stderr)
+        sys.exit(1)

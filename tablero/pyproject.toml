@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "pygame>=2.6.1",
+    "pyserial>=3.5",
     "python-chess>=1.999",
     "rpi-lgpio>=0.6; sys_platform == 'linux' and platform_machine in 'aarch64 armv7l armv6l'",
     "rpi-ws281x>=5.0.0; sys_platform == 'linux' and platform_machine in 'aarch64 armv7l armv6l'",

@@ -29,46 +29,42 @@ CALIBRACION_TOUCH_PATH: Path = Path(__file__).resolve().parent.parent.parent / "
 PIN_BOTON_RELOJ_JUGADOR_1: int = 33  # GPIO 13 (BCM)
 PIN_BOTON_RELOJ_JUGADOR_2: int = 35  # GPIO 19 (BCM)
 
-# -- Matriz de detección de casillas: chips (comunes a las dos versiones de sensor) --
-# Ver io/matriz.py y hardware-docs/funcionamiento_deteccion_de_casillas.md. El 74HC138
-# elige qué fila se pone en LOW y el 74HC165 lee las 8 columnas; numeración BOARD,
-# igual que los botones.
-# OJO: esto es la v2, descartada el 2026-10-17 (el 138 no aguanta la corriente de los
-# Hall). En la v3 un Arduino Nano barre la matriz y la Pi lo lee por USB serie, así que
-# estos 6 pines quedan libres; se borran cuando io/matriz.py pase a leer el puerto serie.
-# Ver hardware-docs/matriz-hall-nano.md e historial-deteccion.md.
-PIN_MATRIZ_SELECTOR_A: int = 38  # GPIO 20 (BCM) → 74HC138 A
-PIN_MATRIZ_SELECTOR_B: int = 40  # GPIO 21 (BCM) → 74HC138 B
-PIN_MATRIZ_SELECTOR_C: int = 37  # GPIO 26 (BCM) → 74HC138 C
-PIN_MATRIZ_CARGA: int = 29  # GPIO 5 (BCM) → 74HC165 SH/LD
-PIN_MATRIZ_RELOJ: int = 31  # GPIO 6 (BCM) → 74HC165 CLK
-PIN_MATRIZ_DATOS: int = 36  # GPIO 16 (BCM) ← 74HC165 Q7
+# -- Matriz de detección de casillas: Arduino Nano (v3) ------------------------------
+# Un Arduino Nano barre la matriz (un NPN por fila) y la Pi le pide cada lectura por USB
+# serie, ver io/matriz.py, firmware/matriz-nano/ y hardware-docs/matriz-hall-nano.md.
+# Puerto serie del Nano. None = autodetectar: se usa el único /dev/ttyUSB* o /dev/ttyACM*
+# que haya; si hay varios, poner acá el del Nano (mejor el de /dev/serial/by-id/, que no
+# cambia entre reinicios).
+NANO_PUERTO: str | None = None
 
 # -- Matriz: versión Hall (la actual, io/sensores.py) --------------------------------
-# 64 sensores Hall A3144 / KY-003, con el GND de cada uno en la salida Y del 138 de su
-# fila: el 138 enciende solo los Hall de la fila elegida (ver hardware-docs/celdas-hall.md).
+# 64 sensores Hall A3144 / KY-003, con el GND de cada uno en el bus de su fila: el NPN de
+# la fila elegida lo conecta a GND y enciende solo esos 8 Hall (ver
+# hardware-docs/matriz-hall-nano.md).
 #
-# Segundos que se espera en cada fila, después de elegirla, antes de leer las columnas:
-# lo que tardan los Hall en encender. 1 ms es un placeholder generoso; el valor real lo
-# mide `uv run python -m tablero.io.sensores calibrar` (ver software-docs/sensores.md).
+# Segundos que espera el Nano en cada fila, después de encenderla, antes de leer las
+# columnas: lo que tardan los Hall en arrancar. Se le manda en microsegundos con `L <µs>`
+# (máximo 50 ms). 1 ms es un placeholder generoso; el valor real lo mide
+# `uv run python -m tablero.io.sensores calibrar` (ver software-docs/sensores.md).
 HALL_ESPERA_ENCENDIDO: float = 0.001
 # Lecturas iguales seguidas que tiene que dar la matriz antes de reportar un cambio
 # (antirrebote del paso de la mano y de los Hall que dudan en el borde de la casilla).
 # También lo recomienda `calibrar`.
 HALL_LECTURAS_ESTABLES: int = 3
-# Mapeo celda → casilla, uno por sensor: CASILLA_DE_CELDA_HALL[salida Y del 138][entrada
-# D del 165] = nombre de la casilla. Sirve aunque el cableado no sea una grilla. El valor
-# de abajo es un placeholder (identidad); se genera el real con
+# Mapeo celda → casilla, uno por sensor: CASILLA_DE_CELDA_HALL[fila Fk][columna Ck] =
+# nombre de la casilla, con Fk y Ck los números de cable de hardware-docs/matriz-hall-nano.md
+# (los mismos que eran Yk del 74HC138 y Dk del 74HC165 en la v2). Sirve aunque el cableado
+# no sea una grilla. El valor de abajo es un placeholder (identidad); se genera el real con
 # `uv run python -m tablero.io.sensores mapear` (ver software-docs/sensores.md).
 CASILLA_DE_CELDA_HALL: tuple[tuple[str, ...], ...] = (
-    ("a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1"),  # Y0: D0..D7
-    ("a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2"),  # Y1: D0..D7
-    ("a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"),  # Y2: D0..D7
-    ("a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4"),  # Y3: D0..D7
-    ("a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5"),  # Y4: D0..D7
-    ("a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"),  # Y5: D0..D7
-    ("a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7"),  # Y6: D0..D7
-    ("a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"),  # Y7: D0..D7
+    ("a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1"),  # F0: C0..C7
+    ("a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2"),  # F1: C0..C7
+    ("a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"),  # F2: C0..C7
+    ("a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4"),  # F3: C0..C7
+    ("a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5"),  # F4: C0..C7
+    ("a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"),  # F5: C0..C7
+    ("a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7"),  # F6: C0..C7
+    ("a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"),  # F7: C0..C7
 )
 
 # -- Matriz: versión reed (la anterior, io/sensores_reed.py) -------------------------

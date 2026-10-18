@@ -1,106 +1,250 @@
-"""Barrido de la matriz de casillas: 74HC138 (elige la fila) + 74HC165 (lee las 8 columnas).
+"""Barrido de la matriz de casillas: se lo pide al Arduino Nano por el puerto serie (USB).
 
-Común a las dos versiones de sensor, porque los chips y su cableado son los mismos:
-- Hall (la actual): io/sensores.py. El 138 además alimenta los Hall de la fila elegida.
+El Nano (firmware/matriz-nano/) enciende las filas de a una con su NPN, lee las 8 columnas
+y contesta; acá solo se abre el puerto, se mandan los comandos y se leen las respuestas.
+Armar los comandos y validar las respuestas es lógica pura y vive en logica/matriz.py
+(testeada en tests/test_matriz.py). Protocolo en software-docs/firmware-nano.md, cableado en
+hardware-docs/matriz-hall-nano.md.
+
+Común a las dos versiones de sensor, porque el Nano barre igual cualquier sensor que baje
+su columna cuando la fila está encendida:
+- Hall (la actual): io/sensores.py.
 - Reed (la anterior): io/sensores_reed.py.
 
 Cada versión pone su propia espera por fila, su antirrebote y su mapeo celda → casilla;
-acá solo está el manejo de los chips, sus pruebas por separado (`probar_selector`,
-`probar_lector`) y la vista en vivo que usan las dos. Funcionamiento de los chips en
-hardware-docs/funcionamiento_deteccion_de_casillas.md, conexiones pata por pata en
-hardware-docs/conexiones-matriz.md y detalle en software-docs/sensores.md.
+acá solo está el diálogo con el Nano y la vista en vivo que usan las dos. Detalle en
+software-docs/sensores.md.
 """
 
+import errno
+import glob
 import logging
+import termios
 import time
 from collections.abc import Callable
 
 import chess
-import RPi.GPIO as GPIO
+import serial
 
 from tablero import config
+from tablero.logica import matriz as logica_matriz
 from tablero.logica.matriz import MatrizCruda
 
 logger = logging.getLogger(__name__)
 
-_PINES_SELECTOR = (
-    config.PIN_MATRIZ_SELECTOR_A,
-    config.PIN_MATRIZ_SELECTOR_B,
-    config.PIN_MATRIZ_SELECTOR_C,
-)
-_PINES_MATRIZ = (*_PINES_SELECTOR, config.PIN_MATRIZ_CARGA, config.PIN_MATRIZ_RELOJ, config.PIN_MATRIZ_DATOS)
+_BAUDIOS = 115200
+# Abrir el puerto resetea el Nano (señal DTR del USB): tarda 1–2 s en mandar el LISTO.
+_PLAZO_LISTO = 3.0
+# Si el LISTO no llegó (un Nano que no se resetea al abrir el puerto), se le manda `?`.
+_PLAZO_PING = 1.0
+# Plazo para cualquier respuesta, además de lo que tarda el barrido en sí.
+_PLAZO_RESPUESTA = 0.3
+_INTENTOS = 3
 
-# Pata física del 74HC138 de cada salida Y0..Y7 y del 74HC165 de cada entrada D0..D7,
-# para saber dónde medir con el multímetro.
-PATA_DE_SALIDA_138 = (15, 14, 13, 12, 11, 10, 9, 7)
-PATA_DE_ENTRADA_165 = (11, 12, 13, 14, 3, 4, 5, 6)
+# Lo que puede tirar el puerto cuando el Nano desaparece (USB desenchufado): pyserial no
+# envuelve los errores de tcflush, que llegan como termios.error.
+_ERRORES_PUERTO = (serial.SerialException, OSError, termios.error)
 
-# Por debajo de esto `time.sleep` no tiene resolución (en la Pi duerme bastante más de
-# lo pedido): se espera activamente. Solo pasa con las esperas cortas de la calibración.
-_ESPERA_ACTIVA_HASTA = 0.0005
+# Pin del Nano de cada fila F0..F7 y de cada columna C0..C7 en el cableado normal (en el
+# plan B, C0–C2 pasan a A5–A7), para saber dónde medir con el multímetro.
+PIN_DE_FILA = ("D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9")
+PIN_DE_COLUMNA = ("D10", "D11", "D12", "A0", "A1", "A2", "A3", "A4")
+
+_puerto: serial.Serial | None = None
+
+
+class ErrorNano(RuntimeError):
+    """El Nano no está, no se puede abrir su puerto o no contesta el protocolo."""
+
+
+# -- Puerto ---------------------------------------------------------------------------------
+
+
+def _elegir_puerto() -> str:
+    """`config.NANO_PUERTO`, o el único /dev/ttyUSB* o /dev/ttyACM* que haya."""
+    if config.NANO_PUERTO is not None:
+        return config.NANO_PUERTO
+    candidatos = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
+    if len(candidatos) == 1:
+        return candidatos[0]
+    if not candidatos:
+        raise ErrorNano("No aparece el Nano: no hay ningún /dev/ttyUSB* ni /dev/ttyACM*. ¿Está enchufado por USB?")
+    raise ErrorNano(
+        f"Hay varios puertos serie ({', '.join(candidatos)}): poner el del Nano en NANO_PUERTO de "
+        "config.py (`ls -l /dev/serial/by-id/` dice cuál es cuál)."
+    )
+
+
+def _explicar_apertura(nombre: str, error: serial.SerialException) -> str:
+    if error.errno == errno.EACCES:
+        return (
+            f"Sin permiso para abrir {nombre}: el usuario tiene que estar en el grupo dialout "
+            "(`sudo usermod -aG dialout $USER` y volver a entrar por SSH)."
+        )
+    if error.errno == errno.ENOENT:
+        return f"No existe {nombre}: ¿está enchufado el Nano? ¿Está bien NANO_PUERTO en config.py?"
+    if error.errno in (errno.EBUSY, errno.EAGAIN):
+        return f"{nombre} está ocupado por otro programa (¿el monitor serie de arduino-cli, u otra prueba corriendo?)."
+    return f"No se pudo abrir {nombre}: {error}"
+
+
+def _escribir(comando: str) -> None:
+    assert _puerto is not None
+    _puerto.write(comando.encode("ascii") + b"\n")
+
+
+def _leer_linea(plazo: float) -> str:
+    """Una línea del Nano, sin el fin de línea; '' si no llegó entera dentro del plazo."""
+    assert _puerto is not None
+    if _puerto.timeout != plazo:  # cambiarlo reconfigura el puerto (tcsetattr): solo si hace falta
+        _puerto.timeout = plazo
+    crudo = _puerto.read_until(b"\n")
+    if not crudo.endswith(b"\n"):
+        return ""
+    # Con el reset entra basura por el USB: no tiene que romper la decodificación.
+    return crudo.decode("ascii", errors="replace").strip()
+
+
+def _esperar_listo(plazo: float) -> bool:
+    """Descarta líneas hasta el LISTO del Nano. False si no llegó dentro del plazo."""
+    fin = time.monotonic() + plazo
+    while (resto := fin - time.monotonic()) > 0:
+        linea = _leer_linea(resto)
+        version = logica_matriz.version_listo(linea)
+        if version is None:
+            continue  # basura del reset o la línea vacía que manda antes del LISTO
+        if linea != logica_matriz.LISTO_NANO:
+            raise ErrorNano(
+                f"El Nano habla la versión {version} del protocolo y este código la de "
+                f"{logica_matriz.LISTO_NANO!r}: subir el firmware de firmware/matriz-nano/ de este repo."
+            )
+        return True
+    return False
+
+
+def _cerrar() -> None:
+    global _puerto
+    if _puerto is None:
+        return
+    try:
+        _puerto.close()
+    except _ERRORES_PUERTO:
+        pass
+    _puerto = None
 
 
 def configurar_matriz() -> None:
-    """Configura los pines del 74HC138 y el 74HC165. Llamar a `liberar_matriz()` al terminar."""
-    GPIO.setmode(GPIO.BOARD)
-    for pin in _PINES_SELECTOR:
-        GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
-    # SH/LD en HIGH = modo desplazamiento; un pulso LOW carga las 8 columnas.
-    GPIO.setup(config.PIN_MATRIZ_CARGA, GPIO.OUT, initial=GPIO.HIGH)
-    GPIO.setup(config.PIN_MATRIZ_RELOJ, GPIO.OUT, initial=GPIO.LOW)
-    # Q7 lo maneja el 74HC165 (salida push-pull), no hace falta pull.
-    GPIO.setup(config.PIN_MATRIZ_DATOS, GPIO.IN)
+    """Abre el puerto del Nano y espera su LISTO (~2 s). Llamar a `liberar_matriz()` al terminar.
+
+    Tira `ErrorNano` con lo que hay que revisar si el Nano no está o no contesta.
+    """
+    global _puerto
+    if _puerto is not None:
+        return
+    nombre = _elegir_puerto()
+    try:
+        # exclusive: otra prueba con el puerto abierto falla acá, en vez de robarle respuestas.
+        _puerto = serial.Serial(nombre, _BAUDIOS, timeout=_PLAZO_RESPUESTA, exclusive=True)
+    except serial.SerialException as error:
+        raise ErrorNano(_explicar_apertura(nombre, error)) from error
+    try:
+        if not _esperar_listo(_PLAZO_LISTO):
+            _escribir("?")
+            if not _esperar_listo(_PLAZO_PING):
+                raise ErrorNano(
+                    f"El Nano en {nombre} no contesta. ¿Tiene cargado el firmware de firmware/matriz-nano/? "
+                    f"Probarlo a mano con `arduino-cli monitor -p {nombre} -c baudrate=115200`."
+                )
+    except _ERRORES_PUERTO as error:
+        _cerrar()
+        raise ErrorNano(f"Se cortó la comunicación con el Nano en {nombre}: {error}") from error
+    except BaseException:
+        _cerrar()
+        raise
+    logger.info("Nano listo en %s", nombre)
 
 
 def liberar_matriz() -> None:
-    GPIO.cleanup(list(_PINES_MATRIZ))
+    """Apaga las filas y cierra el puerto. No falla si el Nano ya no está (USB desenchufado)."""
+    if _puerto is None:
+        return
+    try:
+        _escribir("X")
+        _puerto.flush()
+    except _ERRORES_PUERTO:
+        pass
+    finally:
+        _cerrar()
 
 
-def elegir_fila(salida: int) -> None:
-    """Escribe `salida` en A/B/C: el 74HC138 pone en LOW esa salida Y y deja las demás en HIGH."""
-    for bit, pin in enumerate(_PINES_SELECTOR):
-        GPIO.output(pin, GPIO.HIGH if salida >> bit & 1 else GPIO.LOW)
+def _pedir[T](comando: str, decodificar: Callable[[str], T], plazo: float = _PLAZO_RESPUESTA) -> T:
+    """Manda `comando` y decodifica la respuesta; reintenta si no llega o llega mal formada.
+
+    `decodificar` tira `ValueError` si la línea no es la respuesta esperada (incluye `ERR …`).
+    """
+    if _puerto is None:
+        raise ErrorNano("La matriz no está configurada: falta llamar a configurar_matriz().")
+    respuesta = ""
+    try:
+        for _ in range(_INTENTOS):
+            _puerto.reset_input_buffer()  # lo que haya quedado de un intento anterior
+            _escribir(comando)
+            respuesta = _leer_linea(plazo)
+            try:
+                return decodificar(respuesta)
+            except ValueError:
+                logger.warning("Respuesta inválida del Nano a %r: %r. Se reintenta.", comando, respuesta)
+    except _ERRORES_PUERTO as error:
+        raise ErrorNano(f"Se cortó la comunicación con el Nano ({error}). ¿Se desenchufó el USB?") from error
+    raise ErrorNano(
+        f"El Nano no contestó bien a {comando!r} en {_INTENTOS} intentos (última respuesta: {respuesta!r})."
+    )
+
+
+def _confirmacion(esperada: str) -> Callable[[str], None]:
+    def confirmar(linea: str) -> None:
+        if linea != esperada:
+            raise ValueError(f"Se esperaba {esperada!r} y llegó {linea!r}")
+
+    return confirmar
+
+
+# -- Comandos ---------------------------------------------------------------------------------
+
+
+def elegir_fila(fila: int) -> None:
+    """Deja encendida fija la fila Fk (`F k`) y apaga las demás, hasta el próximo barrido o `X`."""
+    if not 0 <= fila <= 7:
+        raise ValueError(f"Las filas van de F0 a F7, no F{fila}")
+    _pedir(f"F {fila}", _confirmacion(f"OK F{fila}"))
+
+
+def apagar_filas() -> None:
+    """Apaga todas las filas (`X`)."""
+    _pedir("X", _confirmacion("OK X"))
 
 
 def leer_columnas() -> tuple[bool, ...]:
-    """Lee las 8 entradas del 74HC165 de la fila ya seleccionada, indexadas D0..D7.
-
-    Tras el pulso de carga, Q7 ya muestra D7; cada flanco de subida de CLK
-    desplaza la siguiente (D6, D5, ... D0). Una columna en LOW es un sensor activo
-    contra la fila elegida (Hall con imán, o reed cerrado), o sea pieza presente.
-    """
-    GPIO.output(config.PIN_MATRIZ_CARGA, GPIO.LOW)
-    GPIO.output(config.PIN_MATRIZ_CARGA, GPIO.HIGH)
-    leidas = []
-    for _ in range(8):
-        leidas.append(GPIO.input(config.PIN_MATRIZ_DATOS) == GPIO.LOW)
-        GPIO.output(config.PIN_MATRIZ_RELOJ, GPIO.HIGH)
-        GPIO.output(config.PIN_MATRIZ_RELOJ, GPIO.LOW)
-    return tuple(reversed(leidas))  # se leyó D7 primero
+    """Lee las 8 columnas C0..C7 sin tocar las filas (`C`): con `elegir_fila(k)`, las casillas de Fk."""
+    return _pedir("C", logica_matriz.decodificar_columnas)
 
 
-def esperar(segundos: float) -> None:
-    if segundos >= _ESPERA_ACTIVA_HASTA:
-        time.sleep(segundos)
-        return
-    fin = time.perf_counter() + segundos
-    while time.perf_counter() < fin:
-        pass
+def leer_analogico() -> tuple[int | None, ...]:
+    """Lectura del ADC de cada columna C0..C7 (`A`), 0 = 0 V y 1023 ≈ 5 V; `None` si no es analógica."""
+    return _pedir("A", logica_matriz.decodificar_analogico)
 
 
 def leer_matriz(espera: float) -> MatrizCruda:
-    """Barre las 8 filas y devuelve la matriz cruda, sin antirrebote ni mapeo a casillas.
+    """Un barrido completo (`L <µs>`): la matriz cruda, sin antirrebote ni mapeo a casillas.
 
-    `espera` son los segundos que se esperan en cada fila después de elegirla y antes de
-    cargar las columnas: lo que tardan en estabilizarse la fila (cables largos) y, con los
-    Hall, lo que tardan en encender.
+    `espera` son los segundos que el Nano espera en cada fila después de encenderla y antes
+    de leer las columnas: lo que tardan los Hall en arrancar (máximo 50 ms).
     """
-    filas = []
-    for salida in range(8):
-        elegir_fila(salida)
-        esperar(espera)
-        filas.append(leer_columnas())
-    return tuple(filas)
+    comando = logica_matriz.comando_barrido(espera)
+    return _pedir(comando, logica_matriz.decodificar_barrido, 8 * espera + _PLAZO_RESPUESTA)
+
+
+# -- Antirrebote y vista en vivo --------------------------------------------------------------
 
 
 class LectorMatriz:
@@ -142,9 +286,9 @@ class LectorMatriz:
 
 
 def formatear_matriz(matriz: MatrizCruda) -> str:
-    lineas = ["      " + " ".join(f"D{d}" for d in range(8))]
-    for salida, fila in enumerate(matriz):
-        lineas.append(f"  Y{salida}   " + "  ".join("#" if ocupada else "." for ocupada in fila))
+    lineas = ["      " + " ".join(f"C{c}" for c in range(8))]
+    for fila, columnas in enumerate(matriz):
+        lineas.append(f"  F{fila}   " + "  ".join("#" if ocupada else "." for ocupada in columnas))
     return "\n".join(lineas)
 
 
@@ -191,79 +335,4 @@ def mostrar_en_vivo(
         pass
     finally:
         liberar_matriz()
-        logger.info("GPIO liberado, saliendo.")
-
-
-def probar_selector() -> None:
-    """Activa Y0..Y7 del 74HC138 de a una, esperando Enter, para medirlas con el multímetro.
-
-    Prueba el 138 solo, sin depender del 74HC165. La salida activa tiene que dar ~0 V y
-    las demás ~3,3 V; diagnóstico en software-docs/sensores.md, "Pruebas por chip".
-    """
-    GPIO.setmode(GPIO.BOARD)
-    for pin in _PINES_SELECTOR:
-        GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
-    try:
-        for salida in range(8):
-            elegir_fila(salida)
-            input(
-                f"Y{salida} activa: pata {PATA_DE_SALIDA_138[salida]} del 138 en ~0 V, "
-                "las otras Y en ~3,3 V. Enter para seguir... "
-            )
-        print("Listo, se recorrieron las 8 salidas.")
-    except KeyboardInterrupt:
-        print("\nPrueba cancelada.")
-    finally:
-        GPIO.cleanup(list(_PINES_SELECTOR))
-
-
-def probar_lector() -> None:
-    """Prueba el 74HC165 sin el 138: que maneje el pin de datos y que desplace los bits.
-
-    1. Con SH/LD en LOW la salida del 165 copia en vivo la entrada D7: se lee el pin con
-       pull-up y con pull-down. Si la lectura sigue al pull, nadie maneja el pin.
-    2. Se cargan las columnas y se dan 8 pulsos de reloj: la salida tiene que pasar de D7
-       (1 con el tablero vacío) a lo que entra por SER, que está a GND (0). Si sigue en 1,
-       el chip carga pero no desplaza, y `matriz` solo ve la columna de D7.
-
-    Correr con el tablero vacío; diagnóstico en software-docs/sensores.md, "Pruebas por chip".
-    """
-    GPIO.setwarnings(False)  # el pin de datos se configura dos veces, con pulls distintos
-    GPIO.setmode(GPIO.BOARD)
-    GPIO.setup(config.PIN_MATRIZ_CARGA, GPIO.OUT, initial=GPIO.LOW)
-    GPIO.setup(config.PIN_MATRIZ_RELOJ, GPIO.OUT, initial=GPIO.LOW)
-    lecturas = {}
-    try:
-        for pull, nombre in ((GPIO.PUD_UP, "pull-up"), (GPIO.PUD_DOWN, "pull-down")):
-            GPIO.setup(config.PIN_MATRIZ_DATOS, GPIO.IN, pull_up_down=pull)
-            time.sleep(0.05)
-            lecturas[nombre] = [GPIO.input(config.PIN_MATRIZ_DATOS) for _ in range(16)]
-            print(nombre, lecturas[nombre])
-
-        GPIO.output(config.PIN_MATRIZ_CARGA, GPIO.LOW)
-        GPIO.output(config.PIN_MATRIZ_CARGA, GPIO.HIGH)
-        recien_cargado = GPIO.input(config.PIN_MATRIZ_DATOS)
-        for _ in range(8):
-            GPIO.output(config.PIN_MATRIZ_RELOJ, GPIO.HIGH)
-            GPIO.output(config.PIN_MATRIZ_RELOJ, GPIO.LOW)
-        tras_reloj = GPIO.input(config.PIN_MATRIZ_DATOS)
-        print(f"desplazamiento: recién cargado {recien_cargado}, después de 8 pulsos de reloj {tras_reloj}")
-    finally:
-        GPIO.cleanup([config.PIN_MATRIZ_CARGA, config.PIN_MATRIZ_RELOJ, config.PIN_MATRIZ_DATOS])
-
-    arriba, abajo = set(lecturas["pull-up"]), set(lecturas["pull-down"])
-    if arriba == {1} and abajo == {0}:
-        print("FALLA: nadie maneja el pin (cable de la pata 9, o el 165 sin Vcc/GND, al revés o dañado).")
-    elif arriba == abajo == {0}:
-        print("FALLA: el 165 maneja el pin pero D7 está en LOW (¿tablero vacío? ¿pull-up de esa columna?).")
-    elif arriba != {1} or abajo != {1}:
-        print("FALLA: lecturas mezcladas, probable falso contacto.")
-    elif (recien_cargado, tras_reloj) == (1, 1):
-        print(
-            "FALLA: el 165 carga pero no desplaza (CLK pata 2 → pin 31, INH pata 15 a GND, "
-            "SH/LD y CLK cruzados) o SER (pata 10) no está a GND."
-        )
-    elif (recien_cargado, tras_reloj) != (1, 0):
-        print("FALLA: el desplazamiento dio un resultado inesperado, probable falso contacto.")
-    else:
-        print("OK: el 165 maneja el pin, D7 está en HIGH y desplaza los bits.")
+        logger.info("Puerto del Nano cerrado, saliendo.")

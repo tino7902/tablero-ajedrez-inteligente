@@ -22,7 +22,7 @@ import time
 import chess
 
 from tablero import config
-from tablero.io import leds, sensores
+from tablero.io import leds, matriz, sensores
 
 logger = logging.getLogger(__name__)
 
@@ -248,12 +248,14 @@ if __name__ == "__main__":
         "inicial": inicial,
     }
     tira = leds.TiraLeds(argumentos.brillo)
-    sensores.configurar_matriz()
     try:
+        sensores.configurar_matriz()
         pruebas[argumentos.prueba](tira)
     except KeyboardInterrupt:
         pass
+    except matriz.ErrorNano as error:
+        print(f"Error con el Nano: {error}", file=sys.stderr)
     finally:
         tira.apagar()
         sensores.liberar_matriz()
-        logger.info("LEDs apagados y GPIO liberado, saliendo.")
+        logger.info("LEDs apagados y puerto del Nano cerrado, saliendo.")

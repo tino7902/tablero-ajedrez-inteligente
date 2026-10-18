@@ -1,21 +1,23 @@
 """Matriz de casillas, versión reed (la anterior): 64 reed switches con un diodo cada uno.
 
 Se conserva por si se vuelve a los reed switches; la versión actual usa sensores Hall
-(io/sensores.py). Los chips son los mismos, así que el barrido del 74HC138 + 74HC165
-vive en io/matriz.py y lo comparten las dos versiones; acá solo queda lo propio de los
-reed: la espera por fila, el antirrebote y el mapeo con dos permutaciones
-(`FILA_DE_SALIDA_138`, `COLUMNA_DE_ENTRADA_165` en config.py).
+(io/sensores.py). Se escribió para el 74HC138 + 74HC165 (v2), pero el barrido vive en
+io/matriz.py, que hoy se lo pide al Arduino Nano (v3): un reed con su diodo baja la
+columna cuando el NPN enciende su fila igual que un Hall, así que sirve con los dos. Acá
+solo queda lo propio de los reed: la espera por fila, el antirrebote y el mapeo con dos
+permutaciones (`FILA_DE_SALIDA_138`, `COLUMNA_DE_ENTRADA_165` en config.py; los nombres
+son de la v2: la salida Yk del 138 es la fila Fk del Nano y la entrada Dk del 165, la
+columna Ck).
 
 Pruebas manuales en la Raspberry (ver software-docs/sensores-reed.md):
 
-    uv run python -m tablero.io.sensores_reed selector
-    uv run python -m tablero.io.sensores_reed lector
     uv run python -m tablero.io.sensores_reed matriz
     uv run python -m tablero.io.sensores_reed calibrar
 """
 
 import argparse
 import logging
+import sys
 
 import chess
 
@@ -24,9 +26,9 @@ from tablero.io import matriz
 from tablero.io.matriz import configurar_matriz, liberar_matriz
 from tablero.logica.matriz import MatrizCruda, celdas_activas
 
-# Tiempo para que la fila recién elegida en el 74HC138 se estabilice antes de
-# cargar las columnas en el 74HC165. Sobra por mucho (el chip tarda nanosegundos),
-# pero cubre la capacidad de los cables largos de la matriz.
+# Tiempo para que la fila recién encendida se estabilice antes de leer las columnas.
+# Sobra por mucho (un reed no tiene que encender, como un Hall), pero cubre la
+# capacidad de los cables largos de la matriz.
 _ESPERA_SELECCION_FILA = 0.0001
 
 
@@ -115,16 +117,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pruebas manuales de la matriz, versión reed (la anterior).")
     parser.add_argument(
         "prueba",
-        choices=["selector", "lector", "matriz", "calibrar"],
-        help=(
-            "selector: medir las salidas del 74HC138; lector: ver si el 74HC165 maneja el pin de "
-            "datos y desplaza; matriz: ver la grilla en vivo; calibrar: generar el mapeo"
-        ),
+        choices=["matriz", "calibrar"],
+        help="matriz: ver la grilla en vivo; calibrar: generar el mapeo",
     )
     prueba = parser.parse_args().prueba
-    {
-        "selector": matriz.probar_selector,
-        "lector": matriz.probar_lector,
-        "matriz": probar_matriz,
-        "calibrar": calibrar_matriz,
-    }[prueba]()
+    try:
+        {
+            "matriz": probar_matriz,
+            "calibrar": calibrar_matriz,
+        }[prueba]()
+    except matriz.ErrorNano as error:
+        print(f"Error con el Nano: {error}", file=sys.stderr)
+        sys.exit(1)
