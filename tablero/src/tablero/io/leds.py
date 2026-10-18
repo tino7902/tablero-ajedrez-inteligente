@@ -33,6 +33,7 @@ ROJO = Color(255, 0, 0)
 VERDE = Color(0, 255, 0)
 AZUL = Color(0, 0, 255)
 AMARILLO = Color(255, 255, 0)
+BLANCO_TENUE = Color(70, 70, 70)  # destinos posibles en io/juego.py: que no compitan con el resto
 
 
 def indice_de(casilla: chess.Square) -> int:
