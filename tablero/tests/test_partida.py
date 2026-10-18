@@ -160,6 +160,40 @@ def test_quedarse_sin_tiempo_termina_la_partida_y_bloquea_todo(tiempo):
     assert partida.pulsar_boton(chess.WHITE).tipo is TipoBoton.IGNORADO_TIEMPO
 
 
+# -- Jugadas ya resueltas (las de los sensores) -----------------------------------
+
+
+def test_intentar_jugada_aplica_un_move_con_las_mismas_reglas(tiempo):
+    partida = _partida(tiempo)
+
+    resultado = partida.intentar_jugada(chess.Move.from_uci("g1f3"))
+
+    assert resultado.tipo is TipoJugada.ACEPTADO
+    assert resultado.texto == "g1f3"
+    assert resultado.san == "Nf3"
+    assert resultado.descripcion == "caballo g1→f3"
+    assert partida.esperando_boton == chess.WHITE
+
+
+def test_intentar_jugada_ilegal_se_bloquea_con_el_motivo(tiempo):
+    partida = _partida(tiempo)
+
+    resultado = partida.intentar_jugada(chess.Move.from_uci("e2e5"))
+
+    assert resultado.tipo is TipoJugada.BLOQUEADO_ILEGAL
+    assert "el peón de e2 no puede ir a e5" in resultado.motivo
+    assert partida.estado.board.piece_at(chess.E2) is not None
+
+
+def test_intentar_jugada_tambien_espera_el_boton(tiempo):
+    partida = _partida(tiempo)
+    partida.intentar_jugada(chess.Move.from_uci("e2e4"))
+
+    resultado = partida.intentar_jugada(chess.Move.from_uci("e7e5"))
+
+    assert resultado.tipo is TipoJugada.BLOQUEADO_FALTA_RELOJ
+
+
 # -- Fin de partida ---------------------------------------------------------------
 
 

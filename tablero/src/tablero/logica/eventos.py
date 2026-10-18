@@ -1,32 +1,27 @@
-"""Traducción de diffs de ocupación de casillas a `chess.Move`.
+"""Detección de jugadas a partir de la ocupación de las casillas.
 
-Los sensores físicos (sensores Hall, ver `hardware-docs/`) solo van a poder reportar
-presencia/ausencia de pieza por casilla, no identidad — este módulo reconstruye qué
-movimiento se está haciendo comparando snapshots sucesivos de ocupación contra el
-estado de `EstadoTablero`. No depende de `io/sensores.py`: define su
-propia entrada (`Ocupacion`, un `frozenset[chess.Square]`) para mantenerse testable sin
-hardware, siguiendo el boundary documentado en `CLAUDE.md`.
+Los sensores físicos (sensores Hall, ver `hardware-docs/`) solo reportan presencia o
+ausencia de pieza por casilla, no qué pieza es. Este módulo responde, para cada lectura,
+qué jugada representa la posición física comparándola con la ocupación que dejaría cada
+jugada legal del tablero lógico. No depende de `io/sensores.py`: define su propia entrada
+(`Ocupacion`, un `frozenset[chess.Square]`) para mantenerse testable sin hardware,
+siguiendo el boundary documentado en `CLAUDE.md`.
 
-Flujo soportado en esta v1 (ver `software-docs/eventos.md` para el detalle completo):
-se levanta una pieza, se coloca en una casilla candidata; si el movimiento resultante es
-ilegal se espera a que se retome esa misma pieza (el origen lógico nunca cambia mientras
-el movimiento sigue en curso) y se coloque en una casilla donde sí sea legal. Cada cambio
-de estado queda logueado con número de jugada y color.
+**No aplica nada.** La jugada recién cuenta cuando el jugador aprieta su botón del reloj
+(eso lo resuelve `logica/partida_fisica.py`): hasta entonces puede acomodar las piezas como
+quiera, y cada lectura se reinterpreta desde cero. Por eso el enroque y las capturas, que
+pasan por estados intermedios, no necesitan una máquina de estados: alcanza con comparar
+la ocupación final. Ver `software-docs/eventos.md`.
 
-Fuera de alcance v1 (rechazado de forma explícita, no aplicado a ciegas):
-- Capturas, enroque y captura al paso (`TipoEvento.MOVIMIENTO_NO_SOPORTADO`).
-- Ambigüedad quando el jugador mueve más rápido que la frecuencia de escaneo de
-  sensores (lift y place cayendo en el mismo snapshot).
-- Resincronización/timeout si el rastreador queda con un movimiento en curso sin
-  resolver.
-- Posición inicial incorrecta al arrancar: se asume que la primera `Ocupacion` que se
-  procesa coincide con `estado.board.occupied`.
+Lo único que se recuerda entre lecturas es qué casillas se vaciaron y se volvieron a
+ocupar desde la última posición de reposo, para desempatar capturas de una misma pieza a
+casillas distintas (todas dejan la misma ocupación: `−origen`).
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 
 import chess
@@ -47,273 +42,228 @@ def casillas_ocupadas(board: chess.Board) -> Ocupacion:
     return frozenset(chess.SquareSet(board.occupied))
 
 
-class TipoEvento(Enum):
-    """Qué tipo de cambio de estado representa un `EventoTablero`."""
+def ocupacion_tras(board: chess.Board, movimiento: chess.Move) -> Ocupacion:
+    """Casillas ocupadas después de jugar `movimiento` (sobre una copia de `board`).
 
-    PIEZA_LEVANTADA = auto()
-    PIEZA_REPUESTA = auto()
-    MOVIMIENTO_ILEGAL_RECHAZADO = auto()
-    MOVIMIENTO_APLICADO = auto()
-    MOVIMIENTO_NO_SOPORTADO = auto()
+    Cubre todos los tipos de jugada sin casos especiales: normal y promoción
+    (`−origen +destino`), captura (`−origen`), al paso (`−origen −peón +destino`) y
+    enroque (`−rey −torre +rey' +torre'`).
+    """
+    copia = board.copy(stack=False)
+    copia.push(movimiento)
+    return casillas_ocupadas(copia)
+
+
+def casillas_tocadas(board: chess.Board, movimiento: chess.Move) -> tuple[Ocupacion, Ocupacion]:
+    """Casillas que cambian con `movimiento`: `(todas, origenes)`.
+
+    `todas` son las casillas cuyo contenido cambia (origen, destino, la torre en el enroque,
+    el peón capturado al paso); `origenes`, las que tenían una pieza del que mueve y quedan
+    vacías (el origen y, en el enroque, la casilla de la torre).
+    """
+    antes = board.piece_map()
+    copia = board.copy(stack=False)
+    copia.push(movimiento)
+    despues = copia.piece_map()
+    todas = frozenset(sq for sq in antes.keys() | despues.keys() if antes.get(sq) != despues.get(sq))
+    origenes = frozenset(
+        sq for sq in todas if sq not in despues and antes[sq].color == board.turn
+    )
+    return todas, origenes
+
+
+def _jugadas_detectables(board: chess.Board) -> list[chess.Move]:
+    """Jugadas legales, con las promociones reducidas a la de dama.
+
+    Las cuatro promociones de un peón dejan la misma ocupación y los sensores no ven qué
+    pieza se puso, así que se asume dama (mismo criterio que tenía la versión anterior).
+    """
+    return [m for m in board.legal_moves if m.promotion in (None, chess.QUEEN)]
+
+
+class TipoLectura(Enum):
+    """Qué representa la posición física respecto del tablero lógico."""
+
+    REPOSO = auto()  # coincide con el tablero lógico: no hay nada en curso
+    JUGADA = auto()  # coincide con la ocupación de una jugada legal
+    AMBIGUA = auto()  # coincide con varias capturas de la misma pieza y no hay cómo elegir
+    INCOMPLETA = auto()  # no coincide con ninguna jugada legal (en curso o mal hecha)
 
 
 @dataclass(frozen=True)
-class EventoTablero:
-    """Un cambio de estado detectado por `RastreadorMovimientos`, ya logueado."""
+class Lectura:
+    """Interpretación de una lectura de sensores.
 
-    tipo: TipoEvento
-    pieza: chess.Piece
-    origen: chess.Square
-    destino: chess.Square | None
-    turno: chess.Color
-    numero_jugada: int
+    `faltan` son las casillas que en el tablero lógico tienen pieza y en el físico están
+    vacías; `sobran`, al revés. Se completan siempre, también en una `JUGADA` (ahí son el
+    diff de la jugada en curso). `candidatos` son todas las jugadas cuya ocupación coincide;
+    en una `JUGADA` incluye la elegida.
+    """
+
+    tipo: TipoLectura
+    ocupacion: Ocupacion
+    movimiento: chess.Move | None = None
+    candidatos: tuple[chess.Move, ...] = ()
+    faltan: Ocupacion = field(default_factory=frozenset)
+    sobran: Ocupacion = field(default_factory=frozenset)
+
+
+class Marca(Enum):
+    """Qué mostrar en una casilla (los colores los elige `io/`)."""
+
+    ORIGEN = auto()  # pieza del que mueve que se está moviendo
+    DESTINO = auto()  # adónde puede ir, o qué pieza rival se puede capturar
+    JUGADA = auto()  # casillas de la jugada detectada, lista para confirmar con el botón
+    FALTA = auto()  # debería tener pieza y no tiene
+    SOBRA = auto()  # tiene pieza y no debería
 
 
 class RastreadorMovimientos:
-    """Detecta movimientos comparando snapshots de ocupación contra `EstadoTablero`.
+    """Interpreta lecturas sucesivas de ocupación contra el tablero de `estado`.
 
-    Se alimenta llamando a `procesar_ocupacion` con cada lectura sucesiva de sensores.
-    Asume que la primera lectura coincide con la posición ya cargada en `estado`.
+    Solo lee `estado.board`: quien aplica la jugada es `Partida`. Cuando el tablero lógico
+    cambia (se confirmó una jugada), el historial de casillas se descarta solo.
     """
 
     def __init__(self, estado: EstadoTablero) -> None:
         self._estado = estado
-        self._origen: chess.Square | None = None
-        self._colocacion_actual: chess.Square | None = None
-        self._pieza: chess.Piece | None = None
-        # Casilla que se vació de forma inesperada mientras había una pieza en curso —
-        # típicamente la pieza capturada retirándose antes de que la atacante se
-        # coloque en su lugar. Se resta de la ocupación esperada para que, cuando esa
-        # misma casilla vuelva a ocuparse, el diff no se pierda por coincidir con lo
-        # esperado (ver `_procesar_desaparicion`/`_procesar_aparicion`).
-        self._extra_vacia: chess.Square | None = None
+        self._fen: str | None = None
+        self._por_ocupacion: dict[Ocupacion, list[chess.Move]] = {}
+        self.reiniciar()
 
-    def _ocupacion_esperada(self) -> Ocupacion:
-        base = casillas_ocupadas(self._estado.board)
-        if self._origen is None:
-            return base
-        base = base - {self._origen}
-        if self._extra_vacia is not None:
-            base = base - {self._extra_vacia}
-        if self._colocacion_actual is not None:
-            base = base | {self._colocacion_actual}
-        return base
+    def reiniciar(self) -> None:
+        """Olvida el historial de lecturas; la próxima se compara contra el reposo."""
+        self._anterior: Ocupacion | None = None
+        self._vaciadas: set[chess.Square] = set()
+        # Casilla → número de orden de la última vez que se volvió a ocupar después de
+        # haberse vaciado. La captura se resuelve hacia la más reciente.
+        self._reocupadas: dict[chess.Square, int] = {}
+        self._contador = 0
+        self._ultima: Lectura | None = None
 
-    def _en_curso(self) -> bool:
-        return self._origen is not None
+    def _sincronizar_con_tablero(self) -> None:
+        fen = self._estado.board.fen()
+        if fen == self._fen:
+            return
+        self._fen = fen
+        board = self._estado.board
+        self._por_ocupacion = {}
+        for movimiento in _jugadas_detectables(board):
+            self._por_ocupacion.setdefault(ocupacion_tras(board, movimiento), []).append(movimiento)
+        self.reiniciar()
 
-    def _reiniciar(self) -> None:
-        self._origen = None
-        self._colocacion_actual = None
-        self._pieza = None
-        self._extra_vacia = None
+    def _prefijo_log(self) -> str:
+        board = self._estado.board
+        return f"Jugada {board.fullmove_number} ({_NOMBRES_COLOR[board.turn]})"
 
-    def _describir(self, pieza: chess.Piece, casilla: chess.Square) -> str:
-        return f"{_NOMBRES_PIEZA[pieza.piece_type]} de {chess.square_name(casilla)}"
+    def _describir_casilla(self, sq: chess.Square) -> str:
+        pieza = self._estado.board.piece_at(sq)
+        if pieza is None:
+            return f"pieza de {chess.square_name(sq)}"
+        return f"{_NOMBRES_PIEZA[pieza.piece_type]} de {chess.square_name(sq)}"
 
-    def _prefijo_log(
-        self, turno: chess.Color | None = None, numero_jugada: int | None = None
-    ) -> str:
-        turno = self._estado.turno if turno is None else turno
-        numero_jugada = (
-            self._estado.board.fullmove_number if numero_jugada is None else numero_jugada
-        )
-        return f"Jugada {numero_jugada} ({_NOMBRES_COLOR[turno]})"
+    def _registrar_cambios(self, ocupacion: Ocupacion, reposo: Ocupacion) -> None:
+        anterior = reposo if self._anterior is None else self._anterior
+        for sq in sorted(anterior - ocupacion):
+            self._vaciadas.add(sq)
+            log.info("%s: se levanta %s", self._prefijo_log(), self._describir_casilla(sq))
+        for sq in sorted(ocupacion - anterior):
+            if sq in self._vaciadas:
+                self._contador += 1
+                self._reocupadas[sq] = self._contador
+            log.info("%s: aparece pieza en %s", self._prefijo_log(), chess.square_name(sq))
+        self._anterior = ocupacion
 
-    def _evento(
-        self,
-        tipo: TipoEvento,
-        *,
-        pieza: chess.Piece,
-        origen: chess.Square,
-        destino: chess.Square | None,
-        turno: chess.Color,
-        numero_jugada: int,
-    ) -> EventoTablero:
-        return EventoTablero(
-            tipo=tipo,
-            pieza=pieza,
-            origen=origen,
-            destino=destino,
-            turno=turno,
-            numero_jugada=numero_jugada,
-        )
+    def procesar_ocupacion(self, ocupacion: Ocupacion) -> Lectura:
+        """Interpreta una lectura de sensores contra el tablero lógico actual."""
+        self._sincronizar_con_tablero()
+        reposo = casillas_ocupadas(self._estado.board)
+        self._registrar_cambios(ocupacion, reposo)
 
-    def procesar_ocupacion(self, ocupacion: Ocupacion) -> EventoTablero | None:
-        """Procesa una lectura de sensores y devuelve el evento detectado, si hay uno.
+        if ocupacion == reposo:
+            self._vaciadas.clear()
+            self._reocupadas.clear()
+            lectura = Lectura(TipoLectura.REPOSO, ocupacion)
+        else:
+            lectura = self._resolver(ocupacion, reposo)
 
-        Devuelve `None` cuando la lectura no trae ningún cambio interpretable: una
-        lectura idéntica a la anterior (no se loguea), o un diff con una forma no
-        soportada (se loguea un `WARNING`, pero no se toca el estado interno).
-        """
-        esperada = self._ocupacion_esperada()
-        aparecidas = ocupacion - esperada
-        desaparecidas = esperada - ocupacion
+        if lectura != self._ultima:
+            self._loguear(lectura)
+        self._ultima = lectura
+        return lectura
 
-        if not aparecidas and not desaparecidas:
-            return None
+    def _resolver(self, ocupacion: Ocupacion, reposo: Ocupacion) -> Lectura:
+        faltan, sobran = reposo - ocupacion, ocupacion - reposo
+        candidatos = tuple(self._por_ocupacion.get(ocupacion, ()))
 
-        if len(aparecidas) + len(desaparecidas) != 1:
-            log.warning(
-                "%s: diff de ocupación inesperado (aparecen=%s, desaparecen=%s); se ignora",
-                self._prefijo_log(),
-                {chess.square_name(sq) for sq in aparecidas},
-                {chess.square_name(sq) for sq in desaparecidas},
-            )
-            return None
-
-        if desaparecidas:
-            return self._procesar_desaparicion(next(iter(desaparecidas)))
-        return self._procesar_aparicion(next(iter(aparecidas)))
-
-    def _procesar_desaparicion(self, sq: chess.Square) -> EventoTablero | None:
-        if not self._en_curso():
-            pieza = self._estado.board.piece_at(sq)
-            if pieza is None or pieza.color != self._estado.turno:
-                log.warning(
-                    "%s: se detectó una pieza levantada en %s pero no corresponde a "
-                    "quien tiene el turno; se ignora",
-                    self._prefijo_log(),
-                    chess.square_name(sq),
-                )
-                return None
-
-            turno, numero_jugada = self._estado.turno, self._estado.board.fullmove_number
-            self._origen = sq
-            self._pieza = pieza
-            log.info("%s: se levanta %s", self._prefijo_log(), self._describir(pieza, sq))
-            return self._evento(
-                TipoEvento.PIEZA_LEVANTADA,
-                pieza=pieza,
-                origen=sq,
-                destino=None,
-                turno=turno,
-                numero_jugada=numero_jugada,
-            )
-
-        if sq == self._colocacion_actual:
-            self._colocacion_actual = None
-            log.info("%s: se retoma la pieza en %s", self._prefijo_log(), chess.square_name(sq))
-            return self._evento(
-                TipoEvento.PIEZA_LEVANTADA,
-                pieza=self._pieza,
-                origen=self._origen,
-                destino=None,
-                turno=self._estado.turno,
-                numero_jugada=self._estado.board.fullmove_number,
-            )
-
-        if self._colocacion_actual is None and self._extra_vacia is None:
-            # Una segunda casilla se vació sin haberse repuesto la primera: típico de
-            # una captura física (se retira la pieza capturada antes de colocar la
-            # atacante). Se recuerda para no perder el rastro cuando se vuelva a
-            # ocupar — ver `_ocupacion_esperada`. El movimiento sigue sin soportarse
-            # (se rechazará explícitamente en `_procesar_aparicion` si se completa).
-            self._extra_vacia = sq
-            log.warning(
-                "%s: se vació %s además de %s (¿captura en curso?); fuera de alcance v1",
-                self._prefijo_log(),
-                chess.square_name(sq),
-                chess.square_name(self._origen),
-            )
-            return None
-
-        log.warning(
-            "%s: se levantó una pieza en %s mientras había otra en curso desde %s; se ignora",
-            self._prefijo_log(),
-            chess.square_name(sq),
-            chess.square_name(self._origen),
-        )
-        return None
-
-    def _procesar_aparicion(self, sq: chess.Square) -> EventoTablero | None:
-        if not self._en_curso() or self._colocacion_actual is not None:
-            log.warning(
-                "%s: apareció una pieza en %s sin una pieza en el aire que la explique; se ignora",
-                self._prefijo_log(),
-                chess.square_name(sq),
-            )
-            return None
-
-        origen = self._origen
-        pieza = self._pieza
-
-        if sq == origen:
-            log.info(
-                "%s: se repone %s en su casilla original, se cancela el movimiento",
-                self._prefijo_log(),
-                self._describir(pieza, origen),
-            )
-            self._reiniciar()
-            return self._evento(
-                TipoEvento.PIEZA_REPUESTA,
-                pieza=pieza,
-                origen=origen,
-                destino=None,
-                turno=self._estado.turno,
-                numero_jugada=self._estado.board.fullmove_number,
-            )
-
-        candidatos = [
-            m
-            for m in self._estado.board.legal_moves
-            if m.from_square == origen and m.to_square == sq
-        ]
+        def lectura(tipo: TipoLectura, movimiento: chess.Move | None = None) -> Lectura:
+            return Lectura(tipo, ocupacion, movimiento, candidatos, faltan, sobran)
 
         if not candidatos:
-            self._colocacion_actual = sq
-            log.warning(
-                "%s: %s→%s es ILEGAL, se rechaza y se espera corrección",
+            return lectura(TipoLectura.INCOMPLETA)
+        if len(candidatos) == 1:
+            return lectura(TipoLectura.JUGADA, candidatos[0])
+
+        # Varios candidatos con la misma ocupación: capturas de una misma pieza a casillas
+        # distintas. Gana la casilla capturada que se volvió a ocupar más recientemente.
+        vistas = [m for m in candidatos if m.to_square in self._reocupadas]
+        if not vistas:
+            return lectura(TipoLectura.AMBIGUA)
+        return lectura(TipoLectura.JUGADA, max(vistas, key=lambda m: self._reocupadas[m.to_square]))
+
+    def _loguear(self, lectura: Lectura) -> None:
+        if lectura.tipo is TipoLectura.JUGADA:
+            log.info(
+                "%s: posición de %s, falta el botón del reloj",
                 self._prefijo_log(),
-                chess.square_name(origen),
-                chess.square_name(sq),
+                self._estado.board.san(lectura.movimiento),
             )
-            return self._evento(
-                TipoEvento.MOVIMIENTO_ILEGAL_RECHAZADO,
-                pieza=pieza,
-                origen=origen,
-                destino=sq,
-                turno=self._estado.turno,
-                numero_jugada=self._estado.board.fullmove_number,
-            )
-
-        movimiento = candidatos[0]
-        if len(candidatos) > 1:
-            movimiento = next(m for m in candidatos if m.promotion == chess.QUEEN)
-
-        board = self._estado.board
-        if board.is_capture(movimiento) or board.is_castling(movimiento):
-            self._colocacion_actual = sq
+        elif lectura.tipo is TipoLectura.AMBIGUA:
             log.warning(
-                "%s: %s→%s parece captura/enroque/al paso, fuera de alcance v1; se rechaza",
+                "%s: captura ambigua entre %s",
                 self._prefijo_log(),
-                chess.square_name(origen),
-                chess.square_name(sq),
-            )
-            return self._evento(
-                TipoEvento.MOVIMIENTO_NO_SOPORTADO,
-                pieza=pieza,
-                origen=origen,
-                destino=sq,
-                turno=self._estado.turno,
-                numero_jugada=self._estado.board.fullmove_number,
+                ", ".join(self._estado.board.san(m) for m in lectura.candidatos),
             )
 
-        turno, numero_jugada = self._estado.turno, self._estado.board.fullmove_number
-        self._estado.aplicar_movimiento(movimiento)
-        log.info(
-            "%s: %s→%s aplicado. Turno pasa a %s.",
-            self._prefijo_log(turno, numero_jugada),
-            chess.square_name(origen),
-            chess.square_name(sq),
-            _NOMBRES_COLOR[self._estado.turno],
-        )
-        self._reiniciar()
-        return self._evento(
-            TipoEvento.MOVIMIENTO_APLICADO,
-            pieza=pieza,
-            origen=origen,
-            destino=sq,
-            turno=turno,
-            numero_jugada=numero_jugada,
-        )
+
+def marcas(lectura: Lectura, board: chess.Board) -> dict[chess.Square, Marca]:
+    """Qué mostrar en cada casilla para una lectura (las que no aparecen, apagadas).
+
+    - `JUGADA`: todas las casillas que toca la jugada (con la torre del enroque y el peón
+      capturado al paso).
+    - `AMBIGUA`: el origen como `JUGADA` y las casillas posibles de la captura como `DESTINO`.
+    - `INCOMPLETA`: las jugadas compatibles con lo que se movió hasta ahora (las que tocan
+      todas las casillas cambiadas) muestran sus orígenes y destinos. Si no hay ninguna (por
+      ejemplo, la pieza se apoyó en una casilla ilegal), se muestran las jugadas de las
+      piezas propias levantadas. Lo que quede sin explicar es `FALTA` o `SOBRA`.
+    """
+    if lectura.tipo is TipoLectura.REPOSO:
+        return {}
+    if lectura.tipo is TipoLectura.JUGADA:
+        todas, _ = casillas_tocadas(board, lectura.movimiento)
+        return dict.fromkeys(todas, Marca.JUGADA)
+
+    resultado: dict[chess.Square, Marca] = {}
+    if lectura.tipo is TipoLectura.AMBIGUA:
+        for movimiento in lectura.candidatos:
+            resultado[movimiento.from_square] = Marca.JUGADA
+            resultado.setdefault(movimiento.to_square, Marca.DESTINO)
+        return resultado
+
+    cambiadas = lectura.faltan | lectura.sobran
+    tocadas = [(m, *casillas_tocadas(board, m)) for m in _jugadas_detectables(board)]
+    compatibles = [(todas, origenes) for _, todas, origenes in tocadas if cambiadas <= todas]
+    if not compatibles:
+        compatibles = [
+            (todas, origenes) for m, todas, origenes in tocadas if m.from_square in lectura.faltan
+        ]
+    for todas, origenes in compatibles:
+        for sq in origenes:
+            resultado[sq] = Marca.ORIGEN
+        for sq in todas - origenes:
+            resultado.setdefault(sq, Marca.DESTINO)
+    for sq in lectura.faltan:
+        resultado.setdefault(sq, Marca.FALTA)
+    for sq in lectura.sobran:
+        resultado.setdefault(sq, Marca.SOBRA)
+    return resultado

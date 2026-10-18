@@ -12,18 +12,18 @@ Mientras falte la segunda, ningún movimiento se acepta (ni del rival ni un segu
 mismo jugador) y el tiempo le sigue corriendo a quien movió — igual que un reloj físico
 si te olvidás de apretarlo.
 
-No depende de hardware: la simulación por terminal (`tablero/simulacion.py`) y, a
-futuro, el tablero real (`io/sensores.py` → `logica/eventos.py`) llaman a los mismos
+No depende de hardware: la simulación por terminal (`tablero/simulacion.py`) y el
+tablero real (`logica/partida_fisica.py`, vía `intentar_jugada`) llaman a los mismos
 métodos, así que la regla y el registro se comportan idéntico en los dos casos.
 
 ## Por qué el board cambia de turno antes que el reloj
 
-`intentar_movimiento` aplica el movimiento al `chess.Board` en el acto (igual que hace
-`logica/eventos.py` cuando lo detecta por sensores), porque el board es lo que valida la
-posición y necesita estar sincronizado con las piezas físicas. El "turno de la partida"
-que percibe el jugador es el del **reloj**, que solo avanza con el botón. Por eso
-`board.turn` y `reloj.turno` quedan desfasados entre el movimiento y la pulsación: ese
-desfase *es* la condición 2 pendiente (`esperando_boton`).
+`intentar_movimiento` aplica el movimiento al `chess.Board` en el acto, porque el board es
+lo que valida la posición. El "turno de la partida" que percibe el jugador es el del
+**reloj**, que solo avanza con el botón. Por eso `board.turn` y `reloj.turno` quedan
+desfasados entre el movimiento y la pulsación: ese desfase *es* la condición 2 pendiente
+(`esperando_boton`). Con el tablero físico no aparece, porque `PartidaFisica` llama a
+`intentar_jugada` y a `pulsar_boton` juntos.
 """
 
 from __future__ import annotations
@@ -212,39 +212,79 @@ class Partida:
             self._registro.anotar_jugada(resultado, self._reloj, self._estado.board)
         return resultado
 
-    def _resolver_movimiento(self, texto: str) -> ResultadoJugada:
-        turno, numero = self.turno, self._estado.board.fullmove_number
+    def intentar_jugada(self, movimiento: chess.Move) -> ResultadoJugada:
+        """Procesa un movimiento ya resuelto (el que detectan los sensores, ver
+        `logica/partida_fisica.py`) con las mismas reglas que uno tipeado.
 
-        def bloqueado(tipo: TipoJugada, motivo: str) -> ResultadoJugada:
-            return ResultadoJugada(
-                tipo=tipo, texto=texto, turno=turno, numero_jugada=numero, motivo=motivo
-            )
+        En el registro queda anotado en UCI (`intenta 'e2e4'`).
+        """
+        self.actualizar_tiempo()
+        resultado = self._resolver_jugada(movimiento)
+        if self._registro is not None:
+            self._registro.anotar_jugada(resultado, self._reloj, self._estado.board)
+        return resultado
 
+    def _bloqueado(self, tipo: TipoJugada, texto: str, motivo: str) -> ResultadoJugada:
+        return ResultadoJugada(
+            tipo=tipo,
+            texto=texto,
+            turno=self.turno,
+            numero_jugada=self._estado.board.fullmove_number,
+            motivo=motivo,
+        )
+
+    def _bloqueo_previo(self, texto: str) -> ResultadoJugada | None:
+        """Lo que impide mover sin importar qué movimiento sea, o `None` si se puede."""
         if self._reloj.tiempo_agotado:
             perdedor = NOMBRES_COLOR[self._reloj.perdedor]
-            return bloqueado(TipoJugada.BLOQUEADO_TIEMPO, f"la partida terminó: {perdedor} se quedó sin tiempo")
+            return self._bloqueado(
+                TipoJugada.BLOQUEADO_TIEMPO, texto, f"la partida terminó: {perdedor} se quedó sin tiempo"
+            )
         if self.terminada:
-            return bloqueado(TipoJugada.BLOQUEADO_TERMINADA, f"la partida ya terminó ({self.motivo_fin})")
+            return self._bloqueado(
+                TipoJugada.BLOQUEADO_TERMINADA, texto, f"la partida ya terminó ({self.motivo_fin})"
+            )
         if self._pendiente_de_reloj is not None:
             pendiente = NOMBRES_COLOR[self._pendiente_de_reloj]
-            return bloqueado(
+            return self._bloqueado(
                 TipoJugada.BLOQUEADO_FALTA_RELOJ,
+                texto,
                 f"{pendiente} todavía no presionaron su botón del reloj",
             )
+        return None
 
+    def _resolver_movimiento(self, texto: str) -> ResultadoJugada:
+        if (bloqueo := self._bloqueo_previo(texto)) is not None:
+            return bloqueo
+
+        turno = self.turno
         try:
             movimiento = parsear_movimiento(texto, self._estado.board, self._idioma)
         except NotacionInvalidaError as exc:
-            return bloqueado(TipoJugada.BLOQUEADO_NOTACION, str(exc))
+            return self._bloqueado(TipoJugada.BLOQUEADO_NOTACION, texto, str(exc))
         except MovimientoIlegalError:
             if self._es_del_otro_color(texto):
-                return bloqueado(
+                return self._bloqueado(
                     TipoJugada.BLOQUEADO_TURNO,
+                    texto,
                     f"'{texto}' es un movimiento de {NOMBRES_COLOR[not turno]}, "
                     f"pero el turno es de {NOMBRES_COLOR[turno]}",
                 )
-            return bloqueado(TipoJugada.BLOQUEADO_ILEGAL, self._motivo_ilegal(texto))
+            return self._bloqueado(TipoJugada.BLOQUEADO_ILEGAL, texto, self._motivo_ilegal(texto))
 
+        return self._aplicar(movimiento, texto)
+
+    def _resolver_jugada(self, movimiento: chess.Move) -> ResultadoJugada:
+        texto = movimiento.uci()
+        if (bloqueo := self._bloqueo_previo(texto)) is not None:
+            return bloqueo
+        if not self._estado.es_legal(movimiento):
+            return self._bloqueado(TipoJugada.BLOQUEADO_ILEGAL, texto, self._motivo_ilegal(texto))
+        return self._aplicar(movimiento, texto)
+
+    def _aplicar(self, movimiento: chess.Move, texto: str) -> ResultadoJugada:
+        """Aplica un movimiento legal y deja pendiente el botón del que movió."""
+        turno, numero = self.turno, self._estado.board.fullmove_number
         san = self._estado.board.san(movimiento)
         pieza = self._estado.board.piece_at(movimiento.from_square)
         descripcion = (

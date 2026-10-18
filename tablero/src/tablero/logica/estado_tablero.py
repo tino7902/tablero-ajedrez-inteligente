@@ -5,9 +5,9 @@ API en español para el resto del proyecto. Toda la lógica de reglas (jaque,
 enroque, al paso, promoción, tablas) la resuelve python-chess — este módulo no
 reimplementa reglas de ajedrez, solo expone un wrapper.
 
-No maneja la traducción de eventos de sensores a `chess.Move` (eso es
-responsabilidad de `logica/eventos.py`, todavía no implementado) ni la
-resolución de a qué pieza promociona un peón: quien llama a
+No maneja la traducción de lecturas de sensores a `chess.Move` (eso es
+responsabilidad de `logica/eventos.py`) ni la resolución de a qué pieza
+promociona un peón: quien llama a
 `aplicar_movimiento` debe pasar un `chess.Move` ya completo, incluyendo la
 pieza de promoción si corresponde (ej. `chess.Move.from_uci("e7e8q")`).
 """
