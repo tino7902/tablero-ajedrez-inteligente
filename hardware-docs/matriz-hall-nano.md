@@ -5,10 +5,10 @@ un Arduino Nano que le pasa el estado del tablero a la Raspberry Pi por USB. Un 
 maneja la corriente. Reemplaza al 74HC138 y al 74HC165 de las versiones anteriores; por qué se
 cambió y qué se descartó, en `historial-deteccion.md`.
 
-**Estado:** decidida el 2026-10-17. Armada y probada: con el cableado normal (plan A, columnas
-digitales) y el firmware de `firmware/matriz-nano/`, el Nano detecta las 64 casillas desde el
-monitor serie de la notebook. El lector del lado Pi (`io/matriz.py`) está escrito pero todavía
-no se probó con el Nano enchufado a la Pi (ver "Software" al final).
+**Estado:** decidida el 2026-10-17. Armada y funcionando con el cableado normal (plan A,
+columnas digitales): el Nano detecta las 64 casillas, y desde la Pi ya están mapeadas y
+verificadas junto con los LEDs (2026-10-18; ver "Software" al final). Alimentación, por ahora:
+la Pi con un cargador de celular y los LEDs + el Nano con otro (el Nano sigue conectado a la Pi por USB para los datos); más adelante se va a unificar (ver `componentes.md`).
 
 Versión web de esta guía, con esquemas dibujados y checklist para tildar, para el equipo de
 hardware: https://claude.ai/artifact/Y4zNzHhxoWoaWzvcRwRLkU (su fuente es `matriz-hall-nano.html`,
@@ -126,7 +126,7 @@ El pin del Nano va por la de 470 Ω a la base del NPN de esa fila; su colector, 
 |---|---|
 | 5V | Riel de Vcc de los 64 Hall |
 | GND | Emisores de los 8 NPN y las 8 resistencias de 10 kΩ de base |
-| USB | A un puerto USB de la Pi: alimenta el Nano y transmite los datos |
+| USB | A un puerto USB de la Pi: transmite los datos (y alimenta el Nano si no tiene otra fuente). Hoy el Nano se alimenta con el mismo cargador que los LEDs, ver `componentes.md` |
 | D13 | Libre (tiene el LED de la placa: no usarlo como entrada) |
 | A5, A6, A7 | Libres; se usan en el plan B |
 | D0, D1 | **No conectar**: los usa el USB |
@@ -259,4 +259,6 @@ firmware en vez de depender del umbral de la entrada digital:
   matriz en el mismo formato que en la v2. `sensores matriz`, `calibrar` y `mapear` siguen igual;
   `medir F0` deja una fila fija con el comando `F` y muestra `C` y `A` en vivo. El puerto se
   autodetecta (o se fija en `NANO_PUERTO` de `config.py`) y el usuario tiene que estar en el grupo
-  `dialout`. Detalle en `software-docs/sensores.md`; falta probarlo enchufado a la Pi.
+  `dialout`. Detalle en `software-docs/sensores.md`. Probado en la Pi: mapeo de los Hall,
+  mapeo de los LEDs, `prueba_tablero recorrido` y `espejo`. Falta `sensores calibrar`, que
+  necesita las 32 piezas.

@@ -4,10 +4,10 @@ Firmware del Arduino Nano que barre la matriz de 64 sensores Hall en la v3 de la
 casillas (cableado en `hardware-docs/matriz-hall-nano.md`, por qué un Nano en
 `hardware-docs/historial-deteccion.md`). Es un solo archivo, `matriz-nano.ino`.
 
-**Estado:** probado en el Nano real con la matriz completa, en el cableado normal (plan A,
-columnas digitales): desde el monitor serie de la notebook detecta las 64 casillas. Del lado Pi,
-`io/matriz.py` ya le habla por el puerto serie (ver "Del lado Pi: `io/matriz.py`"), pero
-**todavía no se probó con el Nano enchufado a la Pi** (ver "Qué falta").
+**Estado:** funcionando con la matriz completa, en el cableado normal (plan A, columnas
+digitales). Primero se probó desde el monitor serie de la notebook y después enchufado a la Pi,
+con `io/matriz.py` (ver "Del lado Pi: `io/matriz.py`"): `sensores mapear`, `prueba_tablero
+recorrido` y `espejo` andan (2026-10-18).
 
 ## Por qué un Nano "tonto"
 
@@ -217,6 +217,5 @@ Después viene la prueba con la matriz real, con un solo driver (F0), en
 
 ## Qué falta
 
-- Probarlo enchufado a la Pi: `sensores matriz`, `medir`, `calibrar` y `mapear` (ver "Cómo
-  probarlo" en [`sensores.md`](./sensores.md)). Con el Nano alimentado por el USB de la Pi,
-  comparar los valores de `A` con los que daba en la notebook.
+- `sensores calibrar` con las 32 piezas (ver [`sensores.md`](./sensores.md)), para fijar la
+  espera por fila y el antirrebote; hasta ahora se usan los valores por defecto.

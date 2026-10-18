@@ -3,10 +3,11 @@
 Entradas digitales del tablero: los dos botones físicos del reloj de ajedrez (interruptores fin
 de carrera / limit switches, ver `hardware-docs/componentes.md`) y la matriz de ocupación de
 casillas, con **64 sensores Hall A3144** que barre un **Arduino Nano**. La Pi le pide cada
-lectura por USB serie. Los botones están verificados en hardware. La matriz con el Nano ya
-detecta las 64 casillas, probada desde el monitor serie de la notebook. El lado Pi
-(`io/matriz.py` sobre el puerto serie) está escrito pero **todavía no se probó con el Nano
-enchufado a la Pi** (ver "Matriz de casillas" más abajo).
+lectura por USB serie. Los botones están verificados en hardware. **La matriz funciona de punta
+a punta en la Pi** (2026-10-18): `CASILLA_DE_CELDA_HALL` ya está generado con `mapear`, y
+`prueba_tablero recorrido` y `espejo` pasan con los LEDs. Falta `calibrar`, que necesita las 32
+piezas: hasta entonces `HALL_ESPERA_ENCENDIDO` y `HALL_LECTURAS_ESTABLES` son los valores por
+defecto, que alcanzaron para todas las pruebas.
 
 La matriz empezó con reed switches. Esa versión se conserva en `io/sensores_reed.py`, ver
 [`sensores-reed.md`](./sensores-reed.md); la de Hall es la actual y la que se usa por defecto.
@@ -124,9 +125,9 @@ cambiando solo el import.
 | Constante | Valor por defecto | Lo genera |
 |---|---|---|
 | `NANO_PUERTO` | `None`: autodetectar (el único `/dev/ttyUSB*` o `/dev/ttyACM*`) | A mano, solo si hay varios puertos serie |
-| `HALL_ESPERA_ENCENDIDO` | `0.001` (1 ms por fila, generoso) | `calibrar` |
-| `HALL_LECTURAS_ESTABLES` | `3` | `calibrar` |
-| `CASILLA_DE_CELDA_HALL` | identidad (F0 = fila 1, C0 = columna a) | `mapear` |
+| `HALL_ESPERA_ENCENDIDO` | `0.001` (1 ms por fila, generoso; sin calibrar todavía) | `calibrar` |
+| `HALL_LECTURAS_ESTABLES` | `3` (sin calibrar todavía) | `calibrar` |
+| `CASILLA_DE_CELDA_HALL` | Generado el 2026-10-18: grilla, F0 = fila 8 … F7 = fila 1, C0..C7 = columnas a..h | `mapear` |
 
 Los clones del Nano con CH340 aparecen como `/dev/ttyUSB0`; otros, como `/dev/ttyACM0`. Si hay más
 de un puerto serie, poner en `NANO_PUERTO` el del Nano, mejor con su nombre de
@@ -285,8 +286,9 @@ Imprime qué medir (las mismas mediciones que "Prueba con un solo driver" de
 | 3. Entre GND y Vcc de un Hall de la fila | ≥ 3,8 V | Riel de 5 V mal, o el colector no baja |
 | 4. Una columna con pieza | < 1,3 V (`ADC` < 270); sin pieza ~5 V (~1020) | Entre 1,3 y 1,5 V funciona justo; más de 1,5 V (`ADC` > 307), plan B |
 
-Con el Nano alimentado por la Pi, el 5 V puede quedar algo más bajo que con la notebook: comparar
-los valores de `ADC` con los que daba el monitor serie en la notebook.
+Si cambia la alimentación del Nano (hoy los LEDs y el Nano van con su propio cargador, ver
+`hardware-docs/componentes.md`), el 5 V puede cambiar: conviene repetir `medir` con una fila
+llena y comparar los valores de `ADC`.
 
 #### Matriz en vivo
 

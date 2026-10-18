@@ -14,6 +14,10 @@
 - ~~_1x IC 74HC138, 1x IC 74HC165 y 8x pull-ups de 10 kΩ a 3,3 V:_~~ Selector de filas y lector de columnas de la v1 y la v2. **Ya no se usan**: el 138 no aguantaba la corriente de los Hall (ver `historial-deteccion.md`). Las columnas usan las pull-ups internas del Nano; no agregar pull-ups externas (le suman corriente al Hall que detecta).
 - _65x LEDs WS2812B (Neopixels):_ 64 para la iluminación del tablero y 1 LED extra de "sacrificio".
 - _1x Fuente de Alimentación Externa (5V, >4A):_ Alimentación exclusiva para la matriz de LEDs.
+- **Alimentación actual (provisoria, 2026-10-18):** dos cargadores de celular, uno para la
+  Raspberry Pi y otro para los LEDs + el Arduino Nano (el Nano sigue conectado a la Pi por USB
+  para los datos). Así se probaron los sensores y los LEDs. Más adelante se va a unificar en una
+  sola fuente; los LEDs y la Pi tienen que compartir GND (ver `software-docs/leds.md`).
 - _1x Diodo Rectificador (ej. 1N4007):_ Para bajar el voltaje del LED de sacrificio a ~4.3V.
 
 ---
@@ -31,8 +35,7 @@ _Iluminación LED (Salida Hardware PWM):_
 
 _Detección de Tablero:_ desde la v3 la matriz la lee el Arduino Nano, conectado a la Pi por
 **USB**, y no usa ningún pin GPIO de la Pi (pines del Nano en `matriz-hall-nano.md`). Los pines de
-abajo eran los de la v1 y la v2; quedan libres cuando se desconecta la matriz, aunque
-`config.py` y `io/matriz.py` todavía los usan hasta que se escriba el lector por USB.
+abajo eran los de la v1 y la v2: quedaron libres, y ni `config.py` ni `io/matriz.py` los usan.
 
 _(v1/v2) Detección de Tablero - Lector 74HC165:_
 

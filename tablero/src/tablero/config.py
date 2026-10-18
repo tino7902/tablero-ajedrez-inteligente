@@ -56,8 +56,9 @@ HALL_LECTURAS_ESTABLES: int = 3
 # Mapeo celda → casilla, uno por sensor: CASILLA_DE_CELDA_HALL[fila Fk][columna Ck] =
 # nombre de la casilla, con Fk y Ck los números de cable de hardware-docs/matriz-hall-nano.md
 # (los mismos que eran Yk del 74HC138 y Dk del 74HC165 en la v2). Sirve aunque el cableado
-# no sea una grilla. El valor de abajo es un placeholder (identidad); se genera el real con
-# `uv run python -m tablero.io.sensores mapear` (ver software-docs/sensores.md).
+# no sea una grilla. Generado con `uv run python -m tablero.io.sensores mapear` el
+# 2026-10-18 (ver software-docs/sensores.md): es una grilla, F0 = fila 8 … F7 = fila 1 y
+# C0..C7 = columnas a..h.
 CASILLA_DE_CELDA_HALL: tuple[tuple[str, ...], ...] = (
     ("a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"),  # F0: C0..C7
     ("a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7"),  # F1: C0..C7
@@ -96,10 +97,9 @@ LED_CANTIDAD: int = 65
 LED_INDICE_SACRIFICIO: int = 0
 LED_BRILLO: int = 32  # 0-255; bajo por defecto: 64 LEDs en blanco al máximo son ~3,8 A
 # Mapeo casilla → índice en la tira: LED_DE_CASILLA[chess.Square] (0 = a1, 1 = b1, ...,
-# 63 = h8). El valor por defecto es un placeholder que supone la tira en serpentina
-# desde a1 (fila 1 a→h, fila 2 h→a, ...) justo después del LED de sacrificio. Se
-# genera el real con `uv run python -m tablero.io.leds calibrar`
-# (ver software-docs/leds.md).
+# 63 = h8). Generado con `uv run python -m tablero.io.prueba_tablero leds` el
+# 2026-10-18 (ver software-docs/prueba-tablero.md): la tira va en serpentina desde h1
+# (fila 1 h→a, fila 2 a→h, ...) justo después del LED de sacrificio.
 # fmt: off
 LED_DE_CASILLA: tuple[int, ...] = (
      8,  7,  6,  5,  4,  3,  2,  1,  # fila 1: a..h

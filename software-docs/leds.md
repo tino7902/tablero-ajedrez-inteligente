@@ -1,8 +1,10 @@
 # `io/leds.py`
 
 Controla los 65 LEDs WS2812B del tablero (64 casillas + 1 LED de sacrificio, ver
-`hardware-docs/componentes.md`) con `rpi-ws281x`. Implementado pero **todavía no probado en
-el prototipo**.
+`hardware-docs/componentes.md`) con `rpi-ws281x`. **Probado en el prototipo** (2026-10-18):
+los 64 LEDs funcionan y `LED_DE_CASILLA` ya está generado con `prueba_tablero leds` (ver
+[`prueba-tablero.md`](./prueba-tablero.md)). La tira se alimenta, por ahora, con un cargador de
+celular que comparte con el Nano (ver `hardware-docs/componentes.md`).
 
 ## API
 
@@ -24,7 +26,7 @@ el prototipo**.
 | `LED_CANTIDAD` | 65 | Incluye el LED de sacrificio |
 | `LED_INDICE_SACRIFICIO` | 0 | Siempre apagado: `mostrar()` lo fuerza a negro antes de enviar |
 | `LED_BRILLO` | 32 | Brillo global 0–255 |
-| `LED_DE_CASILLA` | serpentina desde a1 | Tabla de 64 índices (`[chess.Square]`); placeholder hasta correr `calibrar` |
+| `LED_DE_CASILLA` | Generado el 2026-10-18: serpentina desde h1 (fila 1 h→a, fila 2 a→h, …) | Tabla de 64 índices (`[chess.Square]`); se regenera con `calibrar` o `prueba_tablero leds` |
 
 ## Decisiones de diseño
 

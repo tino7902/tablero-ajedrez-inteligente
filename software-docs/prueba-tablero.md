@@ -3,7 +3,9 @@
 Pruebas del tablero completo: los sensores Hall ([`sensores.md`](./sensores.md)) y los LEDs
 ([`leds.md`](./leds.md)) juntos. Sirve para asociar cada LED a su casilla sin tipear nada y para
 verificar, de punta a punta, que lo que detectan los sensores, lo que muestran los LEDs y el
-tablero real coincidan. Implementado pero **todavía no probado en el prototipo**.
+tablero real coincidan. **Probado en el prototipo** (2026-10-18): `leds` generó
+`LED_DE_CASILLA`, y `recorrido` y `espejo` funcionan. Falta `inicial`, que necesita las 32
+piezas.
 
 ## Requisitos
 
