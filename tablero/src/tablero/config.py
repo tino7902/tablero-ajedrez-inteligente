@@ -100,12 +100,18 @@ LED_BRILLO: int = 32  # 0-255; bajo por defecto: 64 LEDs en blanco al máximo so
 # desde a1 (fila 1 a→h, fila 2 h→a, ...) justo después del LED de sacrificio. Se
 # genera el real con `uv run python -m tablero.io.leds calibrar`
 # (ver software-docs/leds.md).
-LED_DE_CASILLA: tuple[int, ...] = tuple(
-    1 + fila * 8 + (7 - columna if fila % 2 else columna)
-    for fila in range(8)
-    for columna in range(8)
+# fmt: off
+LED_DE_CASILLA: tuple[int, ...] = (
+     8,  7,  6,  5,  4,  3,  2,  1,  # fila 1: a..h
+     9, 10, 11, 12, 13, 14, 15, 16,  # fila 2: a..h
+    24, 23, 22, 21, 20, 19, 18, 17,  # fila 3: a..h
+    25, 26, 27, 28, 29, 30, 31, 32,  # fila 4: a..h
+    40, 39, 38, 37, 36, 35, 34, 33,  # fila 5: a..h
+    41, 42, 43, 44, 45, 46, 47, 48,  # fila 6: a..h
+    56, 55, 54, 53, 52, 51, 50, 49,  # fila 7: a..h
+    57, 58, 59, 60, 61, 62, 63, 64,  # fila 8: a..h
 )
-
+# fmt: on
 # Registro de partidas (ver logica/registro.py y software-docs/registro.md). No se
 # trackea en git: son datos de ejecución, igual que la calibración táctil.
 DIRECTORIO_REGISTROS: Path = Path(__file__).resolve().parent.parent.parent / "registros"
