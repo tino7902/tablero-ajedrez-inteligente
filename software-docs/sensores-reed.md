@@ -25,8 +25,8 @@ siendo el placeholder: no se llegó a pegar el resultado de `calibrar` antes del
 | `ocupacion(matriz)` | Matriz cruda → `frozenset[chess.Square]`, la `Ocupacion` que espera `logica/eventos.py` |
 | `probar_matriz()` / `calibrar_matriz()` | CLI `matriz` / `calibrar`, ver "Cómo probarlo" |
 
-Con la misma API que la versión Hall: para volver a los reed en un futuro loop de juego alcanza
-con importar `sensores_reed` en vez de `sensores`.
+Con la misma API que la versión Hall: para volver a los reed en la partida (`io/juego.py`, ver
+[`juego.md`](./juego.md)) alcanza con importar `sensores_reed` en vez de `sensores`.
 
 ## Configuración (`config.py`, sección "versión reed")
 

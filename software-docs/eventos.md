@@ -1,107 +1,152 @@
 # `logica/eventos.py`
 
-Traduce lecturas de sensores (presencia/ausencia de pieza por casilla) a `chess.Move`,
-comparando snapshots sucesivos de ocupación contra el estado de `EstadoTablero`
-([`logica.md`](./logica.md)). Es lo que va a alimentar el bucle principal con eventos de
-juego (pieza levantada, movimiento aplicado, movimiento ilegal rechazado, etc.).
+Interpreta las lecturas de los sensores (presencia o ausencia de pieza por casilla, sin
+saber qué pieza es): para cada lectura responde qué jugada representa la posición física,
+comparándola con el tablero lógico de un `EstadoTablero` ([`logica.md`](./logica.md)).
+Además dice qué mostrar en cada casilla (las marcas que pinta `io/juego.py` en los LEDs).
+
+**No aplica nada.** La jugada recién cuenta cuando el jugador aprieta su botón del reloj;
+eso lo resuelve [`logica/partida_fisica.py`](./partida.md#logicapartida_fisicapy). Lo usa
+`io/juego.py` ([`juego.md`](./juego.md)).
 
 ## Por qué no depende de `io/sensores.py`
 
-`io/sensores.py` todavía está vacío. En vez de esperar a que exista, `eventos.py` define
-su propia entrada — `Ocupacion = frozenset[chess.Square]`, el conjunto de casillas
-actualmente ocupadas — y una función pura `casillas_ocupadas(board)` para producirla a
-partir de un `chess.Board`. Esto mantiene `logica/` sin dependencia de hardware (boundary
-documentado en `CLAUDE.md`) y permite testear todo el módulo con `frozenset`s armados a
-mano, sin sensores reales. El día que `io/sensores.py` exista, su trabajo es producir
-`Ocupacion` a partir de una lectura real de la matriz (en la v3, lo que manda el Arduino Nano
-por USB serie; en la v2, el 74HC138/74HC165) — `eventos.py` no necesita cambiar con el
-hardware.
+`eventos.py` define su propia entrada: `Ocupacion = frozenset[chess.Square]`, el conjunto
+de casillas ocupadas. `io/sensores.py` la produce a partir de la matriz que manda el Nano
+(`sensores.ocupacion(matriz)`), y los tests la arman a mano. Así `logica/` sigue sin
+depender del hardware (el boundary documentado en `CLAUDE.md`), y `eventos.py` no cambia si
+cambian los sensores (la versión reed produce la misma `Ocupacion`).
 
-## Flujo que resuelve
+## Cómo detecta la jugada
 
-Basado en el ejemplo original: se levanta una pieza (`PIEZA_LEVANTADA`), se coloca en una
-casilla candidata. Si el movimiento resultante (origen lógico → casilla candidata) es
-ilegal, se rechaza (`MOVIMIENTO_ILEGAL_RECHAZADO`) y se espera a que se retome la misma
-pieza — el **origen lógico nunca cambia** mientras el movimiento sigue en curso, aunque la
-pieza haya pasado por una casilla intermedia incorrecta. Cuando finalmente se coloca en una
-casilla donde el movimiento es legal, se aplica (`MOVIMIENTO_APLICADO`) y el turno pasa al
-otro jugador. Si en cambio la pieza se repone en su casilla original, el movimiento se
-cancela (`PIEZA_REPUESTA`) sin tocar el estado del juego.
+Para cada jugada legal, `ocupacion_tras(board, jugada)` calcula qué casillas quedarían
+ocupadas (sobre una copia del tablero). La lectura es esa jugada si la ocupación física
+coincide. Esto cubre todos los tipos de jugada sin casos especiales:
 
-Cada uno de estos cambios se loguea (`logging`, logger `tablero.logica.eventos`) con el
-número de jugada y el color a quien le tocaba mover, ej.:
+| Jugada | Ocupación resultante |
+|---|---|
+| Normal y promoción | `−origen +destino` |
+| Captura | `−origen` (el destino sigue ocupado, ahora por la que capturó) |
+| Al paso | `−origen −peón capturado +destino` |
+| Enroque | `−rey −torre +rey' +torre'` |
 
-```
-Jugada 1 (blancas): se levanta peón de e2
-Jugada 1 (blancas): e2→d4 es ILEGAL, se rechaza y se espera corrección
-Jugada 1 (blancas): se retoma la pieza en d4
-Jugada 1 (blancas): e2→e4 aplicado. Turno pasa a negras.
-```
+El resultado es una `Lectura`:
+
+| `TipoLectura` | Cuándo |
+|---|---|
+| `REPOSO` | La posición física coincide con el tablero lógico: no hay nada en curso |
+| `JUGADA` | Coincide con una jugada legal (o con varias y el historial desempata, ver abajo) |
+| `AMBIGUA` | Coincide con varias capturas de la misma pieza y no hay historial para elegir |
+| `INCOMPLETA` | No coincide con ninguna jugada legal: hay una jugada a medio hacer o mal hecha |
+
+Siempre trae `faltan` (casillas que en el tablero lógico tienen pieza y en el físico están
+vacías) y `sobran` (al revés); son lo que se le muestra al jugador para corregir.
+
+### Por qué compara la posición final en vez de seguir paso a paso
+
+La versión anterior era una máquina de estados que seguía cada pieza levantada y apoyada.
+Funcionaba para movimientos simples, pero el enroque y las capturas pasan por posiciones
+intermedias que esa máquina no podía resolver, así que las rechazaba
+(`MOVIMIENTO_NO_SOPORTADO`). Además aplicaba la jugada por su cuenta, por fuera de `Partida`,
+salteándose la regla del reloj.
+
+Ahora la jugada se confirma con el botón del reloj, así que no hace falta adivinar cuándo
+terminó: el jugador puede acomodar las piezas en cualquier orden, y en cada lectura se
+reinterpreta todo desde cero. Por ejemplo, en un enroque empezado por la torre, con la torre
+ya en f1 la lectura es `JUGADA` de torre (`Rf1`); cuando el rey llega a g1, pasa a ser `O-O`.
+La que cuenta es la que está armada cuando se aprieta el botón.
+
+### Desempate de capturas
+
+Las capturas de una misma pieza a casillas distintas dejan la misma ocupación (`−origen`).
+Por ejemplo, un caballo en f3 que puede tomar en e5 o en g5. Es el único caso en que dos
+jugadas legales coinciden: dos piezas distintas tienen distinto origen, y las promociones se
+juntan en una sola (ver abajo).
+
+Para desempatar, el rastreador recuerda qué casillas se vaciaron y se volvieron a ocupar
+desde la última posición de reposo (la casilla capturada se vacía al sacar la pieza rival y
+se vuelve a ocupar con la que captura):
+
+- Se queda con la captura cuyo destino está en ese historial.
+- Si hay más de una, gana la casilla que se ocupó más recientemente. Así, si el jugador toca
+  una pieza rival, la vuelve a poner y después captura otra, gana la última.
+- Si ninguna, la lectura es `AMBIGUA`. Pasa cuando la captura fue tan rápida que el
+  antirrebote (`HALL_LECTURAS_ESTABLES`) no llegó a ver vacía la casilla. Se resuelve
+  levantando y volviendo a apoyar la pieza que capturó.
+
+El historial se borra cuando la ocupación vuelve a coincidir con el tablero lógico, y cuando
+el tablero lógico cambia (después de cada jugada confirmada).
+
+**Limitación conocida:** si el jugador captura en e5, se arrepiente, devuelve el peón a e5
+con el caballo en la mano y no captura en otro lado, la posición física es la misma que
+"capturó en e5" y gana e5 (es lo último que se ocupó). Por eso la jugada detectada se
+muestra antes de apretar el botón, en la terminal y en los LEDs.
+
+### Promoción
+
+Las cuatro promociones dejan la misma ocupación y los sensores no ven qué pieza se apoyó,
+así que siempre se asume **dama** (el mismo criterio de la versión anterior). Elegir otra
+pieza queda para cuando haya pantalla táctil en la partida.
+
+## Marcas para los LEDs
+
+`marcas(lectura, board) -> dict[chess.Square, Marca]` dice qué mostrar en cada casilla; los
+colores los elige `io/juego.py`. Es una función pura, testeada en `tests/test_eventos.py`.
+
+| Situación | Marcas |
+|---|---|
+| `REPOSO` | Ninguna |
+| `JUGADA` | `JUGADA` en todas las casillas que toca: origen y destino, más la torre en el enroque y el peón capturado al paso |
+| `AMBIGUA` | `JUGADA` en el origen y `DESTINO` en las casillas posibles de la captura |
+| `INCOMPLETA` | Las jugadas compatibles con lo que se movió (las que tocan todas las casillas cambiadas) muestran sus orígenes (`ORIGEN`) y el resto de sus casillas (`DESTINO`). Si no hay ninguna (por ejemplo, la pieza se apoyó en una casilla ilegal), se muestran las jugadas de las piezas propias levantadas. Lo que quede sin explicar es `FALTA` o `SOBRA` |
+
+Ejemplos: al levantar el caballo de g1 se ven g1 (`ORIGEN`), f3 y h3 (`DESTINO`). Si se lo
+apoya en g3, g3 aparece como `SOBRA`. Si se saca primero el peón rival que se va a capturar,
+se ven el atacante (`ORIGEN`) y la casilla capturada (`DESTINO`). Con el rey en g1 y la torre
+en la mano a mitad de un enroque se ven e1 y h1 (`ORIGEN`) y g1 y f1 (`DESTINO`).
 
 ## API
 
 | Función/clase | Qué hace |
 |---|---|
-| `casillas_ocupadas(board)` | `frozenset[chess.Square]` con las casillas ocupadas de un `chess.Board` |
-| `RastreadorMovimientos(estado)` | Envuelve un `EstadoTablero`; asume que la primera `Ocupacion` que se le pasa coincide con `estado.board.occupied` |
-| `.procesar_ocupacion(ocupacion)` | Procesa una lectura de sensores; devuelve `EventoTablero \| None` |
-| `EventoTablero` | `tipo`, `pieza`, `origen`, `destino`, `turno`, `numero_jugada` |
-| `TipoEvento` | `PIEZA_LEVANTADA`, `PIEZA_REPUESTA`, `MOVIMIENTO_ILEGAL_RECHAZADO`, `MOVIMIENTO_APLICADO`, `MOVIMIENTO_NO_SOPORTADO` |
+| `casillas_ocupadas(board)` | `Ocupacion` de un `chess.Board` |
+| `ocupacion_tras(board, jugada)` | `Ocupacion` después de jugar `jugada` |
+| `casillas_tocadas(board, jugada)` | `(todas, origenes)`: las casillas que cambian con la jugada, y cuáles de ellas se vacían de piezas del que mueve |
+| `RastreadorMovimientos(estado)` | Interpreta lecturas contra `estado.board`, sin modificarlo |
+| `.procesar_ocupacion(ocupacion)` | Devuelve la `Lectura` de esa ocupación (siempre, nunca `None`) |
+| `.reiniciar()` | Olvida el historial de lecturas |
+| `Lectura` | `tipo`, `ocupacion`, `movimiento`, `candidatos`, `faltan`, `sobran` |
+| `marcas(lectura, board)` | `dict[chess.Square, Marca]` (`ORIGEN`, `DESTINO`, `JUGADA`, `FALTA`, `SOBRA`) |
 
-## Decisiones de diseño
+Cada pieza levantada y apoyada se loguea (logger `tablero.logica.eventos`, nivel `INFO`), con
+el número de jugada y el color que tiene el turno:
 
-- **Resolver el movimiento filtrando `board.legal_moves` en vez de construir `chess.Move` a
-  mano**: filtrar por `from_square`/`to_square` sobre los movimientos legales reales evita
-  reimplementar detección de promoción (un `chess.Move(e7, e8)` sin `promotion` nunca es
-  legal — python-chess solo genera los 4 moves de promoción). La ambigüedad de promoción
-  emerge naturalmente como "más de un candidato para el mismo origen/destino"; se resuelve
-  eligiendo siempre `promotion == chess.QUEEN` (los sensores no distinguen identidad de
-  pieza, mismo argumento que ya usa `estado_tablero.py` para dejar esto fuera de alcance).
-- **`fullmove_number` se lee antes de aplicar el movimiento**: python-chess lo incrementa
-  recién dentro de `Board.push`, y solo cuando mueve negro. Leerlo antes de
-  `aplicar_movimiento` es necesario para loguear correctamente tanto la jugada de blancas
-  como la de negras del mismo número.
-- **Guard explícito de captura/enroque antes de aplicar**: sin este chequeo
-  (`board.is_capture`/`board.is_castling` sobre el movimiento candidato), esos movimientos
-  se aplicarían igual — el diff de "una casilla libera, otra ocupa" es indistinguible de un
-  movimiento normal en el primer poll — y el tablero lógico quedaría desincronizado del
-  físico en silencio. Con el guard se rechazan de forma explícita (`MOVIMIENTO_NO_SOPORTADO`)
-  en vez de aplicarse mal.
-- **Seguimiento de la "casilla extra vaciada" (`_extra_vacia`)**: una captura física real
-  (se levanta la atacante, se retira la pieza capturada, se coloca la atacante) hace que una
-  segunda casilla se vacíe mientras la primera pieza sigue en el aire. Sin recordar esa
-  casilla, el paso final (colocar la atacante donde estaba la capturada) coincide por
-  casualidad con la ocupación esperada del tablero lógico —que nunca se tocó— y el
-  rastreador quedaría trabado en curso *sin loguear nada*. Restar `_extra_vacia` de la
-  ocupación esperada asegura que ese paso también se detecte y se rechace explícitamente
-  (ver `test_captura_fisica_completa_se_rechaza_sin_quedar_en_silencio`).
+```
+Jugada 1 (blancas): se levanta peón de e2
+Jugada 1 (blancas): aparece pieza en e4
+Jugada 1 (blancas): posición de e4, falta el botón del reloj
+```
 
 ## Fuera de alcance (todavía)
 
-- **Capturas, enroque y captura al paso**: se detectan y se rechazan explícitamente
-  (`MOVIMIENTO_NO_SOPORTADO`), pero no se aplican. Es la limitación más importante de esta
-  v1 — cubre poco más que empujes de peón y movimientos de pieza sin captura. Es el
-  siguiente paso natural una vez validado este flujo.
-- **Polling más lento que un lift+place humano**: la máquina de estados asume que cada lift
-  y cada place se observan en snapshots separados. Si el jugador mueve más rápido que la
-  frecuencia de escaneo, un solo diff puede traer una casilla que se libera y otra que se
-  ocupa al mismo tiempo, lo cual hoy se trata como diff inesperado (no rompe el estado, pero
-  exige repetir el movimiento más lento). Queda como precondición de `io/sensores.py`
-  (escanear más rápido que un movimiento humano), no resuelta en este módulo.
-- **Resincronización/timeout**: si el rastreador queda con un movimiento en curso sin
-  resolver, no hay temporizador que lo resetee a reposo — solo warnings logueados en cada
-  diff inesperado que llegue mientras tanto.
-- **Reconciliación de posición inicial incorrecta**: se asume que el tablero arranca en
-  posición correcta y que la primera `Ocupacion` procesada coincide con `estado.board.occupied`.
+- **Posición inicial incorrecta:** el rastreador no la valida; si no coincide, la lectura es
+  `INCOMPLETA` con lo que falta y sobra. `io/juego.py` espera a que esté bien antes de
+  arrancar la partida.
+- **Elegir la pieza de la promoción:** siempre dama (ver arriba).
+- **La limitación del desempate de capturas** descrita arriba.
 
 ## Tests
 
-`tablero/tests/test_eventos.py` — no requiere hardware ni binarios externos. Cubre: el
-ejemplo original completo (movimiento ilegal → corrección → movimiento legal), un
-movimiento legal directo, cancelación por pieza repuesta, enroque y captura rechazados
-explícitamente (incluida la secuencia física completa de una captura, ver arriba),
-promoción resuelta a dama, diffs inesperados (múltiples casillas, pieza del color
-equivocado), y lecturas duplicadas sin evento. Correr con:
+`tablero/tests/test_eventos.py`: no requiere hardware ni binarios externos. Una "mano" levanta
+y apoya piezas y le pasa cada ocupación al rastreador. Cubre:
+
+- movimiento normal (sin aplicarse), pieza repuesta, casilla ilegal y corrección, cambio de
+  idea antes del botón, pieza rival levantada;
+- captura en los dos órdenes, desempate por historial, la ocupada más recientemente, y
+  `AMBIGUA` resuelta al retocar la pieza;
+- enroque corto (empezando por el rey o por la torre) y largo, al paso en los dos órdenes,
+  promoción a dama con y sin captura;
+- marcas de cada situación, y vuelta a `REPOSO` cuando se aplica la jugada.
 
 ```bash
 cd tablero && uv run pytest tests/test_eventos.py -v

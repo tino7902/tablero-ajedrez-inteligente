@@ -41,10 +41,11 @@ iterations (v1 reed, v2 Hall+138/165, v3 Nano) and every rejected alternative wi
 
 **Current state**: early-stage but with the first vertical slices implemented. Done:
 `config.py` (Stockfish + pantalla config), `logica/estado_tablero.py` (wraps `chess.Board`,
-tested in `tests/test_logica.py`), `logica/eventos.py` (translates sensor occupancy diffs into
-`chess.Move`, state machine for illegal-move correction, tested in `tests/test_eventos.py` — v1
-only, captures/castling/en-passant explicitly detected and rejected as unsupported rather than
-applied, see `software-docs/eventos.md`), `motor/stockfish.py` (UCI integration via
+tested in `tests/test_logica.py`), `logica/eventos.py` (interprets each occupancy reading by
+comparing it with the occupancy every legal move would leave — normal, captures, castling,
+en passant, promotion always to queen — plus a vacated/refilled-squares history to tell apart
+captures by the same piece; **never applies the move**, and `marcas()` says what to light on
+each square; tested in `tests/test_eventos.py`, see `software-docs/eventos.md`), `motor/stockfish.py` (UCI integration via
 `SimpleEngine`, tested in `tests/test_motor.py`), `io/pantalla.py` (static text on the RPI LCD V3
 touchscreen via `pygame`/DRM-KMS), `io/calibracion_touch.py` (affine least-squares calibration
 for the XPT2046 touch controller, no hardware test yet — see `software-docs/pantalla.md`),
@@ -64,7 +65,7 @@ hardware-verified by Tino, consumed by `io/menus_gpio.py` — plus the occupancy
 (`CASILLA_DE_CELDA_HALL` in `config.py`, rows/columns printed as F0..F7/C0..C7), and
 `medir`/`matriz`/`calibrar`/`mapear` CLIs (`medir F0` pins one row on and shows the `C`/`A`
 readings live; the row takes an uppercase F because `f3` is a square) — Pi-side test steps in
-"Cómo probarlo" of `software-docs/sensores.md`; nothing consumes `ocupacion()` yet),
+"Cómo probarlo" of `software-docs/sensores.md`; consumed by `io/juego.py`),
 `io/matriz.py` (Nano serial driver shared by both sensor versions: open port + wait for `LISTO`,
 one function per firmware command, retries on malformed replies, debounced `LectorMatriz`, live
 view), `io/sensores_reed.py` (the previous reed-switch version, kept on purpose in case of a
@@ -81,17 +82,26 @@ clock — `io/menus.py` no longer implements its own, see `software-docs/partida
 `logica/notacion.py` (parses typed moves: Spanish/English SAN + UCI; the language is chosen
 rather than guessed because `R` is king in Spanish and rook in English),
 `logica/partida.py` (`Partida` = board + clock + the two-condition rule: the turn passes only
-if the right player made a legal move AND then pressed their clock button — this is the layer
-the real board will use once `io/sensores.py` reports moves), `logica/registro.py` (per-game
+if the right player made a legal move AND then pressed their clock button; typed moves via
+`intentar_movimiento`, already-resolved `chess.Move`s via `intentar_jugada`),
+`logica/partida_fisica.py` (`PartidaFisica` = `Partida` + `RastreadorMovimientos` on the same
+board: on the physical board the move **counts when the clock button is pressed** — until then
+pieces can be rearranged freely; on the press, a legal move is applied and the turn passes
+together, otherwise the press is ignored with what to fix; tested in
+`tests/test_partida_fisica.py`, see `software-docs/partida.md`), `io/juego.py` (the terminal
+program on the Pi that wires the Nano matrix, the GPIO clock buttons (via a `queue.Queue`) and
+the LEDs into `PartidaFisica`; waits for the starting position first; `--fen` lets it run with
+a few magnets; re-execs via `sudo` unless `--sin-leds`, and chowns the registros back to
+`SUDO_UID`; **not yet tested on the Pi** — see `software-docs/juego.md`), `logica/registro.py` (per-game
 PGN for the last 15 games plus a detailed event log for the last 5, under `tablero/registros/`,
 gitignored — see `software-docs/registro.md`), and `simulacion.py` (terminal-only game
 simulation: type a move, the program answers how the board would react, with a real running
 clock; runs anywhere, no hardware — see `software-docs/simulacion.md`). Still empty: `web/` and
-`tests/test_sensores.py`. Not yet wired: no game loop connects the matrix (`sensores.ocupacion`)
-to `logica/eventos.py`/`logica/partida.py` — `Partida` only accepts typed moves and
-`RastreadorMovimientos` applies moves to its own `EstadoTablero`, bypassing the clock rule.
+`tests/test_sensores.py`. Not yet wired: the touchscreen PvP screen (`io/menus.py`) still runs
+its clock on the buttons alone; `PartidaFisica` is ready for it, but reading the Nano without
+blocking the pygame loop is still to do.
 `pytest` is a declared dev dependency (`uv add --dev pytest`) and
-`uv run pytest` works (144 tests, all hardware-free except `test_motor.py`, which skips itself
+`uv run pytest` works (169 tests, all hardware-free except `test_motor.py`, which skips itself
 without the `stockfish` binary). Don't assume implementations exist just because a file is present; check
 its actual contents. See `software-docs/` (per-module design notes) and `hardware-docs/`
 (componentes, pines GPIO, esquema de detección de casillas) for details beyond this file.
@@ -109,9 +119,9 @@ tablero-ajedrez-inteligente/
 │       ├── config.py         # Pines GPIO, pantalla, registros y configuración general
 │       ├── simulacion.py      # Simulación de partida por terminal (sin hardware)
 │       ├── io/                # pantalla.py, calibracion_touch.py, menus.py, menus_gpio.py, sensores.py (Hall),
-│       │                      #   sensores_reed.py, matriz.py, leds.py, prueba_tablero.py (implementados)
+│       │                      #   sensores_reed.py, matriz.py, leds.py, prueba_tablero.py, juego.py (implementados)
 │       ├── logica/            # estado_tablero.py, eventos.py, reloj.py, notacion.py, partida.py, registro.py,
-│       │                      #   matriz.py (implementados)
+│       │                      #   partida_fisica.py, matriz.py (implementados)
 │       ├── motor/             # stockfish.py (implementado)
 │       └── web/                # Dashboard/API de estado (a futuro, vacío)
 ├── firmware/matriz-nano/      # Firmware del Arduino Nano (matriz Hall v3), un solo .ino; arduino-cli
@@ -122,7 +132,7 @@ tablero-ajedrez-inteligente/
 │                              #   matriz-hall-nano.md (v3 actual) e historial-deteccion.md
 ├── software-docs/             # Notas de diseño por módulo (config, logica, eventos, partida, registro,
 │                              #   simulacion, motor, pantalla, menus, sensores, sensores-reed, leds,
-│                              #   prueba-tablero, firmware-nano, comandos, pyproject, testing)
+│                              #   prueba-tablero, juego, firmware-nano, comandos, pyproject, testing)
 └── README.md
 ```
 

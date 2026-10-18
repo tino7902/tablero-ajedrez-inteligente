@@ -34,16 +34,16 @@ necesita más tiempo para resolverse — importante para que la suite siga siend
 
 ## `test_eventos.py`
 
-Tests de `RastreadorMovimientos` ([`eventos.md`](./eventos.md)). No requieren hardware ni
-binarios externos — las lecturas de sensores se simulan a mano como
-`frozenset[chess.Square]`.
+Tests de `RastreadorMovimientos` y `marcas` ([`eventos.md`](./eventos.md)). No requieren
+hardware ni binarios externos: una "mano" levanta y apoya piezas y le pasa cada ocupación
+(`frozenset[chess.Square]`) al rastreador.
 
-Casos cubiertos: el ejemplo original completo (pieza levantada → colocación ilegal
-rechazada → corrección → movimiento legal aplicado), movimiento legal directo, cancelación
-por pieza repuesta, enroque y captura rechazados explícitamente (incluida la secuencia
-física completa de una captura, para no quedar colgado en silencio), promoción resuelta a
-dama, diffs inesperados (múltiples casillas a la vez, pieza del color equivocado), y
-lecturas duplicadas sin evento.
+Casos cubiertos: movimiento normal detectado sin aplicarse, pieza repuesta, casilla ilegal
+y corrección, cambio de idea antes del botón, pieza rival levantada; captura en los dos
+órdenes, desempate de capturas de una misma pieza (por historial, la ocupada más
+recientemente, y `AMBIGUA` resuelta al retocar la pieza); enroque corto empezando por el
+rey o por la torre y enroque largo; al paso en los dos órdenes; promoción a dama con y sin
+captura; las marcas de cada situación; y vuelta a `REPOSO` cuando se aplica la jugada.
 
 ## `test_reloj.py`
 
@@ -78,7 +78,22 @@ turno; el botón del otro jugador se ignora; las dos condiciones juntas sí pasa
 secuencia completa de varias jugadas; movimiento del color equivocado, pieza ausente en el
 origen y movimiento imposible, cada uno con su mensaje; el tiempo le corre a quien movió y
 no apretó; timeout que termina la partida y bloquea todo; mate del pastor que termina sin
-esperar el botón; y arranque desde un FEN con el reloj en el color que mueve.
+esperar el botón; arranque desde un FEN con el reloj en el color que mueve; e
+`intentar_jugada` (un `chess.Move` ya resuelto, el de los sensores) aceptada, ilegal con su
+motivo y bloqueada mientras falta el botón.
+
+## `test_partida_fisica.py`
+
+Tests de `PartidaFisica` ([`partida.md`](./partida.md#logicapartida_fisicapy)): la partida
+con el tablero físico, donde la jugada cuenta al apretar el reloj. Sin hardware, con una
+"mano" que mueve piezas y la fixture `tiempo`.
+
+Casos cubiertos: jugada + botón pasan el turno y la posición física queda como nuevo
+reposo; la jugada no se aplica antes del botón; botón sin mover; botón con la pieza en una
+casilla ilegal (con el motivo) y después de corregirla; botón del rival; el rival toca una
+pieza antes de que el otro apriete; el tiempo corre mientras se acomodan las piezas; mate
+del pastor; y una partida corta con captura y enroque, revisando el PGN y el log en un
+`tmp_path`.
 
 ## `test_registro.py`
 

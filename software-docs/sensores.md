@@ -117,8 +117,8 @@ Para el software eso implica tres cosas:
 | `medir(objetivo)` / `probar_matriz()` / `calibrar()` / `mapear()` | `io/sensores.py` | CLI `medir` / `matriz` / `calibrar` / `mapear`, ver "Cómo probarlo" |
 
 `io/sensores_reed.py` tiene la misma API (`LectorMatriz`, `configurar_matriz`, `liberar_matriz`,
-`casilla_de`, `ocupacion`): un futuro loop de juego que use `sensores` puede volver a los reed
-cambiando solo el import.
+`casilla_de`, `ocupacion`): la partida en el tablero físico (`io/juego.py`, ver
+[`juego.md`](./juego.md)) puede volver a los reed cambiando solo el import.
 
 ### Configuración (`config.py`)
 
@@ -193,8 +193,6 @@ Lo eléctrico (verificación sin alimentar, prueba con un solo driver) está en
 - Lógica de reloj real (cuenta de tiempo, de quién es el turno, mensaje de fin de partida): esto es
   pura detección de flanco por pin + el puente a nombre de botón — la lógica de reloj vive en
   `logica/reloj.py`, y `io/menus.py`/`io/menus_gpio.py` la usan (ver `software-docs/menus.md`).
-- Integración de la matriz con `logica/eventos.py` / `logica/partida.py` en un loop de juego:
-  `ocupacion()` ya produce la entrada correcta, pero nadie la consume todavía.
 
 ## Cómo probarlo
 

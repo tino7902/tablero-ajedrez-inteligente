@@ -1,12 +1,12 @@
-# `logica/partida.py`, `reloj.py` y `notacion.py` — la capa de partida
+# `logica/partida.py`, `partida_fisica.py`, `reloj.py` y `notacion.py` — la capa de partida
 
-Los tres módulos que convierten "hay reglas de ajedrez" ([`logica.md`](./logica.md)) en
-"hay una partida en curso": quién tiene el turno, cuánto tiempo le queda, qué pasa cuando
-alguien intenta un movimiento y cuándo pasa el turno de verdad.
+Los módulos que convierten "hay reglas de ajedrez" ([`logica.md`](./logica.md)) en "hay una
+partida en curso": quién tiene el turno, cuánto tiempo le queda, qué pasa cuando alguien
+intenta un movimiento y cuándo pasa el turno de verdad.
 
-Ninguno depende de hardware. Los usa hoy la simulación por terminal
-([`simulacion.md`](./simulacion.md)) y los va a usar el tablero real cuando
-`io/sensores.py` reporte movimientos, sin cambiar nada de esta capa.
+Ninguno depende de hardware. `Partida` la usan la simulación por terminal
+([`simulacion.md`](./simulacion.md)) y el tablero real, a través de `PartidaFisica`
+([`juego.md`](./juego.md)): la regla y el registro son los mismos en los dos casos.
 
 ## `logica/partida.py`
 
@@ -27,6 +27,7 @@ que un reloj físico si te olvidás de apretarlo.
 |---|---|
 | `Partida(*, segundos_por_jugador, idioma, fen, registro, fuente_tiempo)` | Arranca una partida; `fuente_tiempo` se inyecta en los tests |
 | `.intentar_movimiento(texto)` | Procesa un movimiento tipeado → `ResultadoJugada` |
+| `.intentar_jugada(movimiento)` | Lo mismo con un `chess.Move` ya resuelto (el de los sensores); en el registro queda en UCI (`intenta 'e2e4'`) |
 | `.pulsar_boton(color)` | Procesa el botón del reloj de `color` → `ResultadoBoton` |
 | `.actualizar_tiempo()` / `.avanzar_tiempo(seg)` | Descuenta tiempo real / simulado; `True` si recién se agotó |
 | `.finalizar(motivo)` | Cierra la partida y su registro; idempotente |
@@ -55,16 +56,53 @@ blancas puede ir a h4`, `'Cf6' es un movimiento de negras, pero el turno es de b
 
 ### Decisiones de diseño
 
-- **El board cambia de turno antes que el reloj.** El movimiento se aplica al
-  `chess.Board` en el acto (igual que hace [`eventos.py`](./eventos.md) al detectarlo por
-  sensores), porque el board es lo que valida la posición y tiene que estar sincronizado
-  con las piezas físicas. El turno que percibe el jugador es el del reloj, que solo avanza
-  con el botón: ese desfase *es* la condición 2 pendiente.
+- **El board cambia de turno antes que el reloj.** Un movimiento tipeado se aplica al
+  `chess.Board` en el acto, porque el board es lo que valida la posición. El turno que
+  percibe el jugador es el del reloj, que solo avanza con el botón: ese desfase *es* la
+  condición 2 pendiente. Con el tablero físico ese desfase no existe, porque
+  `PartidaFisica` aplica la jugada y aprieta el reloj juntos (ver más abajo).
 - **Mate y tablas no esperan el botón.** Si el movimiento termina la partida, no tiene
   sentido dejarla trabada esperando una pulsación.
 - **"Es del otro color" se distingue de "es ilegal"** probando el mismo texto sobre una
   copia del board con el turno invertido. Es solo para el mensaje: si el intento falla, se
   cae al mensaje genérico de ilegal.
+
+## `logica/partida_fisica.py`
+
+`PartidaFisica` es la partida en el tablero físico: compone `Partida` con el
+`RastreadorMovimientos` de [`eventos.py`](./eventos.md) sobre el mismo tablero lógico. Las
+jugadas no se tipean: las arma el jugador con las piezas, y **cuentan al apretar el botón
+del reloj**.
+
+- `procesar_ocupacion(ocupacion)` interpreta cada lectura de los sensores y la guarda. No
+  aplica nada.
+- `pulsar_boton(color)`: si es el botón de quien tiene el turno y la lectura es una `JUGADA`,
+  llama a `Partida.intentar_jugada` y enseguida a `Partida.pulsar_boton`. Si no, llama solo a
+  `Partida.pulsar_boton`, que lo ignora con su motivo, y el resultado agrega qué ve el
+  tablero ("no es una jugada legal: falta pieza en e2; sobra pieza en d4").
+
+| Método/propiedad | Qué hace |
+|---|---|
+| `PartidaFisica(*, segundos_por_jugador, fen, registro, fuente_tiempo)` | Arranca la partida; asume que las piezas ya están bien puestas |
+| `.procesar_ocupacion(ocupacion)` | Interpreta una lectura → `Lectura` |
+| `.pulsar_boton(color)` | Confirma la jugada armada, si hay una legal → `ResultadoConfirmacion` (`boton`, `lectura`, `jugada`, `motivo`, `paso_turno`) |
+| `.lectura` / `.marcas()` / `.describir()` | Última lectura, sus marcas para los LEDs y su texto en castellano |
+| `.partida` / `.board` / `.terminada` | La `Partida` de adentro y su tablero |
+| `.actualizar_tiempo()` / `.finalizar(motivo)` | Delegan en `Partida` |
+| `describir_lectura(lectura, board)`, `describir_jugada(board, jugada)` | Textos para mostrar: "caballo g1→f3 (Nf3), falta apretar el reloj" |
+
+Por qué la jugada se confirma recién con el botón:
+
+- **El enroque y las capturas pasan por posiciones intermedias** (la torre ya en f1 con el
+  rey en e1; el atacante en la mano con la pieza capturada ya afuera). Si la jugada se
+  aplicara apenas se detecta, un enroque empezado por la torre quedaría registrado como una
+  jugada de torre.
+- **La regla de las dos condiciones se cumple sola:** `intentar_jugada` y `pulsar_boton` se
+  llaman juntas, en ese orden. Por eso con el tablero físico nunca aparece
+  `BLOQUEADO_FALTA_RELOJ`.
+- **El tiempo le corre a quien mueve hasta que aprieta**, igual que con un reloj de verdad.
+- **Si el rival toca una pieza antes de que el otro apriete**, la posición deja de ser una
+  jugada legal y el botón se rechaza hasta que se reponga.
 
 ## `logica/reloj.py`
 
@@ -116,6 +154,7 @@ silenciosamente equivocados, así que la simulación lo pregunta al arrancar.
 
 ## Tests
 
-`tests/test_partida.py` (la regla de las dos condiciones, los mensajes de bloqueo, mate y
-timeout), `tests/test_reloj.py` y `tests/test_notacion.py`. Sin hardware — ver
+`tests/test_partida.py` (la regla de las dos condiciones, los mensajes de bloqueo, mate,
+timeout e `intentar_jugada`), `tests/test_partida_fisica.py` (la jugada cuenta al apretar el
+botón), `tests/test_reloj.py` y `tests/test_notacion.py`. Sin hardware — ver
 [`testing.md`](./testing.md).

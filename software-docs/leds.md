@@ -48,8 +48,8 @@ celular que comparte con el Nano (ver `hardware-docs/componentes.md`).
   `__main__` de `io/leds.py` se relanza con `sudo <python del .venv> -m tablero.io.leds ...`
   (en Raspberry Pi OS el usuario principal tiene sudo sin contraseña). No usar
   `sudo uv run`, que corre con el entorno de root y puede dejar archivos de root en el
-  `.venv`. Desde código (un futuro loop de juego que importe `TiraLeds`) el relanzamiento no
-  aplica: ese proceso tiene que arrancar como root.
+  `.venv`. Un programa que importe `TiraLeds` tiene que arrancar como root o relanzarse igual
+  (es lo que hacen `io/prueba_tablero.py` e `io/juego.py`).
 - **Audio analógico desactivado**: el PWM de los LEDs es el mismo que el del audio. En
   `/boot/firmware/config.txt` (o `/boot/config.txt` en sistemas viejos) poner
   `dtparam=audio=off` y reiniciar. Sin esto, los LEDs parpadean con colores al azar o no

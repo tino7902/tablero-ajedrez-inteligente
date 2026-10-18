@@ -98,16 +98,16 @@ Movimientos bloqueados y su mensaje:
   y que, por regla del proyecto, no se ejecuta fuera de la Raspberry; este módulo tiene
   que correr justamente en la notebook. Acá solo hay entrada/salida de terminal: la
   lógica está toda en `logica/`.
-- **Valida contra `EstadoTablero` y no contra `logica/eventos.py`.** El rastreador de
-  ocupación es la v1 y rechaza capturas, enroque y al paso a propósito (ver
-  [`eventos.md`](./eventos.md)), así que no permitiría jugar una partida completa. La
-  simulación prueba la capa de reglas + reloj; la traducción de sensores a movimientos se
-  prueba aparte en `test_eventos.py`.
-- **El board cambia de turno antes que el reloj.** `Partida` aplica el movimiento al
-  `chess.Board` en el acto (igual que hace `eventos.py` cuando lo detecta por sensores),
-  porque el board es lo que valida la posición y tiene que estar sincronizado con las
-  piezas físicas. El turno que percibe el jugador es el del **reloj**, que solo avanza con
-  el botón: ese desfase entre `board.turn` y `reloj.turno` *es* la condición 2 pendiente.
+- **Se tipean movimientos, no ocupaciones.** La simulación prueba la capa de reglas +
+  reloj (`Partida`); la traducción de sensores a jugadas (`logica/eventos.py`) y la partida
+  con el tablero físico (`logica/partida_fisica.py`) se prueban aparte, en
+  `test_eventos.py` y `test_partida_fisica.py` (ver [`juego.md`](./juego.md)).
+- **El board cambia de turno antes que el reloj.** `Partida` aplica el movimiento tipeado
+  al `chess.Board` en el acto, porque el board es lo que valida la posición. El turno que
+  percibe el jugador es el del **reloj**, que solo avanza con el botón: ese desfase entre
+  `board.turn` y `reloj.turno` *es* la condición 2 pendiente. (En el tablero físico no
+  aparece: la jugada se aplica recién al apretar el reloj, ver
+  [`partida.md`](./partida.md#logicapartida_fisicapy).)
 
 ## Módulos que usa
 

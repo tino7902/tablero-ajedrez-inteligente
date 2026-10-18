@@ -111,6 +111,7 @@ los ejecuta, le da a Tino el comando. Armado y prueba de la matriz:
 | `uv run python -m tablero.io.sensores mapear` | Genera `CASILLA_DE_CELDA_HALL` (las 64 casillas) | [`sensores.md`](./sensores.md#mapear) |
 | `uv run python -m tablero.io.leds todos` / `recorrer` / `esquinas` / `calibrar` / `verificar` | Pruebas de la tira de LEDs (se relanza con `sudo`) | [`leds.md`](./leds.md) |
 | `uv run python -m tablero.io.prueba_tablero leds` / `recorrido` / `espejo` / `inicial` | Sensores y LEDs juntos: asociar LEDs, verificar las 64 casillas, espejo en vivo, posición inicial (se relanza con `sudo`) | [`prueba-tablero.md`](./prueba-tablero.md) |
+| `uv run python -m tablero.io.juego` (`--minutos N`, `--fen FEN`, `--sin-leds`, `--sin-registro`, `-v`) | Partida en el tablero físico: matriz, botones del reloj y LEDs; la jugada cuenta al apretar el reloj (se relanza con `sudo`, salvo con `--sin-leds`) | [`juego.md`](./juego.md) |
 | `uv run python -m tablero.io.sensores_reed matriz` / `calibrar` | La versión anterior, con reed switches | [`sensores-reed.md`](./sensores-reed.md) |
 | `uv run python -m tablero.io.menus_gpio` | La interfaz completa con los botones físicos del reloj | [`menus.md`](./menus.md) |
 
