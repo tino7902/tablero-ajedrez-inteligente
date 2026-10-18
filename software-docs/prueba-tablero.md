@@ -14,12 +14,12 @@ tablero real coincidan. Implementado pero **todavía no probado en el prototipo*
   justamente lo que lo genera.
 - **Root**, por los LEDs, con los mismos requisitos que `io/leds.py` (`dtparam=audio=off`, GND
   común). Igual que `io/leds.py`, si no se corre como root se relanza solo con
-  `sudo <python del .venv>`. `rpi-lgpio` funciona igual como root.
+  `sudo <python del .venv>`. Como root, el puerto del Nano se abre sin necesitar `dialout`.
 
 ## Cómo probarlo
 
-Desde `tablero/`, por SSH en la Raspberry. `Ctrl+C` corta cualquiera de las pruebas: apaga los
-LEDs y libera los pines de la matriz.
+Desde `tablero/`, por SSH en la Raspberry, con el Nano enchufado. `Ctrl+C` corta cualquiera de
+las pruebas: apaga los LEDs y cierra el puerto del Nano.
 
 ```bash
 uv run python -m tablero.io.prueba_tablero leds        # genera LED_DE_CASILLA con una pieza
