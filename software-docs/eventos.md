@@ -117,6 +117,7 @@ en la mano a mitad de un enroque se ven e1 y h1 (`ORIGEN`) y g1 y f1 (`DESTINO`)
 | `.reiniciar()` | Olvida el historial de lecturas |
 | `Lectura` | `tipo`, `ocupacion`, `movimiento`, `candidatos`, `faltan`, `sobran` |
 | `marcas(lectura, board)` | `dict[chess.Square, Marca]` (`ORIGEN`, `DESTINO`, `JUGADA`, `FALTA`, `SOBRA`) |
+| `Marca.MAGNUS_ORIGEN` / `Marca.MAGNUS_DESTINO` | No las devuelve `marcas()`: son de la jugada de Magnus, que hay que hacer a mano, y las calcula `PartidaVsMagnus` (ver [`vs-magnus.md`](./vs-magnus.md)) |
 
 Cada pieza levantada y apoyada se loguea (logger `tablero.logica.eventos`, nivel `INFO`), con
 el número de jugada y el color que tiene el turno:

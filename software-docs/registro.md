@@ -53,9 +53,12 @@ cat tablero/registros/partidas/*.pgn > partidas.pgn
 1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0
 ```
 
-- `Event` sale del modo (`simulacion`, `pvp`, `vs_magnus`).
-- `TimeControl` es el tiempo por jugador en segundos.
-- `Termination` es `jaque mate`, `tablas`, `tiempo` o `abandonada`.
+- `Event` sale del modo (`simulacion`, `pvp`, `vs_magnus`, `simulacion_magnus`).
+- `White`/`Black` son "Blancas"/"Negras", salvo que se pasen nombres: contra Magnus van
+  "Jugador" y "Magnus (fácil)" (los arma `partida_magnus.nombres_pgn`).
+- `TimeControl` es el tiempo por jugador en segundos, o `-` (el valor del estándar PGN
+  para "sin control de tiempo") en una partida sin límite.
+- `Termination` es `jaque mate`, `tablas`, `tiempo`, `rendición` o `abandonada`.
 - Los movimientos van en SAN inglés, que es lo que define el estándar PGN, aunque se hayan
   tipeado en español.
 - Una partida sin terminar queda con `Result "*"` y `Termination "abandonada"`.
@@ -76,11 +79,23 @@ Cada línea lleva la hora absoluta y `t+MM:SS` desde el inicio de la partida. El
 reloj (`⏱ B … · N …`) se anota en cada movimiento aceptado, en cada cambio de turno y
 cuando se acaba el tiempo.
 
+Sin límite de tiempo (vs Magnus), la cabecera dice `tiempo=sin límite` y el reloj anota lo
+que usó cada lado. La jugada de Magnus queda como cualquier otra, seguida del botón que
+apretó el jugador en su nombre:
+
+```
+[2026-10-18 18:02:10.000] partida iniciada — modo=vs_magnus tiempo=sin límite nivel=facil color=blancas
+[2026-10-18 18:02:31.200] (t+00:21) blancas intenta 'e2e4' → ACEPTADO e4 (peón e2→e4) ⏱ usado B 00:21 · N 00:00
+[2026-10-18 18:02:31.210] (t+00:21) botón blancas → TURNO PASADO a negras ⏱ usado B 00:21 · N 00:00
+[2026-10-18 18:02:31.330] (t+00:21) negras  intenta 'g8f6' → ACEPTADO Nf6 (caballo g8→f6) ⏱ usado B 00:21 · N 00:00
+[2026-10-18 18:02:36.900] (t+00:26) botón negras → TURNO PASADO a blancas ⏱ usado B 00:21 · N 00:05
+```
+
 ## API
 
 | Método | Qué hace |
 |---|---|
-| `RegistroPartida(directorio, *, modo, segundos_por_jugador, max_partidas, max_detalles, id_partida, extras_cabecera)` | Crea los dos archivos, rota los viejos y escribe la cabecera |
+| `RegistroPartida(directorio, *, modo, segundos_por_jugador, max_partidas, max_detalles, id_partida, extras_cabecera, blancas, negras)` | Crea los dos archivos, rota los viejos y escribe la cabecera. `segundos_por_jugador=None` es sin límite; `blancas`/`negras` son los nombres del PGN |
 | `.anotar_jugada(resultado, reloj, board)` | Una línea de log; si la jugada fue aceptada, reescribe también el PGN |
 | `.anotar_boton(resultado, reloj)` | Una línea de log por pulsación (haya pasado el turno o no) |
 | `.anotar_tiempo_agotado(reloj)` | Una línea de log cuando se acaba el tiempo |
@@ -108,4 +123,5 @@ así el formateo vive acá y `Partida` solo avisa lo que pasó.
 
 `tablero/tests/test_registro.py` — sin hardware, todo sobre el `tmp_path` de pytest.
 Cubre el PGN releído con `chess.pgn.read_game`, el detalle del log, la escritura
-incremental, la partida abandonada y la rotación 15/5. Ver [`testing.md`](./testing.md).
+incremental, la partida abandonada, la rotación 15/5 y la partida sin límite con nombres
+y rendición. Ver [`testing.md`](./testing.md).

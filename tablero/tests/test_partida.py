@@ -224,3 +224,53 @@ def test_arrancar_desde_un_fen_pone_el_reloj_en_el_color_que_mueve(tiempo):
 
     assert partida.turno == chess.BLACK
     assert partida.intentar_movimiento("Rd8").tipo is TipoJugada.ACEPTADO
+
+
+# -- Sin límite y rendición (modo vs Magnus) --------------------------------------
+
+
+def test_partida_sin_limite_nunca_termina_por_tiempo(tiempo):
+    partida = _partida(tiempo, segundos=None)
+
+    tiempo.avanzar(10_000)
+
+    assert not partida.actualizar_tiempo()
+    assert not partida.terminada
+    assert partida.reloj.usado(chess.WHITE) == 10_000
+    assert _jugar(partida, "e4").tipo is TipoJugada.ACEPTADO
+
+
+def test_el_reloj_se_congela_cuando_termina_la_partida(tiempo):
+    partida = _partida(tiempo, segundos=None)
+    for texto in ("e4", "e5", "Ac4", "Cc6", "Dh5", "Cf6"):
+        tiempo.avanzar(1)
+        _jugar(partida, texto)
+    tiempo.avanzar(1)
+    partida.intentar_movimiento("Dxf7")  # mate del pastor
+
+    tiempo.avanzar(60)
+    partida.actualizar_tiempo()
+
+    assert partida.reloj.duracion == 7
+
+
+def test_rendirse_da_la_partida_al_otro_color(tiempo):
+    partida = _partida(tiempo)
+    _jugar(partida, "e4")
+
+    partida.rendirse(chess.BLACK)
+
+    assert partida.terminada
+    assert partida.motivo_fin == "rendición"
+    assert partida.resultado() == "1-0"
+    assert partida.intentar_movimiento("e5").tipo is TipoJugada.BLOQUEADO_TERMINADA
+
+
+def test_rendirse_con_la_partida_terminada_no_cambia_el_resultado(tiempo):
+    partida = _partida(tiempo, segundos=30)
+    partida.avanzar_tiempo(31)
+
+    partida.rendirse(chess.BLACK)
+
+    assert partida.motivo_fin == "tiempo"
+    assert partida.resultado() == "0-1"

@@ -10,6 +10,10 @@ Solo mide tiempo y cambia de turno cuando se lo piden: la regla de "el turno pas
 únicamente si además hubo un movimiento legal" es responsabilidad de
 `logica/partida.py`, que es quien decide si llamar a `pulsar`. Así el mismo reloj
 sirve a `io/menus.py`, que todavía no tiene sensores y pasa el turno con el botón solo.
+
+Sin límite (`segundos_por_jugador=None`, el modo vs Magnus) nunca se agota y solo cuenta
+cuánto usó cada lado (`usado`, `duracion`): `Partida` sigue sacando el turno del reloj, así
+que no hace falta otra API para una partida sin tiempo.
 """
 
 from __future__ import annotations
@@ -33,6 +37,16 @@ def formatear_tiempo(segundos: float) -> str:
     return f"{minutos:02d}:{segs:02d}"
 
 
+def formatear_duracion(segundos: float) -> str:
+    """Formatea `segundos` transcurridos como `MM:SS`, truncando; los minutos pasan de 59.
+
+    Al revés que `formatear_tiempo`: un cronómetro que cuenta para arriba muestra `00:00`
+    al arrancar y cambia de segundo cuando el segundo se completó.
+    """
+    minutos, segs = divmod(max(0, int(segundos)), 60)
+    return f"{minutos:02d}:{segs:02d}"
+
+
 class RelojAjedrez:
     """Dos temporizadores de cuenta regresiva, uno por color, con turno activo.
 
@@ -42,18 +56,17 @@ class RelojAjedrez:
 
     def __init__(
         self,
-        segundos_por_jugador: float,
+        segundos_por_jugador: float | None,
         fuente_tiempo: Callable[[], float] = time.monotonic,
     ) -> None:
         """Arranca el reloj con `segundos_por_jugador` para cada lado y el turno en blancas.
 
+        Con `None` no hay límite: el reloj nunca se agota y solo cuenta el tiempo usado.
         `fuente_tiempo` se puede reemplazar por una función controlada en los tests para
         que el descuento sea determinista (ver `tests/test_reloj.py`).
         """
-        self._restante = {
-            chess.WHITE: float(segundos_por_jugador),
-            chess.BLACK: float(segundos_por_jugador),
-        }
+        self._limite = None if segundos_por_jugador is None else float(segundos_por_jugador)
+        self._usado = {chess.WHITE: 0.0, chess.BLACK: 0.0}
         self._turno: chess.Color = chess.WHITE
         self._tiempo_agotado = False
         self._fuente_tiempo = fuente_tiempo
@@ -79,9 +92,25 @@ class RelojAjedrez:
         """Color que se quedó sin tiempo, o `None` si todavía no pasó."""
         return self._turno if self._tiempo_agotado else None
 
-    def restante(self, color: chess.Color) -> float:
-        """Segundos que le quedan a `color`."""
-        return self._restante[color]
+    @property
+    def sin_limite(self) -> bool:
+        """Indica si el reloj no tiene límite de tiempo (nunca se agota)."""
+        return self._limite is None
+
+    def restante(self, color: chess.Color) -> float | None:
+        """Segundos que le quedan a `color`, o `None` si el reloj no tiene límite."""
+        if self._limite is None:
+            return None
+        return max(0.0, self._limite - self._usado[color])
+
+    def usado(self, color: chess.Color) -> float:
+        """Segundos que usó `color`, tenga límite el reloj o no."""
+        return self._usado[color]
+
+    @property
+    def duracion(self) -> float:
+        """Segundos usados entre los dos: lo que lleva la partida."""
+        return self._usado[chess.WHITE] + self._usado[chess.BLACK]
 
     def actualizar(self) -> bool:
         """Descuenta el tiempo real transcurrido desde la última llamada.
@@ -107,9 +136,11 @@ class RelojAjedrez:
     def _descontar(self, segundos: float) -> bool:
         if self._tiempo_agotado or segundos <= 0:
             return False
-        self._restante[self._turno] = max(0.0, self._restante[self._turno] - segundos)
-        if self._restante[self._turno] > 0:
+        usado = self._usado[self._turno] + segundos
+        if self._limite is None or usado < self._limite:
+            self._usado[self._turno] = usado
             return False
+        self._usado[self._turno] = self._limite
         self._tiempo_agotado = True
         return True
 

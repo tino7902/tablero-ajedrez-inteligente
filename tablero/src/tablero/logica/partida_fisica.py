@@ -59,6 +59,16 @@ def describir_jugada(board: chess.Board, movimiento: chess.Move) -> str:
     )
 
 
+def describir_diferencias(faltan: Ocupacion, sobran: Ocupacion) -> str:
+    """"falta pieza en e2; sobra pieza en d4", con las casillas que no coinciden."""
+    partes = []
+    if faltan:
+        partes.append(f"falta pieza en {_lista(faltan)}")
+    if sobran:
+        partes.append(f"sobra pieza en {_lista(sobran)}")
+    return "; ".join(partes)
+
+
 def describir_lectura(lectura: Lectura, board: chess.Board) -> str:
     """Qué ve el tablero en la posición física, en castellano y listo para mostrar."""
     if lectura.tipo is TipoLectura.REPOSO:
@@ -71,12 +81,7 @@ def describir_lectura(lectura: Lectura, board: chess.Board) -> str:
             f"no se sabe dónde se capturó ({destinos}): levantá y volvé a apoyar la pieza "
             "que capturó"
         )
-    partes = []
-    if lectura.faltan:
-        partes.append(f"falta pieza en {_lista(lectura.faltan)}")
-    if lectura.sobran:
-        partes.append(f"sobra pieza en {_lista(lectura.sobran)}")
-    return "no es una jugada legal: " + "; ".join(partes)
+    return "no es una jugada legal: " + describir_diferencias(lectura.faltan, lectura.sobran)
 
 
 @dataclass(frozen=True)
@@ -104,7 +109,7 @@ class PartidaFisica:
     def __init__(
         self,
         *,
-        segundos_por_jugador: float,
+        segundos_por_jugador: float | None,
         fen: str | None = None,
         registro: RegistroPartida | None = None,
         fuente_tiempo: Callable[[], float] = time.monotonic,

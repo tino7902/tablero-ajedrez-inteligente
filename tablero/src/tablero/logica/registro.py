@@ -31,7 +31,7 @@ import chess
 import chess.pgn
 
 from tablero.logica.notacion import NOMBRES_COLOR
-from tablero.logica.reloj import RelojAjedrez, formatear_tiempo
+from tablero.logica.reloj import RelojAjedrez, formatear_duracion, formatear_tiempo
 
 if TYPE_CHECKING:  # pragma: no cover - solo para tipos; en runtime sería circular
     from tablero.logica.partida import ResultadoBoton, ResultadoJugada
@@ -46,6 +46,7 @@ EVENTOS_POR_MODO = {
     "simulacion": "Simulación por terminal",
     "pvp": "Jugador vs Jugador (tablero)",
     "vs_magnus": "Jugador vs Magnus (tablero)",
+    "simulacion_magnus": "Jugador vs Magnus (simulación)",
 }
 
 
@@ -70,23 +71,28 @@ class RegistroPartida:
         directorio: Path,
         *,
         modo: str = "simulacion",
-        segundos_por_jugador: float,
+        segundos_por_jugador: float | None,
         max_partidas: int = 15,
         max_detalles: int = 5,
         id_partida: str | None = None,
         extras_cabecera: str = "",
+        blancas: str = "Blancas",
+        negras: str = "Negras",
     ) -> None:
         """Crea los archivos de la partida y rota los registros viejos.
 
+        `segundos_por_jugador=None` es una partida sin límite de tiempo (vs Magnus).
         `max_partidas`/`max_detalles` son cuántos `.pgn` y `.log` se conservan (los
         valores del proyecto están en `config.MAX_PARTIDAS_REGISTRADAS` y
         `config.MAX_DETALLES_REGISTRADOS`). `extras_cabecera` es texto libre que se
         agrega a la primera línea del log (la simulación pasa ahí el idioma elegido).
+        `blancas`/`negras` son los nombres de `White`/`Black` en el PGN.
         """
         self._inicio = dt.datetime.now()
         self.id = id_partida or self._inicio.strftime("%Y%m%d-%H%M%S")
         self._modo = modo
         self._segundos_por_jugador = segundos_por_jugador
+        self._nombres = {chess.WHITE: blancas, chess.BLACK: negras}
         self._cerrado = False
 
         dir_partidas = directorio / SUBDIR_PARTIDAS
@@ -105,10 +111,10 @@ class RegistroPartida:
         self.ruta_pgn = dir_partidas / f"{self.id}.pgn"
         self.ruta_log = dir_detalle / f"{self.id}.log"
 
-        minutos = segundos_por_jugador / 60
+        tiempo = "sin límite" if segundos_por_jugador is None else f"{segundos_por_jugador / 60:g}min"
         extras = f" {extras_cabecera}" if extras_cabecera else ""
         self._escribir_log(
-            f"partida iniciada — modo={modo} tiempo={minutos:g}min{extras}", con_transcurrido=False
+            f"partida iniciada — modo={modo} tiempo={tiempo}{extras}", con_transcurrido=False
         )
         self._escribir_pgn(chess.Board(), "*", None)
 
@@ -167,6 +173,11 @@ class RegistroPartida:
     # -- Escritura ----------------------------------------------------------------
 
     def _estado_reloj(self, reloj: RelojAjedrez) -> str:
+        if reloj.sin_limite:
+            return (
+                f"⏱ usado B {formatear_duracion(reloj.usado(chess.WHITE))} "
+                f"· N {formatear_duracion(reloj.usado(chess.BLACK))}"
+            )
         return (
             f"⏱ B {formatear_tiempo(reloj.restante(chess.WHITE))} "
             f"· N {formatear_tiempo(reloj.restante(chess.BLACK))}"
@@ -189,10 +200,13 @@ class RegistroPartida:
         juego.headers["Site"] = "Tablero de ajedrez inteligente"
         juego.headers["Date"] = self._inicio.strftime("%Y.%m.%d")
         juego.headers["Round"] = "-"
-        juego.headers["White"] = "Blancas"
-        juego.headers["Black"] = "Negras"
+        juego.headers["White"] = self._nombres[chess.WHITE]
+        juego.headers["Black"] = self._nombres[chess.BLACK]
         juego.headers["Result"] = resultado
-        juego.headers["TimeControl"] = f"{int(self._segundos_por_jugador)}"
+        # "-" es el valor del estándar PGN para una partida sin control de tiempo.
+        juego.headers["TimeControl"] = (
+            "-" if self._segundos_por_jugador is None else f"{int(self._segundos_por_jugador)}"
+        )
         if motivo is not None:
             juego.headers["Termination"] = motivo
         self.ruta_pgn.write_text(f"{juego}\n", encoding="utf-8")

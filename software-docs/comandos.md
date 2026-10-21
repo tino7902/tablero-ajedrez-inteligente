@@ -36,6 +36,7 @@ completo: [`testing.md`](./testing.md).
 uv run python -m tablero.simulacion              # pregunta notación y minutos
 uv run simulacion --notacion es --minutos 3      # sin preguntas
 uv run simulacion --sin-registro                 # sin escribir en registros/
+uv run simulacion --magnus facil --color negras  # contra Magnus, sin límite (necesita stockfish)
 ```
 
 Corre en notebook o Raspberry, no toca `io/`. Se tipea un movimiento y el programa responde
@@ -112,6 +113,7 @@ los ejecuta, le da a Tino el comando. Armado y prueba de la matriz:
 | `uv run python -m tablero.io.leds todos` / `recorrer` / `esquinas` / `calibrar` / `verificar` | Pruebas de la tira de LEDs (se relanza con `sudo`) | [`leds.md`](./leds.md) |
 | `uv run python -m tablero.io.prueba_tablero leds` / `recorrido` / `espejo` / `inicial` | Sensores y LEDs juntos: asociar LEDs, verificar las 64 casillas, espejo en vivo, posición inicial (se relanza con `sudo`) | [`prueba-tablero.md`](./prueba-tablero.md) |
 | `uv run python -m tablero.io.juego` (`--minutos N`, `--fen FEN`, `--sin-leds`, `--sin-registro`, `-v`) | Partida en el tablero físico: matriz, botones del reloj y LEDs; la jugada cuenta al apretar el reloj (se relanza con `sudo`, salvo con `--sin-leds`) | [`juego.md`](./juego.md) |
+| `uv run python -m tablero.io.juego --magnus {facil,medio,dificil}` (`--color {blancas,negras,aleatorio}`) | Lo mismo contra Magnus (Stockfish), sin límite de tiempo: su jugada la hacés vos en el tablero y la confirmás con cualquier botón. Necesita `stockfish` (`sudo apt install stockfish`) | [`juego.md`](./juego.md#contra-magnus---magnus) |
 | `uv run python -m tablero.io.sensores_reed matriz` / `calibrar` | La versión anterior, con reed switches | [`sensores-reed.md`](./sensores-reed.md) |
 | `uv run python -m tablero.io.menus_gpio` | La interfaz completa con los botones físicos del reloj | [`menus.md`](./menus.md) |
 
@@ -136,4 +138,6 @@ enchufado, así que los corre Tino. Detalle, protocolo y prueba con el Nano suel
 - [`menus.md`](./menus.md) — grafo de navegación de `io/menus.py` y el modo ventana.
 - [`testing.md`](./testing.md) — qué cubre cada archivo de test.
 - [`simulacion.md`](./simulacion.md) — modo de prueba de la lógica por terminal.
+- [`vs-magnus.md`](./vs-magnus.md) — el modo contra Stockfish.
+- [`pendiente-pi.md`](./pendiente-pi.md) — lo que falta probar en la Pi y cómo.
 - [`registro.md`](./registro.md) — dónde y cómo quedan registradas las partidas.

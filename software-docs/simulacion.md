@@ -9,10 +9,11 @@ de verdad.
 cd tablero
 uv run python -m tablero.simulacion       # pregunta notación y minutos
 uv run simulacion --notacion es --minutos 3   # o sin preguntas
+uv run simulacion --magnus facil --color negras   # contra Magnus (ver abajo)
 ```
 
 Corre en notebook o en Raspberry por igual: no importa `io/`, así que no necesita GPIO,
-DRM ni pantalla.
+DRM ni pantalla. Contra Magnus sí necesita el binario de Stockfish.
 
 ## Qué se está probando
 
@@ -60,6 +61,43 @@ nada en `registros/` (ver [`registro.md`](./registro.md)).
 El reloj corre en tiempo real: los segundos que pasan mientras se piensa y se tipea se
 le descuentan a quien tiene el turno. `esperar` existe para no tener que esperar cinco
 minutos reales cada vez que se quiere probar qué pasa cuando se acaba el tiempo.
+
+## Contra Magnus (`--magnus`)
+
+Para jugar contra Stockfish tipeando, en la notebook, y afinar `config.NIVELES_MAGNUS` sin
+armar el tablero ([`vs-magnus.md`](./vs-magnus.md)):
+
+```bash
+uv run simulacion --magnus facil                     # jugás con blancas
+uv run simulacion --magnus dificil --color negras --notacion en
+uv run simulacion --magnus medio --color aleatorio --sin-registro
+```
+
+- `--magnus {facil,medio,dificil}` y `--color {blancas,negras,aleatorio}` (por defecto
+  blancas). **No hay límite de tiempo**: `--minutos` no se puede combinar con `--magnus`, y
+  la línea del reloj muestra la duración (`⏱  03:12`). La notación se sigue preguntando.
+- Tipeás tu jugada y apretás Enter, como siempre. Magnus contesta solo: su jugada se aplica
+  y se confirma directamente, porque no hay tablero físico que actualizar, y se muestra el
+  tablero.
+- `rendirse` abandona la partida (gana Magnus). Los demás comandos funcionan igual.
+- Con `--fen` tiene que haber un rey de cada color: Stockfish no acepta otra cosa.
+- Al final, el mismo mensaje que en el tablero ("¡Derrotaste a Magnus en 12:34!",
+  "Aguantaste 12:34 contra Magnus", "Tablas con Magnus en 12:34"). El registro queda con
+  `modo=simulacion_magnus`.
+
+```
+⏱  00:04
+blancas> e4
+✓  ACEPTADO  e4  (peón e2→e4)
+
+⏳  blancas tienen que presionar su botón del reloj
+⏱  00:05
+blancas>
+🔔  botón blancas → turno de negras
+
+Magnus está pensando…
+🤖  Magnus: caballo g8→f6  (Nf6)
+```
 
 ## Ejemplo de sesión
 
@@ -123,4 +161,5 @@ Movimientos bloqueados y su mensaje:
 ## Tests
 
 `tablero/tests/test_partida.py`, `test_reloj.py` y `test_notacion.py` cubren esta lógica
-sin pasar por la terminal — ver [`testing.md`](./testing.md).
+sin pasar por la terminal — ver [`testing.md`](./testing.md). El loop contra Magnus tiene
+`test_simulacion.py`, con un motor falso y lo tipeado reemplazado por `monkeypatch`.

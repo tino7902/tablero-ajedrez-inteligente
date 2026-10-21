@@ -152,3 +152,32 @@ def test_cerrar_dos_veces_no_duplica_nada(tmp_path, tiempo):
 
     contenido = registro.ruta_log.read_text(encoding="utf-8")
     assert contenido.count("partida finalizada") == 1
+
+
+def test_partida_sin_limite_y_con_nombres(tmp_path, tiempo):
+    registro = _registro(
+        tmp_path,
+        modo="vs_magnus",
+        segundos_por_jugador=None,
+        blancas="Jugador",
+        negras="Magnus (fácil)",
+        extras_cabecera="nivel=facil color=blancas",
+    )
+    partida = Partida(segundos_por_jugador=None, registro=registro, fuente_tiempo=tiempo)
+    partida.intentar_movimiento("e4")
+    tiempo.avanzar(65)
+    partida.pulsar_boton(chess.WHITE)
+    partida.rendirse(chess.WHITE)
+
+    juego = _leer_pgn(registro.ruta_pgn)
+    assert juego.headers["Event"] == "Jugador vs Magnus (tablero)"
+    assert juego.headers["TimeControl"] == "-"
+    assert juego.headers["White"] == "Jugador"
+    assert juego.headers["Black"] == "Magnus (fácil)"
+    assert juego.headers["Result"] == "0-1"
+    assert juego.headers["Termination"] == "rendición"
+
+    lineas = registro.ruta_log.read_text(encoding="utf-8").splitlines()
+    assert "modo=vs_magnus tiempo=sin límite nivel=facil color=blancas" in lineas[0]
+    assert "⏱ usado B 01:05 · N 00:00" in lineas[2], "sin límite se anota el tiempo usado"
+    assert "partida finalizada — 0-1 (rendición)" in lineas[3]

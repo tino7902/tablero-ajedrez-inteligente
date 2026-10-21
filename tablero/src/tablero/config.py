@@ -1,12 +1,49 @@
 """Configuración general del proyecto (pines GPIO, motor, etc.)."""
 
+import os
 import shutil
 from pathlib import Path
+from typing import NamedTuple
 
-# Ruta al binario de stockfish: se autodetecta en PATH; si no se encuentra,
-# se deja el nombre solo para que el error de arranque sea explícito.
-STOCKFISH_PATH: str = shutil.which("stockfish") or "stockfish"
-STOCKFISH_MOVETIME: float = 1.0  # segundos por jugada, ver motor/stockfish.py
+# Donde lo instala `apt install stockfish` en Raspberry Pi OS. `io/juego.py` se relanza con
+# sudo por los LEDs, y el PATH de sudo (secure_path) normalmente no incluye /usr/games.
+_STOCKFISH_APT = "/usr/games/stockfish"
+
+
+def buscar_stockfish() -> str:
+    """Ruta al binario de stockfish: primero el PATH, después el de apt.
+
+    Si no está en ningún lado devuelve el nombre solo, para que el error al abrir el
+    motor sea explícito.
+    """
+    if ruta := shutil.which("stockfish"):
+        return ruta
+    if os.access(_STOCKFISH_APT, os.X_OK):
+        return _STOCKFISH_APT
+    return "stockfish"
+
+
+STOCKFISH_PATH: str = buscar_stockfish()
+STOCKFISH_MOVETIME: float = 1.0  # segundos por jugada sin nivel, ver motor/stockfish.py
+
+
+class NivelMagnus(NamedTuple):
+    """Un nivel de Magnus (Stockfish) en el modo vs-máquina, ver motor/stockfish.py."""
+
+    nombre: str  # para mostrar, con tildes: "fácil"
+    skill_level: int  # opción UCI `Skill Level` de Stockfish, 0-20
+    segundos_por_jugada: float
+
+
+# Niveles del modo vs Magnus. Las claves van en ASCII porque son flags de la terminal
+# (`juego.py --magnus facil`). Son valores iniciales para afinar jugando (por ejemplo con
+# `uv run python -m tablero.simulacion --magnus facil`): `Skill Level 0` anda por los
+# 1300 Elo según la calibración de Stockfish. Ver software-docs/vs-magnus.md.
+NIVELES_MAGNUS: dict[str, NivelMagnus] = {
+    "facil": NivelMagnus("fácil", 0, 0.1),
+    "medio": NivelMagnus("medio", 6, 0.5),
+    "dificil": NivelMagnus("difícil", 20, 1.0),
+}
 
 # Pantalla táctil RPI LCD V3 (480x320, ILI9486 + touch XPT2046), ver io/pantalla.py.
 # Requiere el overlay de kernel `piscreen` activado en config.txt de la Raspberry; la

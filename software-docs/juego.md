@@ -3,6 +3,7 @@
 El programa que une todo en la Raspberry: lee la matriz Hall (vía el Nano), los botones del
 reloj y pinta los LEDs, mientras [`logica/partida_fisica.py`](./partida.md#logicapartida_fisicapy)
 decide qué pasa. Por ahora corre por terminal (SSH); la pantalla táctil se conecta después.
+Con `--magnus` se juega contra Stockfish ([más abajo](#contra-magnus---magnus)).
 
 ## La regla
 
@@ -28,6 +29,7 @@ uv run python -m tablero.io.juego --fen "<FEN>"       # arrancar desde otra posi
 uv run python -m tablero.io.juego --sin-leds          # sin LEDs (y sin sudo)
 uv run python -m tablero.io.juego --sin-registro      # no escribe en registros/
 uv run python -m tablero.io.juego -v                  # loguea cada pieza que se levanta o apoya
+uv run python -m tablero.io.juego --magnus facil --color negras   # contra Magnus
 ```
 
 Usa los LEDs, así que necesita root: igual que `prueba_tablero`, se relanza solo con `sudo`
@@ -157,9 +159,78 @@ Con la FEN de 2 peones, una prueba completa:
 Si algo no detecta, revisar primero con `prueba_tablero espejo` que los imanes se lean
 ([`prueba-tablero.md`](./prueba-tablero.md)).
 
+## Contra Magnus (`--magnus`)
+
+```bash
+uv run python -m tablero.io.juego --magnus facil                    # jugás con blancas
+uv run python -m tablero.io.juego --magnus dificil --color negras
+uv run python -m tablero.io.juego --magnus medio --color aleatorio
+```
+
+- `--magnus {facil,medio,dificil}` elige el nivel (`config.NIVELES_MAGNUS`, ver
+  [`motor.md`](./motor.md)) y `--color {blancas,negras,aleatorio}` el tuyo (por defecto
+  blancas). **No hay límite de tiempo**: `--minutos` no se puede combinar con `--magnus`, y
+  `--color` sin `--magnus` también da error. `--fen`, `--sin-leds`, `--sin-registro` y `-v`
+  funcionan igual.
+- **El motor se abre antes de esperar la posición**: si falta Stockfish, falla al arrancar
+  con "No se encontró Stockfish". Se busca en el PATH y, si no, en `/usr/games/stockfish`,
+  donde lo deja `apt`: el PATH de `sudo` no incluye `/usr/games`.
+- **Con `--fen` tiene que haber un rey de cada color** y la posición tiene que ser legal,
+  porque Stockfish no acepta otra cosa: si no, "FEN inválido para jugar contra Magnus".
+  Los FEN de prueba de PvP sin reyes no sirven acá. Si en el FEN le toca a Magnus, arranca
+  pensando.
+
+Cómo se juega (diseño completo en [`vs-magnus.md`](./vs-magnus.md)):
+
+1. **Arranque:** igual que en PvP (rojo falta, amarillo sobra). Un botón arranca la partida
+   y el cronómetro, que cuenta para arriba.
+2. **Tu turno:** armás la jugada y la confirmás con **cualquiera** de los dos botones, con
+   las mismas marcas que en PvP.
+3. **Magnus piensa** en otro hilo, así los LEDs y la matriz siguen andando. Mientras tanto
+   el botón se ignora y los LEDs solo marcan lo que falta o sobra.
+4. **Mover la de Magnus:** la terminal dice qué hacer ("Magnus: caballo g8→f6", "Magnus
+   enroca corto: rey e8→g8 y torre h8→f8", "Magnus: peón a2→a1, poné un caballo") y los LEDs
+   la marcan en violeta (lo que tiene que quedar vacío) y cian (adonde va). Cuando la
+   posición coincide se pone en verde, y un botón la confirma. Si no coincide, el botón se
+   ignora con lo que falta ("la jugada de Magnus no está terminada: falta pieza en f6"). Si
+   ya armaste tu jugada encima, también: primero hay que confirmar la de Magnus.
+5. **Fin:** mate o tablas, con el mensaje final ("¡Derrotaste a Magnus en 12:34!",
+   "Aguantaste 12:34 contra Magnus", "Tablas con Magnus en 12:34"). Si la última jugada fue
+   de Magnus, sigue en los LEDs hasta que se apriete un botón, para poder hacerla y ver el
+   mate. Ctrl+C la deja abandonada, y si Stockfish se cae ("Magnus dejó de responder"),
+   también.
+
+Al salir, primero se espera la jugada que Magnus esté pensando (como mucho, el tiempo del
+nivel) y después se cierra el motor. Stockfish corre en su propio grupo de procesos, así
+que el Ctrl+C no lo mata antes de tiempo.
+
+LEDs propios de vs Magnus (los demás, como en PvP):
+
+| Color | Marca | Significa |
+|---|---|---|
+| Violeta | `MAGNUS_ORIGEN` | Tiene que quedar vacía: el origen, la torre del enroque, el peón capturado al paso |
+| Cian | `MAGNUS_DESTINO` | Adonde va una pieza de Magnus, también la casilla de una captura |
+| Verde | `JUGADA` | La jugada de Magnus ya está hecha: falta el botón |
+
+El registro queda con `modo=vs_magnus`, `TimeControl "-"`, los nombres "Jugador" y "Magnus
+(fácil)", y el nivel y el color en la cabecera del log.
+
+Para probarlo con pocos imanes hace falta que estén los dos reyes. Por ejemplo, con 3
+imanes en e1, e2 y e8 y Magnus con blancas:
+
+```bash
+uv run python -m tablero.io.juego --magnus facil --color negras --fen "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"
+```
+
+Antes de la primera prueba conviene comprobar en la Pi que Stockfish está instalado
+(`sudo apt install stockfish` si no) con `which stockfish || ls -l /usr/games/stockfish`.
+
 ## Pendiente
 
-- Probarlo en la Pi (botones, matriz y LEDs juntos en un mismo programa es la primera vez).
+Los pasos para probar todo esto están en [`pendiente-pi.md`](./pendiente-pi.md).
+
+- Probarlo en la Pi (botones, matriz y LEDs juntos en un mismo programa es la primera vez),
+  también `--magnus`.
 - Una partida completa con las 32 piezas, después de `sensores calibrar`.
 - Conectarlo a la pantalla PvP de `io/menus.py`: `PartidaFisica` ya tiene todo lo que hace
   falta; queda leer el Nano sin trabar el loop de pygame.

@@ -116,6 +116,10 @@ class Marca(Enum):
     JUGADA = auto()  # casillas de la jugada detectada, lista para confirmar con el botón
     FALTA = auto()  # debería tener pieza y no tiene
     SOBRA = auto()  # tiene pieza y no debería
+    # Modo vs Magnus (`logica/partida_magnus.py`): la jugada de la máquina, que hay que
+    # hacer a mano en el tablero.
+    MAGNUS_ORIGEN = auto()  # tiene que quedar vacía (origen, torre del enroque, peón al paso)
+    MAGNUS_DESTINO = auto()  # adonde va una pieza de Magnus (también la casilla de una captura)
 
 
 class RastreadorMovimientos:

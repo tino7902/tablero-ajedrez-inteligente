@@ -15,7 +15,7 @@ celular que comparte con el Nano (ver `hardware-docs/componentes.md`).
 | `.encender(casilla, color)` / `.encender_indice(i, color)` | Fija el color de un LED (no se ve hasta `mostrar()`) |
 | `.limpiar()` / `.mostrar()` / `.apagar()` | Todo en negro / enviar a la tira / las dos cosas |
 | `formatear_led_de_casilla(tabla)` | Bloque `LED_DE_CASILLA` listo para pegar en `config.py`; lo usan `calibrar` y `prueba_tablero leds` |
-| `ROJO`, `VERDE`, `AZUL`, `AMARILLO`, `BLANCO`, `APAGADO` | Colores (`rpi_ws281x.Color`) |
+| `ROJO`, `VERDE`, `AZUL`, `AMARILLO`, `BLANCO`, `APAGADO`, `BLANCO_TENUE`, `VIOLETA`, `CIAN` | Colores (`rpi_ws281x.Color`). Los últimos tres los usa `io/juego.py`: destinos posibles y la jugada de Magnus |
 
 ## Configuración (`config.py`)
 

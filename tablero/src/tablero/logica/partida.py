@@ -115,6 +115,7 @@ MOTIVO_MATE = "jaque mate"
 MOTIVO_TABLAS = "tablas"
 MOTIVO_TIEMPO = "tiempo"
 MOTIVO_ABANDONO = "abandonada"
+MOTIVO_RENDICION = "rendición"
 
 
 class Partida:
@@ -123,7 +124,7 @@ class Partida:
     def __init__(
         self,
         *,
-        segundos_por_jugador: float,
+        segundos_por_jugador: float | None,
         idioma: Idioma = Idioma.ESPANOL,
         fen: str | None = None,
         registro: RegistroPartida | None = None,
@@ -135,6 +136,7 @@ class Partida:
         self._registro = registro
         self._pendiente_de_reloj: chess.Color | None = None
         self._motivo_fin: str | None = None
+        self._rendido: chess.Color | None = None
         if fen:
             # Con un FEN de arranque el reloj tiene que empezar en el color que mueve.
             while self._reloj.turno != self._estado.turno:
@@ -185,12 +187,20 @@ class Partida:
         """Resultado en notación PGN: "1-0", "0-1", "1/2-1/2" o "*" si no terminó."""
         if self._reloj.tiempo_agotado:
             return "0-1" if self._reloj.perdedor == chess.WHITE else "1-0"
+        if self._rendido is not None:
+            return "0-1" if self._rendido == chess.WHITE else "1-0"
         return self._estado.resultado() or "*"
 
     # -- Tiempo -------------------------------------------------------------------
 
     def actualizar_tiempo(self) -> bool:
-        """Descuenta el tiempo real transcurrido; `True` si recién ahora se agotó."""
+        """Descuenta el tiempo real transcurrido; `True` si recién ahora se agotó.
+
+        Con la partida terminada no descuenta nada: el reloj (y el cronómetro sin límite)
+        queda congelado en el final.
+        """
+        if self.terminada:
+            return False
         return self._notificar_si_agotado(self._reloj.actualizar())
 
     def avanzar_tiempo(self, segundos: float) -> bool:
@@ -402,6 +412,17 @@ class Partida:
         return ResultadoBoton(TipoBoton.TURNO_PASADO, color, turno_nuevo=self._reloj.turno)
 
     # -- Fin de partida -----------------------------------------------------------
+
+    def rendirse(self, color: chess.Color) -> None:
+        """`color` abandona: la partida termina a favor del otro y se cierra el registro.
+
+        Con la partida ya terminada no hace nada.
+        """
+        if self.terminada:
+            return
+        self.actualizar_tiempo()
+        self._rendido = color
+        self.finalizar(MOTIVO_RENDICION)
 
     def finalizar(self, motivo: str = MOTIVO_ABANDONO) -> None:
         """Cierra la partida y su registro. Idempotente: repetirlo no cambia nada."""

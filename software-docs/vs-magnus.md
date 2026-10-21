@@ -2,17 +2,18 @@
 
 Spec del modo vs-máquina en el tablero físico: el jugador contra Stockfish ("Magnus"), con
 sensores, LEDs, botones y registro, igual que el PvP de [`juego.md`](./juego.md), y **sin
-límite de tiempo**. Acordado el 2026-10-18; todavía no está implementado.
+límite de tiempo**. Acordado e implementado el 2026-10-18, salvo la pantalla táctil (F).
 
-## Qué hay hoy
+## Estado
 
-- `motor/stockfish.py` funciona, pero a fuerza fija y bloqueando mientras piensa
-  ([`motor.md`](./motor.md)).
-- `io/menus.py` tiene las pantallas de dificultad y color. La dificultad elegida no se
-  guarda, y la pantalla de juego es estática (siempre `04:53`).
-- No hay lógica que haga jugar a la máquina, ni reloj sin límite, ni programa en la Pi.
-- La paridad se mide contra el PvP que existe de verdad: `io/juego.py` por terminal. La
-  pantalla PvP todavía no lee los sensores.
+- **Hecho (A–E):** reloj sin límite, rendición y registro sin límite; niveles del motor y
+  `STOCKFISH_PATH` con `/usr/games`; `logica/partida_magnus.py` con sus tests;
+  `simulacion.py --magnus`, probada en la notebook contra Stockfish; e
+  `io/juego.py --magnus`.
+- **Falta probar en la Pi** `juego.py --magnus` ([`juego.md`](./juego.md#contra-magnus---magnus)).
+- **Pendiente (F):** la pantalla táctil. `io/menus.py` tiene las pantallas de dificultad y
+  color, pero la dificultad elegida no se guarda y la pantalla de juego es estática. Va
+  junto con la integración de sensores de la pantalla PvP, que tampoco existe todavía.
 
 ## Decisiones
 
@@ -80,8 +81,13 @@ de `Marca`, y los colores los elige `io/`:
 Textos:
 
 - Enroque: "Magnus enroca corto: rey e8→g8 y torre h8→f8".
+- Captura: "Magnus: alfil b4→c3, captura el caballo". Al paso: "Magnus: peón d4→e3,
+  captura al paso el peón de e4".
 - Promoción: Magnus puede subpromover y los sensores no ven la pieza, así que el texto dice
-  qué poner: "peón e2→e1: poné un caballo".
+  qué poner: "Magnus: peón a2→a1, poné un caballo" (con captura, "…, captura el caballo y
+  poné una dama").
+- Si la partida terminó con la jugada de Magnus, el texto final la incluye antes del
+  mensaje: "Magnus: dama d8→h4" y "Aguantaste 01:23 contra Magnus".
 
 ### Mensaje final y cronómetro
 
@@ -100,9 +106,11 @@ que la cuenta regresiva de PvP, y se congela cuando la partida termina.
 
 ### A. `motor/stockfish.py`: niveles
 
-- `MotorStockfish(ruta_binario=None, nivel=None)`. `nivel` es una clave de
-  `config.NIVELES_MAGNUS`. Al abrir el motor se configura `Skill Level`, y
-  `mejor_movimiento` usa `Limit(time=...)` del nivel.
+- `MotorStockfish(ruta_binario=None, tiempo_por_jugada=None, nivel=None)`. `nivel` es una
+  clave de `config.NIVELES_MAGNUS` (`NivelMagnus(nombre, skill_level, segundos_por_jugada)`).
+  Al abrir el motor se configura `Skill Level`, y `mejor_movimiento` usa `Limit(time=...)`
+  del nivel. El proceso corre en su propio grupo (`setpgrp=True`), así un Ctrl+C no lo mata
+  antes de que Python lo cierre.
 - Sin `nivel`, se comporta como hoy (fuerza máxima y `STOCKFISH_MOVETIME`), así que
   `test_motor.py` sigue valiendo.
 - `config.NIVELES_MAGNUS`, con las claves ASCII porque son flags de la terminal:
@@ -150,18 +158,25 @@ Es lógica pura: compone `PartidaFisica` y no importa `motor/`.
 
 | Método/propiedad | Qué hace |
 |---|---|
-| `PartidaVsMagnus(*, color_humano, fen=None, registro=None, fuente_tiempo=...)` | Partida siempre sin límite |
+| `PartidaVsMagnus(*, color_humano, fen=None, registro=None, fuente_tiempo=...)` | Partida siempre sin límite. Con un `fen` que Stockfish no acepta, `ValueError` (ver `validar_posicion_magnus`) |
 | `.fase` | `Fase` (`TURNO_HUMANO`, `MAGNUS_PENSANDO`, `MOVER_MAGNUS`, `TERMINADA`), deducida de `Partida` |
-| `.procesar_ocupacion(ocupacion)` | Como en `PartidaFisica` |
-| `.pulsar_boton()` | Sin color, porque sirve cualquier botón. Según la fase confirma tu jugada, confirma la de Magnus o se ignora con el motivo |
+| `.procesar_ocupacion(ocupacion)` / `.lectura` / `.describir()` | Como en `PartidaFisica` |
+| `.pulsar_boton()` | Sin color, porque sirve cualquier botón. Según la fase confirma tu jugada, confirma la de Magnus o se ignora con el motivo → `ResultadoPulsacion(fase, confirmado, motivo, jugada)` |
 | `.board_para_motor()` | Copia del tablero para que `io/` se la pase al motor en otro hilo |
 | `.recibir_jugada_motor(movimiento)` | Aplica la jugada de Magnus y reinterpreta la última ocupación. Si no es la fase `MAGNUS_PENSANDO` o la jugada es ilegal, `ValueError`: sería un bug de quien llama |
 | `.marcas()` / `.texto_estado()` | LEDs y recuadro según la fase |
 | `.duracion` / `.mensaje_final()` | Cronómetro y mensaje del final |
 | `.rendirse()` / `.actualizar_tiempo()` / `.finalizar(motivo)` | Delegan en `Partida` |
+| `.partida` / `.board` / `.color_humano` / `.color_magnus` / `.terminada` | Lecturas |
 
-`mensaje_final` usa una función pura del módulo, `mensaje_final_magnus(resultado,
-color_humano, duracion)`, que la simulación (E) reutiliza.
+Funciones puras del módulo, que la simulación (E) reutiliza:
+
+- `mensaje_final_magnus(resultado, color_humano, duracion)`: el mensaje final.
+- `describir_jugada_magnus(board_antes, jugada)`: la primera línea del texto de
+  `MOVER_MAGNUS`.
+- `nombres_pgn(color_humano, nombre_nivel)`: `("Jugador", "Magnus (fácil)")` o al revés.
+- `validar_posicion_magnus(board)`: `ValueError` si falta un rey o la posición no es legal.
+  El PvP acepta posiciones sin reyes para probar con pocos imanes, pero Stockfish no.
 
 ### D. `io/juego.py --magnus`
 
@@ -182,6 +197,10 @@ uv run python -m tablero.io.juego --magnus facil --color negras
   - Cuando `future.done()`, se llama a `recibir_jugada_motor`. El loop nunca se bloquea.
   - Si el motor falla ("Magnus dejó de responder"), la partida termina como abandonada.
 - Cualquier botón llama a `pulsar_boton()`.
+- Con `--fen`, la posición se valida con `validar_posicion_magnus` antes de abrir el motor.
+- Si la partida terminó con la jugada de Magnus, el programa no sale enseguida: los LEDs la
+  siguen mostrando (verde cuando ya está hecha) hasta que se apriete un botón. Si no, se
+  apagarían al salir y no se vería el mate.
 - La terminal muestra cada cambio de texto, el cronómetro en cada cambio de turno y el
   mensaje final.
 - Al cerrar, primero se espera la jugada en curso (como mucho, el tiempo del nivel) y
@@ -192,7 +211,8 @@ uv run python -m tablero.io.juego --magnus facil --color negras
 Para jugar contra Magnus tipeando, en la notebook, y afinar `NIVELES_MAGNUS` sin armar el
 tablero. Usa `Partida` con tu jugada tipeada y Enter, más la jugada de Magnus aplicada y
 confirmada directamente: no hay tablero físico que actualizar. Muestra el mismo mensaje
-final.
+final. Agrega el comando `rendirse`, y el registro queda con `modo=simulacion_magnus`
+(ver [`simulacion.md`](./simulacion.md#contra-magnus---magnus)).
 
 ### F. Pantalla táctil
 
@@ -238,7 +258,11 @@ binario.
   - Mate tuyo: `TERMINADA` sin pedir jugada al motor, "¡Derrotaste…!".
   - Tablas y rendición.
   - `recibir_jugada_motor` fuera de fase o con una jugada ilegal da `ValueError`.
-- `test_motor.py`: cada nivel abre el motor y devuelve una jugada legal.
+  - Posiciones que Stockfish no acepta: sin reyes, el bando que no mueve en jaque.
+- `test_motor.py`: cada nivel configura `Skill Level` y devuelve una jugada legal, un nivel
+  desconocido da `ValueError`, y el proceso corre en su propio grupo.
+- `test_config.py` (nuevo): `buscar_stockfish` prueba el PATH y después `/usr/games`.
+- `test_simulacion.py` (nuevo): el loop de `simulacion.py --magnus` con un motor falso.
 
 ## Fuera de alcance
 
@@ -249,12 +273,12 @@ binario.
 
 ## Orden
 
-1. B: reloj sin límite, `Partida`, registro.
-2. A: niveles del motor y `STOCKFISH_PATH`.
-3. C: `PartidaVsMagnus` con sus tests.
-4. E: simulación, opcional, para afinar los niveles.
-5. D: `juego.py --magnus`. Lo prueba Tino en la Pi, después de comprobar ahí `which
-   stockfish` y `sudo sh -c 'command -v stockfish'`.
+1. ✅ B: reloj sin límite, `Partida`, registro.
+2. ✅ A: niveles del motor y `STOCKFISH_PATH`.
+3. ✅ C: `PartidaVsMagnus` con sus tests.
+4. ✅ E: simulación, para afinar los niveles.
+5. ✅ D: `juego.py --magnus`. Falta que lo pruebe Tino en la Pi, después de comprobar ahí
+   que Stockfish está instalado (`which stockfish || ls -l /usr/games/stockfish`).
 6. F: pantalla, junto con la integración de sensores de PvP.
 
 Al implementar cada parte se actualizan sus docs (`partida.md`, `motor.md`, `config.md`,

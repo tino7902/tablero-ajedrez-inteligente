@@ -34,6 +34,8 @@ VERDE = Color(0, 255, 0)
 AZUL = Color(0, 0, 255)
 AMARILLO = Color(255, 255, 0)
 BLANCO_TENUE = Color(70, 70, 70)  # destinos posibles en io/juego.py: que no compitan con el resto
+VIOLETA = Color(170, 0, 255)  # vs Magnus: casillas que tienen que quedar vacías
+CIAN = Color(0, 255, 255)  # vs Magnus: adonde va la pieza de Magnus
 
 
 def indice_de(casilla: chess.Square) -> int:

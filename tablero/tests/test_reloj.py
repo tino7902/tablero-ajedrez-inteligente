@@ -7,7 +7,7 @@ No requieren hardware: el paso del tiempo se controla con la fixture `tiempo`
 import chess
 import pytest
 
-from tablero.logica.reloj import RelojAjedrez, formatear_tiempo
+from tablero.logica.reloj import RelojAjedrez, formatear_duracion, formatear_tiempo
 
 
 def test_arranca_con_el_turno_en_blancas_y_los_dos_tiempos_completos(tiempo):
@@ -87,3 +87,49 @@ def test_solo_avisa_una_vez_que_se_agoto_el_tiempo(tiempo):
 )
 def test_formatear_tiempo_redondea_hacia_arriba_y_no_baja_de_cero(segundos, esperado):
     assert formatear_tiempo(segundos) == esperado
+
+
+# -- Sin límite de tiempo (modo vs Magnus) ----------------------------------------
+
+
+def test_sin_limite_nunca_se_agota(tiempo):
+    reloj = RelojAjedrez(None, tiempo)
+
+    assert reloj.sin_limite
+    assert not reloj.avanzar(10_000)
+    assert not reloj.tiempo_agotado
+    assert reloj.perdedor is None
+    assert reloj.restante(chess.WHITE) is None
+
+
+def test_sin_limite_cuenta_lo_que_usa_cada_lado(tiempo):
+    reloj = RelojAjedrez(None, tiempo)
+
+    tiempo.avanzar(10)
+    reloj.actualizar()
+    reloj.pulsar(chess.WHITE)
+    tiempo.avanzar(4)
+    reloj.actualizar()
+
+    assert reloj.usado(chess.WHITE) == 10
+    assert reloj.usado(chess.BLACK) == 4
+    assert reloj.duracion == 14
+
+
+def test_con_limite_usado_es_lo_que_se_descontó(tiempo):
+    reloj = RelojAjedrez(300, tiempo)
+
+    reloj.avanzar(20)
+
+    assert not reloj.sin_limite
+    assert reloj.usado(chess.WHITE) == 20
+    assert reloj.usado(chess.BLACK) == 0
+    assert reloj.duracion == 20
+
+
+@pytest.mark.parametrize(
+    ("segundos", "esperado"),
+    [(0, "00:00"), (0.999, "00:00"), (59.9, "00:59"), (60, "01:00"), (3725, "62:05"), (-3, "00:00")],
+)
+def test_formatear_duracion_trunca_y_los_minutos_pasan_de_59(segundos, esperado):
+    assert formatear_duracion(segundos) == esperado

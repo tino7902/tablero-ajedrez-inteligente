@@ -28,9 +28,19 @@ Tests de `MotorStockfish` ([`docs/motor.md`](./motor.md)). Requieren el binario
 máquinas o entornos de CI que no lo tengan instalado.
 
 Casos cubiertos: la jugada devuelta desde la posición inicial es legal, el motor
-encuentra un mate en 1 conocido, el motor se puede cerrar sin excepciones. Los tiempos
-por jugada se mantienen bajos (0.1-0.2s) porque ninguna de las posiciones usadas
-necesita más tiempo para resolverse — importante para que la suite siga siendo rápida.
+encuentra un mate en 1 conocido, el motor se puede cerrar sin excepciones, cada nivel de
+`config.NIVELES_MAGNUS` configura `Skill Level` y devuelve una jugada legal, un nivel
+desconocido da `ValueError`, y el proceso corre en su propio grupo (para que un Ctrl+C no
+lo mate). Los tiempos por jugada se mantienen bajos (0.1-0.2s) porque ninguna de las
+posiciones usadas necesita más tiempo para resolverse — importante para que la suite siga
+siendo rápida. Los niveles usan los suyos (el difícil, 1 s).
+
+## `test_config.py`
+
+Tests de `config.buscar_stockfish` ([`config.md`](./config.md)). Sin Stockfish: se
+reemplazan `shutil.which` y `os.access`. Casos cubiertos: primero el PATH, después
+`/usr/games/stockfish` (el de `apt`, que el PATH de `sudo` no incluye), y si no hay
+ninguno, el nombre solo.
 
 ## `test_eventos.py`
 
@@ -55,7 +65,8 @@ deterministas y no tienen que dormir.
 Casos cubiertos: solo descuenta del lado activo, el turno cambia al pulsar, el botón del
 jugador que no tiene el turno no hace nada, `avanzar()` no cobra dos veces el tiempo real,
 al agotarse queda congelado en el perdedor y deja de descontar, el aviso de tiempo agotado
-llega una sola vez, y el formato `MM:SS`.
+llega una sola vez, y el formato `MM:SS`. Sin límite: nunca se agota, `usado` por lado y
+`duracion`, y `formatear_duracion` trunca y deja pasar los minutos de 59.
 
 ## `test_notacion.py`
 
@@ -80,7 +91,9 @@ origen y movimiento imposible, cada uno con su mensaje; el tiempo le corre a qui
 no apretó; timeout que termina la partida y bloquea todo; mate del pastor que termina sin
 esperar el botón; arranque desde un FEN con el reloj en el color que mueve; e
 `intentar_jugada` (un `chess.Move` ya resuelto, el de los sensores) aceptada, ilegal con su
-motivo y bloqueada mientras falta el botón.
+motivo y bloqueada mientras falta el botón. Para vs Magnus: partida sin límite, el reloj
+que se congela al terminar, y `rendirse` (resultado a favor del otro, y nada si la partida
+ya había terminado).
 
 ## `test_partida_fisica.py`
 
@@ -95,6 +108,30 @@ pieza antes de que el otro apriete; el tiempo corre mientras se acomodan las pie
 del pastor; y una partida corta con captura y enroque, revisando el PGN y el log en un
 `tmp_path`.
 
+## `test_partida_magnus.py`
+
+Tests de `PartidaVsMagnus` ([`vs-magnus.md`](./vs-magnus.md)). Sin hardware ni Stockfish:
+las jugadas de Magnus las pasa el test con `recibir_jugada_motor`, con la misma "mano" de
+`test_partida_fisica.py` y la fixture `tiempo`.
+
+Casos cubiertos: las cuatro fases (con blancas confirma y pasa a `MAGNUS_PENSANDO`, donde
+el botón se ignora; con negras arranca pensando); las marcas de cada fase; el botón
+apretado justo después de recibir la jugada sin tocar nada (la reinterpretación de la
+última lectura); la jugada de Magnus a medio mover, terminada y con otra diferencia aparte;
+tu jugada armada encima de la de Magnus sin confirmar; captura, enroque corto y largo, al
+paso, subpromoción y promoción con captura de Magnus (marcas, texto y confirmación); el
+registro; mate de Magnus (termina sin botón y sigue en los LEDs), mate tuyo, cronómetro
+congelado, ahogado, rendición y abandono; `recibir_jugada_motor` fuera de fase o ilegal; los
+mensajes finales; los nombres del PGN; y las posiciones que Stockfish no acepta (sin reyes,
+el bando que no mueve en jaque).
+
+## `test_simulacion.py`
+
+Tests del modo vs Magnus de `simulacion.py` ([`simulacion.md`](./simulacion.md)), con un
+motor falso que devuelve jugadas fijas y lo tipeado reemplazado por `monkeypatch`. Casos
+cubiertos: Magnus contesta después de tu Enter y te podés rendir, con negras juega primero
+y su jugada se confirma sola, y el mensaje final con un mate tuyo.
+
 ## `test_registro.py`
 
 Tests de `RegistroPartida` ([`registro.md`](./registro.md)). Sin hardware: todo se escribe
@@ -105,7 +142,8 @@ los movimientos, el `Result` y el `Termination` correctos; el PGN se escribe de 
 recién al final); la partida abandonada queda en `*`; el log detalla intentos, bloqueos,
 botones ignorados, cambios de turno con el estado del reloj y el tiempo agotado; la
 rotación deja 15 PGN y 5 logs borrando los más viejos; dos partidas del mismo segundo no se
-pisan; y cerrar dos veces no duplica nada.
+pisan; cerrar dos veces no duplica nada; y una partida sin límite (vs Magnus) con
+`TimeControl "-"`, los nombres de los jugadores, el tiempo usado en el log y la rendición.
 
 ## `test_matriz.py`
 
@@ -139,7 +177,8 @@ de `mapear`, `uv run pytest tests/test_matriz.py -q` confirma que no quedó mal 
 `io/prueba_tablero.py`) necesitan hardware real para probarse de forma significativa (ver el
 boundary documentado en `CLAUDE.md`); lo que no necesita el hardware de la matriz (incluido el
 texto del protocolo del Nano) vive en `logica/matriz.py` y está cubierto por `test_matriz.py`. Tampoco hay tests
-automáticos de `tablero/simulacion.py` ni de `io/menus.py`: son capas de entrada/salida
-(terminal y pygame) sobre lógica que ya está cubierta por `test_partida.py`,
-`test_reloj.py` y `test_registro.py`; se prueban a mano corriéndolas (ver
-[`simulacion.md`](./simulacion.md) y [`comandos.md`](./comandos.md)).
+automáticos del modo normal de `tablero/simulacion.py` (el vs Magnus sí, en
+`test_simulacion.py`) ni de `io/menus.py` e `io/juego.py`: son capas de entrada/salida
+(terminal, pygame y hardware) sobre lógica que ya está cubierta por `test_partida.py`,
+`test_partida_magnus.py`, `test_reloj.py` y `test_registro.py`; se prueban a mano
+corriéndolas (ver [`simulacion.md`](./simulacion.md) y [`comandos.md`](./comandos.md)).

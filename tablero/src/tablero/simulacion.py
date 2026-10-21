@@ -13,6 +13,11 @@ poder correr esto. Acá solo hay entrada/salida de terminal; la lógica está en
 
     uv run python -m tablero.simulacion          # pregunta notación y minutos
     uv run simulacion --notacion es --minutos 3  # sin preguntas
+    uv run simulacion --magnus facil --color negras   # contra Magnus (necesita stockfish)
+
+Contra Magnus (`--magnus`) no hay límite de tiempo: tipeás tu jugada, apretás Enter y
+Magnus contesta solo (su jugada se aplica y se confirma directamente, porque no hay
+tablero que actualizar). Sirve para afinar `config.NIVELES_MAGNUS` sin armar el tablero.
 
 Cada partida queda registrada en `registros/` (PGN + log detallado, ver
 `logica/registro.py`), salvo que se pase `--sin-registro`.
@@ -22,6 +27,9 @@ from __future__ import annotations
 
 import argparse
 import logging
+import random
+import sys
+from typing import Protocol
 
 import chess
 
@@ -29,13 +37,20 @@ from tablero import config
 from tablero.logica.notacion import NOMBRES_COLOR, Idioma
 from tablero.logica.partida import (
     MOTIVO_ABANDONO,
+    MOTIVO_RENDICION,
     Partida,
     ResultadoBoton,
     ResultadoJugada,
     TipoBoton,
 )
+from tablero.logica.partida_magnus import (
+    describir_jugada_magnus,
+    mensaje_final_magnus,
+    nombres_pgn,
+    validar_posicion_magnus,
+)
 from tablero.logica.registro import RegistroPartida
-from tablero.logica.reloj import formatear_tiempo
+from tablero.logica.reloj import formatear_duracion, formatear_tiempo
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +68,19 @@ Comandos:
   ayuda          muestra esta ayuda
   salir          termina la partida (queda registrada como abandonada)
 """.strip()
+
+_AYUDA_MAGNUS = """
+Contra Magnus: tipeá tu jugada y apretá Enter (tu botón del reloj); Magnus contesta solo.
+  rendirse       abandona la partida (gana Magnus)
+""".strip()
+
+COLORES = {"blancas": chess.WHITE, "negras": chess.BLACK}
+
+
+class Motor(Protocol):
+    """Lo que la simulación necesita del motor (`motor.stockfish.MotorStockfish`)."""
+
+    def mejor_movimiento(self, tablero: chess.Board) -> chess.Move: ...
 
 
 def _preguntar_opcion(pregunta: str, opciones: list[str], por_defecto: int = 1) -> int:
@@ -98,6 +126,8 @@ def preguntar_minutos() -> float:
 
 def _linea_reloj(partida: Partida) -> str:
     reloj = partida.reloj
+    if reloj.sin_limite:
+        return f"⏱  {formatear_duracion(reloj.duracion)}"
     return (
         f"⏱  blancas {formatear_tiempo(reloj.restante(chess.WHITE))}"
         f"  ·  negras {formatear_tiempo(reloj.restante(chess.BLACK))}"
@@ -219,6 +249,62 @@ def jugar(partida: Partida) -> None:
         partida.finalizar(MOTIVO_ABANDONO)
 
 
+def _turno_de_magnus(partida: Partida, motor: Motor, color_magnus: chess.Color) -> None:
+    """Pide la jugada al motor, la aplica y la confirma (acá no hay piezas que mover)."""
+    print("Magnus está pensando…")
+    antes = partida.estado.board.copy(stack=False)
+    movimiento = motor.mejor_movimiento(partida.estado.board.copy())
+    resultado = partida.intentar_jugada(movimiento)
+    print(f"🤖  {describir_jugada_magnus(antes, movimiento)}  ({resultado.san})")
+    if not partida.terminada:
+        partida.pulsar_boton(color_magnus)
+    _mostrar_tablero(partida)
+
+
+def _anunciar_fin_magnus(partida: Partida, color_humano: chess.Color) -> None:
+    if partida.motivo_fin == MOTIVO_RENDICION:
+        print("\n🏳  Te rendiste.")
+    elif partida.estado.es_jaque_mate():
+        print(f"\n♛  ¡Jaque mate! Ganan {NOMBRES_COLOR[not partida.estado.turno]}.")
+    else:
+        print(f"\n🤝  Partida terminada en tablas ({partida.motivo_fin}).")
+    print(mensaje_final_magnus(partida.resultado(), color_humano, partida.reloj.duracion))
+    print(f"Resultado: {partida.resultado()}")
+
+
+def jugar_magnus(partida: Partida, motor: Motor, color_humano: chess.Color) -> None:
+    """Como `jugar`, pero las jugadas del otro color las hace Magnus."""
+    print(_AYUDA)
+    print(_AYUDA_MAGNUS)
+    _mostrar_tablero(partida)
+
+    while not partida.terminada:
+        if partida.turno != color_humano:
+            _turno_de_magnus(partida, motor, not color_humano)
+            continue
+        _mostrar_pendiente(partida)
+        print(_linea_reloj(partida))
+        try:
+            entrada = input(f"{NOMBRES_COLOR[partida.turno]}> ")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+
+        partida.actualizar_tiempo()
+        if entrada.strip().lower() == "rendirse":
+            partida.rendirse(color_humano)
+            break
+        if not _procesar_comando(partida, entrada):
+            break
+        print()
+
+    if partida.terminada:
+        _anunciar_fin_magnus(partida, color_humano)
+    else:
+        print("Partida abandonada.")
+    partida.finalizar(MOTIVO_ABANDONO)
+
+
 def _parsear_argumentos(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="simulacion",
@@ -234,11 +320,25 @@ def _parsear_argumentos(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--fen", help="posición inicial en FEN (por defecto, la de una partida nueva)")
     parser.add_argument(
+        "--magnus",
+        choices=list(config.NIVELES_MAGNUS),
+        help="jugar contra Magnus (Stockfish) en ese nivel, sin límite de tiempo",
+    )
+    parser.add_argument(
+        "--color",
+        choices=[*COLORES, "aleatorio"],
+        default="blancas",
+        help="tu color contra Magnus (blancas por defecto)",
+    )
+    parser.add_argument(
         "--sin-registro",
         action="store_true",
         help="no escribe el PGN ni el log de la partida en registros/",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.magnus and args.minutos:
+        parser.error("--minutos no se puede usar con --magnus: contra Magnus no hay límite de tiempo")
+    return args
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -248,6 +348,9 @@ def main(argv: list[str] | None = None) -> None:
 
     print("=== Tablero de ajedrez inteligente — simulación de partida ===")
     idioma = Idioma(args.notacion) if args.notacion else preguntar_idioma()
+    if args.magnus:
+        _main_magnus(args, idioma)
+        return
     minutos = args.minutos if args.minutos else preguntar_minutos()
     segundos = minutos * 60
 
@@ -271,6 +374,49 @@ def main(argv: list[str] | None = None) -> None:
         jugar(partida)
     finally:
         # Un Ctrl+C o una excepción no deben dejar el registro a medio escribir.
+        partida.finalizar(MOTIVO_ABANDONO)
+        if registro is not None:
+            print(f"\nRegistro: {registro.ruta_pgn}\n          {registro.ruta_log}")
+
+
+def _main_magnus(args: argparse.Namespace, idioma: Idioma) -> None:
+    """Partida contra Magnus: abre el motor, arma la partida sin límite y corre el loop."""
+    # Se importa acá: el modo normal no necesita python-chess.engine ni el binario.
+    from tablero.motor.stockfish import MotorStockfish
+
+    if args.fen:
+        try:
+            validar_posicion_magnus(chess.Board(args.fen))
+        except ValueError as error:
+            sys.exit(f"FEN inválido para jugar contra Magnus: {error}")
+    nivel = config.NIVELES_MAGNUS[args.magnus]
+    nombre_color = random.choice(list(COLORES)) if args.color == "aleatorio" else args.color
+    color_humano = COLORES[nombre_color]
+    try:
+        motor = MotorStockfish(nivel=args.magnus)
+    except FileNotFoundError:
+        sys.exit(f"No se encontró Stockfish ({config.STOCKFISH_PATH}): instalalo con 'sudo apt install stockfish'.")
+
+    registro = None
+    if not args.sin_registro:
+        blancas, negras = nombres_pgn(color_humano, nivel.nombre)
+        registro = RegistroPartida(
+            config.DIRECTORIO_REGISTROS,
+            modo="simulacion_magnus",
+            segundos_por_jugador=None,
+            max_partidas=config.MAX_PARTIDAS_REGISTRADAS,
+            max_detalles=config.MAX_DETALLES_REGISTRADOS,
+            extras_cabecera=f"notacion={idioma.value} nivel={args.magnus} color={nombre_color}",
+            blancas=blancas,
+            negras=negras,
+        )
+
+    partida = Partida(segundos_por_jugador=None, idioma=idioma, fen=args.fen, registro=registro)
+    print(f"\nContra Magnus ({nivel.nombre}), sin límite de tiempo. Jugás con {nombre_color}.")
+    try:
+        with motor:
+            jugar_magnus(partida, motor, color_humano)
+    finally:
         partida.finalizar(MOTIVO_ABANDONO)
         if registro is not None:
             print(f"\nRegistro: {registro.ruta_pgn}\n          {registro.ruta_log}")

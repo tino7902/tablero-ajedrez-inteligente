@@ -1,4 +1,4 @@
-# `logica/partida.py`, `partida_fisica.py`, `reloj.py` y `notacion.py` — la capa de partida
+# `logica/partida.py`, `partida_fisica.py`, `partida_magnus.py`, `reloj.py` y `notacion.py` — la capa de partida
 
 Los módulos que convierten "hay reglas de ajedrez" ([`logica.md`](./logica.md)) en "hay una
 partida en curso": quién tiene el turno, cuánto tiempo le queda, qué pasa cuando alguien
@@ -6,7 +6,9 @@ intenta un movimiento y cuándo pasa el turno de verdad.
 
 Ninguno depende de hardware. `Partida` la usan la simulación por terminal
 ([`simulacion.md`](./simulacion.md)) y el tablero real, a través de `PartidaFisica`
-([`juego.md`](./juego.md)): la regla y el registro son los mismos en los dos casos.
+([`juego.md`](./juego.md)): la regla y el registro son los mismos en los dos casos. El modo
+contra la máquina, `PartidaVsMagnus`, compone `PartidaFisica` (ver
+[`vs-magnus.md`](./vs-magnus.md)).
 
 ## `logica/partida.py`
 
@@ -25,12 +27,13 @@ que un reloj físico si te olvidás de apretarlo.
 
 | Método/propiedad | Qué hace |
 |---|---|
-| `Partida(*, segundos_por_jugador, idioma, fen, registro, fuente_tiempo)` | Arranca una partida; `fuente_tiempo` se inyecta en los tests |
+| `Partida(*, segundos_por_jugador, idioma, fen, registro, fuente_tiempo)` | Arranca una partida; `segundos_por_jugador=None` es sin límite de tiempo (vs Magnus); `fuente_tiempo` se inyecta en los tests |
 | `.intentar_movimiento(texto)` | Procesa un movimiento tipeado → `ResultadoJugada` |
 | `.intentar_jugada(movimiento)` | Lo mismo con un `chess.Move` ya resuelto (el de los sensores); en el registro queda en UCI (`intenta 'e2e4'`) |
 | `.pulsar_boton(color)` | Procesa el botón del reloj de `color` → `ResultadoBoton` |
-| `.actualizar_tiempo()` / `.avanzar_tiempo(seg)` | Descuenta tiempo real / simulado; `True` si recién se agotó |
-| `.finalizar(motivo)` | Cierra la partida y su registro; idempotente |
+| `.actualizar_tiempo()` / `.avanzar_tiempo(seg)` | Descuenta tiempo real / simulado; `True` si recién se agotó. Con la partida terminada, `actualizar_tiempo` no descuenta nada: el reloj queda congelado en el final |
+| `.rendirse(color)` | `color` abandona: termina con motivo `"rendición"`, el resultado a favor del otro y el registro cerrado. Con la partida ya terminada no hace nada |
+| `.finalizar(motivo)` | Cierra la partida y su registro; idempotente. Un `finalizar()` sin más deja el resultado en `*` |
 | `.turno` | Color al que le toca según el **reloj** (el turno que percibe el jugador) |
 | `.esperando_boton` | Color que ya movió y no pulsó, o `None` |
 | `.terminada` / `.motivo_fin` / `.resultado()` | Fin de partida y resultado PGN (`1-0`, `0-1`, `1/2-1/2`, `*`) |
@@ -89,7 +92,7 @@ del reloj**.
 | `.lectura` / `.marcas()` / `.describir()` | Última lectura, sus marcas para los LEDs y su texto en castellano |
 | `.partida` / `.board` / `.terminada` | La `Partida` de adentro y su tablero |
 | `.actualizar_tiempo()` / `.finalizar(motivo)` | Delegan en `Partida` |
-| `describir_lectura(lectura, board)`, `describir_jugada(board, jugada)` | Textos para mostrar: "caballo g1→f3 (Nf3), falta apretar el reloj" |
+| `describir_lectura(lectura, board)`, `describir_jugada(board, jugada)`, `describir_diferencias(faltan, sobran)` | Textos para mostrar: "caballo g1→f3 (Nf3), falta apretar el reloj", "falta pieza en e2; sobra pieza en d4" |
 
 Por qué la jugada se confirma recién con el botón:
 
@@ -104,6 +107,17 @@ Por qué la jugada se confirma recién con el botón:
 - **Si el rival toca una pieza antes de que el otro apriete**, la posición deja de ser una
   jugada legal y el botón se rechaza hasta que se reponga.
 
+## `logica/partida_magnus.py`
+
+`PartidaVsMagnus` es la partida contra Stockfish en el tablero físico, sin límite de tiempo.
+Compone `PartidaFisica` y **no importa `motor/`**: `io/juego.py` le pide la jugada al motor
+en otro hilo con `board_para_motor()` y se la pasa con `recibir_jugada_motor()`. La jugada
+de Magnus se aplica con `Partida.intentar_jugada` y el botón que aprieta el jugador después
+de moverla es `Partida.pulsar_boton(color_magnus)`: la regla y el registro no cambian.
+
+Las fases (`Fase`: `TURNO_HUMANO`, `MAGNUS_PENSANDO`, `MOVER_MAGNUS`, `TERMINADA`) se deducen
+de `Partida`, no se guardan aparte. La API completa, las marcas de los LEDs y los textos
+están en [`vs-magnus.md`](./vs-magnus.md).
 ## `logica/reloj.py`
 
 `RelojAjedrez` es el **único** reloj del proyecto: lo usan `Partida` y también la pantalla
@@ -112,13 +126,15 @@ PvP de `io/menus.py`, que antes descontaba el tiempo a mano en su loop de pygame
 
 | Método/propiedad | Qué hace |
 |---|---|
-| `RelojAjedrez(segundos_por_jugador, fuente_tiempo=time.monotonic)` | Arranca los dos temporizadores, turno en blancas |
+| `RelojAjedrez(segundos_por_jugador, fuente_tiempo=time.monotonic)` | Arranca los dos temporizadores, turno en blancas. Con `None`, sin límite: nunca se agota |
 | `.turno` | Color cuyo reloj corre; queda congelado en el perdedor al agotarse |
-| `.restante(color)` / `.tiempo_agotado` / `.perdedor` | Estado del reloj |
+| `.restante(color)` / `.tiempo_agotado` / `.perdedor` | Estado del reloj; `restante` es `None` sin límite |
+| `.usado(color)` / `.duracion` / `.sin_limite` | Segundos usados por cada lado (con límite o sin él), su suma y si el reloj no tiene límite |
 | `.actualizar()` | Descuenta el tiempo real desde la última llamada; `True` solo la vez que se agota |
 | `.avanzar(segundos)` | Descuenta tiempo simulado (el comando `esperar` de la simulación) |
 | `.pulsar(color)` | Pasa el turno si `color` es quien tiene el reloj corriendo |
-| `formatear_tiempo(segundos)` | `"MM:SS"`, redondeando hacia arriba |
+| `formatear_tiempo(segundos)` | `"MM:SS"`, redondeando hacia arriba (cuenta regresiva) |
+| `formatear_duracion(segundos)` | `"MM:SS"`, truncando, y los minutos pasan de 59 (cronómetro de vs Magnus) |
 
 Notas:
 
@@ -129,7 +145,10 @@ Notas:
   fixture `tiempo` en `tests/conftest.py`).
 - **`formatear_tiempo` redondea hacia arriba** para que una partida de 5 minutos muestre
   `05:00` al arrancar y `00:00` recién cuando el tiempo se acabó de verdad, como un reloj
-  de ajedrez comercial.
+  de ajedrez comercial. `formatear_duracion` hace lo contrario: un cronómetro que cuenta
+  para arriba muestra `00:00` al arrancar.
+- **Sin límite es el mismo reloj.** `Partida.turno` sale del reloj, así que un reloj que
+  nunca se agota mantiene la misma API y de paso da el cronómetro de vs Magnus.
 
 ## `logica/notacion.py`
 
@@ -155,6 +174,7 @@ silenciosamente equivocados, así que la simulación lo pregunta al arrancar.
 ## Tests
 
 `tests/test_partida.py` (la regla de las dos condiciones, los mensajes de bloqueo, mate,
-timeout e `intentar_jugada`), `tests/test_partida_fisica.py` (la jugada cuenta al apretar el
-botón), `tests/test_reloj.py` y `tests/test_notacion.py`. Sin hardware — ver
+timeout, `intentar_jugada`, sin límite y rendición), `tests/test_partida_fisica.py` (la
+jugada cuenta al apretar el botón), `tests/test_partida_magnus.py` (vs Magnus),
+`tests/test_reloj.py` y `tests/test_notacion.py`. Sin hardware — ver
 [`testing.md`](./testing.md).
