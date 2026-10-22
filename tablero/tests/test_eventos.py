@@ -257,6 +257,7 @@ def test_enroque_corto_empezando_por_el_rey():
 
     assert lectura.tipo is TipoLectura.JUGADA
     assert lectura.movimiento == chess.Move.from_uci("e1g1")
+    assert lectura.movimiento is not None
     assert estado.board.is_castling(lectura.movimiento)
     assert marcas(lectura, estado.board) == dict.fromkeys(
         [chess.E1, chess.F1, chess.G1, chess.H1], Marca.JUGADA
@@ -294,6 +295,7 @@ def test_al_paso_moviendo_primero_el_peon_propio():
     lectura = mano.levantar(chess.D5)
 
     assert lectura.movimiento == chess.Move.from_uci("e5d6")
+    assert lectura.movimiento is not None
     assert estado.board.is_en_passant(lectura.movimiento)
     assert marcas(lectura, estado.board) == dict.fromkeys(
         [chess.E5, chess.D6, chess.D5], Marca.JUGADA
@@ -339,6 +341,7 @@ def test_al_aplicarse_la_jugada_la_posicion_fisica_pasa_a_ser_reposo():
     mano.levantar(chess.E5)
     jugada = mano.apoyar(chess.E5)
 
+    assert jugada.movimiento is not None
     estado.aplicar_movimiento(jugada.movimiento)
 
     assert rastreador.procesar_ocupacion(mano.ocupacion).tipo is TipoLectura.REPOSO

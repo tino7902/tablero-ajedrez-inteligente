@@ -146,7 +146,7 @@ class RegistroPartida:
     def anotar_boton(self, resultado: ResultadoBoton, reloj: RelojAjedrez) -> None:
         """Anota una pulsación del botón del reloj (haya pasado el turno o no)."""
         color = NOMBRES_COLOR[resultado.color]
-        if resultado.paso_turno:
+        if resultado.turno_nuevo is not None:
             self._escribir_log(
                 f"botón {color} → TURNO PASADO a {NOMBRES_COLOR[resultado.turno_nuevo]} "
                 f"{self._estado_reloj(reloj)}"
@@ -158,6 +158,7 @@ class RegistroPartida:
 
     def anotar_tiempo_agotado(self, reloj: RelojAjedrez) -> None:
         """Anota que un jugador se quedó sin tiempo."""
+        assert reloj.perdedor is not None
         self._escribir_log(
             f"tiempo agotado: {NOMBRES_COLOR[reloj.perdedor]} {self._estado_reloj(reloj)}"
         )
@@ -173,15 +174,13 @@ class RegistroPartida:
     # -- Escritura ----------------------------------------------------------------
 
     def _estado_reloj(self, reloj: RelojAjedrez) -> str:
-        if reloj.sin_limite:
+        blancas, negras = reloj.restante(chess.WHITE), reloj.restante(chess.BLACK)
+        if blancas is None or negras is None:  # sin límite de tiempo
             return (
                 f"⏱ usado B {formatear_duracion(reloj.usado(chess.WHITE))} "
                 f"· N {formatear_duracion(reloj.usado(chess.BLACK))}"
             )
-        return (
-            f"⏱ B {formatear_tiempo(reloj.restante(chess.WHITE))} "
-            f"· N {formatear_tiempo(reloj.restante(chess.BLACK))}"
-        )
+        return f"⏱ B {formatear_tiempo(blancas)} · N {formatear_tiempo(negras)}"
 
     def _escribir_log(self, linea: str, *, con_transcurrido: bool = True) -> None:
         ahora = dt.datetime.now()

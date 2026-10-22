@@ -12,7 +12,7 @@ from tablero.logica.notacion import Idioma
 from tablero.logica.partida import Partida, TipoBoton, TipoJugada
 
 
-def _partida(tiempo, *, segundos=300, fen=None, idioma=Idioma.ESPANOL) -> Partida:
+def _partida(tiempo, *, segundos: int | None = 300, fen=None, idioma=Idioma.ESPANOL) -> Partida:
     return Partida(
         segundos_por_jugador=segundos, idioma=idioma, fen=fen, fuente_tiempo=tiempo
     )

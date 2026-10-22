@@ -93,10 +93,9 @@ class _Leds:
 
 def _linea_reloj(partida: PartidaFisica) -> str:
     reloj = partida.partida.reloj
-    return (
-        f"⏱  blancas {formatear_tiempo(reloj.restante(chess.WHITE))}"
-        f"  ·  negras {formatear_tiempo(reloj.restante(chess.BLACK))}"
-    )
+    blancas, negras = reloj.restante(chess.WHITE), reloj.restante(chess.BLACK)
+    assert blancas is not None and negras is not None  # jugador contra jugador: siempre con límite
+    return f"⏱  blancas {formatear_tiempo(blancas)}  ·  negras {formatear_tiempo(negras)}"
 
 
 def _botones_pendientes(cola: queue.Queue[str]) -> list[chess.Color]:
@@ -144,8 +143,8 @@ def _mostrar_confirmacion(partida: PartidaFisica, resultado: ResultadoConfirmaci
     color = NOMBRES_COLOR[resultado.boton.color]
     if resultado.jugada is not None and resultado.jugada.aceptado:
         print(f"✓  {color}: {resultado.jugada.san} ({resultado.jugada.descripcion})")
-    if resultado.paso_turno:
-        print(f"🔔  turno de {NOMBRES_COLOR[resultado.boton.turno_nuevo]}   {_linea_reloj(partida)}")
+    if (turno_nuevo := resultado.boton.turno_nuevo) is not None:
+        print(f"🔔  turno de {NOMBRES_COLOR[turno_nuevo]}   {_linea_reloj(partida)}")
     elif resultado.boton.tipo is TipoBoton.IGNORADO_TERMINADA:
         pass  # el fin de partida se anuncia aparte
     elif resultado.motivo:
@@ -156,8 +155,7 @@ def _mostrar_confirmacion(partida: PartidaFisica, resultado: ResultadoConfirmaci
 
 def _anunciar_fin(partida: PartidaFisica) -> None:
     p = partida.partida
-    if p.reloj.tiempo_agotado:
-        perdedor = p.reloj.perdedor
+    if (perdedor := p.reloj.perdedor) is not None:
         print(f"\n⏱  ¡{NOMBRES_COLOR[perdedor].capitalize()} se quedaron sin tiempo! Ganan {NOMBRES_COLOR[not perdedor]}.")
     elif p.estado.es_jaque_mate():
         print(f"\n♛  ¡Jaque mate! Ganan {NOMBRES_COLOR[not p.estado.turno]}.")
@@ -190,10 +188,11 @@ def jugar(partida: PartidaFisica, lector: sensores.LectorMatriz, cola: queue.Que
 
 
 def _mostrar_pulsacion(resultado: ResultadoPulsacion) -> None:
-    if resultado.confirmado and resultado.fase is Fase.MOVER_MAGNUS:
-        print(f"✓  Magnus: {resultado.jugada.san}")
-    elif resultado.confirmado:
-        print(f"✓  {resultado.jugada.san} ({resultado.jugada.descripcion})")
+    jugada = resultado.jugada
+    if resultado.confirmado and jugada is not None and resultado.fase is Fase.MOVER_MAGNUS:
+        print(f"✓  Magnus: {jugada.san}")
+    elif resultado.confirmado and jugada is not None:
+        print(f"✓  {jugada.san} ({jugada.descripcion})")
     elif resultado.fase is not Fase.TERMINADA:
         print(f"⛔  {resultado.motivo}")
 
@@ -349,7 +348,7 @@ def main() -> None:
             except ValueError as error:
                 sys.exit(f"FEN inválido para jugar contra Magnus: {error}")
 
-    motor = color_humano = nombre_color = None
+    motor = color_humano = nombre_color = nivel = None
     if args.magnus:
         # Antes de esperar la posición: si falta el binario, que falle al arrancar.
         try:
@@ -375,6 +374,7 @@ def main() -> None:
         esperar_posicion(lector, cola, args.fen, leds)
 
         if args.magnus:
+            assert motor is not None and color_humano is not None and nivel is not None
             if not args.sin_registro:
                 blancas, negras = nombres_pgn(color_humano, nivel.nombre)
                 registro = RegistroPartida(

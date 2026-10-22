@@ -34,3 +34,9 @@ dev = [
 # en cualquier otra máquina (compila pygame desde fuente ahí también, y sin el
 # toolchain de esa plataforma falla). En la Pi, forzar el build desde fuente con
 # `uv sync --no-binary-package pygame` (ver software-docs/pantalla.md).
+
+# Que ruff reconozca `tablero` como paquete propio (está bajo src/) también al correrlo desde la
+# raíz del repo, como hace Zed: si no, ordena los imports de tests/ distinto según desde dónde
+# se lo llame.
+[tool.ruff]
+src = ["src"]

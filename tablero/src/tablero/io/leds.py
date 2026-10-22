@@ -21,21 +21,21 @@ import sys
 import time
 
 import chess
-from rpi_ws281x import Color, PixelStrip
+from rpi_ws281x import Color, PixelStrip  # pyright: ignore[reportMissingImports] (solo en la Pi)
 
 from tablero import config
 
 logger = logging.getLogger(__name__)
 
-APAGADO = Color(0, 0, 0)
-BLANCO = Color(255, 255, 255)
-ROJO = Color(255, 0, 0)
-VERDE = Color(0, 255, 0)
-AZUL = Color(0, 0, 255)
-AMARILLO = Color(255, 255, 0)
-BLANCO_TENUE = Color(70, 70, 70)  # destinos posibles en io/juego.py: que no compitan con el resto
-VIOLETA = Color(170, 0, 255)  # vs Magnus: casillas que tienen que quedar vacías
-CIAN = Color(0, 255, 255)  # vs Magnus: adonde va la pieza de Magnus
+APAGADO: int = Color(0, 0, 0)
+BLANCO: int = Color(255, 255, 255)
+ROJO: int = Color(255, 0, 0)
+VERDE: int = Color(0, 255, 0)
+AZUL: int = Color(0, 0, 255)
+AMARILLO: int = Color(255, 255, 0)
+BLANCO_TENUE: int = Color(70, 70, 70)  # destinos posibles en io/juego.py: que no compitan con el resto
+VIOLETA: int = Color(170, 0, 255)  # vs Magnus: casillas que tienen que quedar vacías
+CIAN: int = Color(0, 255, 255)  # vs Magnus: adonde va la pieza de Magnus
 
 
 def indice_de(casilla: chess.Square) -> int:

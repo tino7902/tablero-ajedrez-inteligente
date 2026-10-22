@@ -126,12 +126,10 @@ def preguntar_minutos() -> float:
 
 def _linea_reloj(partida: Partida) -> str:
     reloj = partida.reloj
-    if reloj.sin_limite:
+    blancas, negras = reloj.restante(chess.WHITE), reloj.restante(chess.BLACK)
+    if blancas is None or negras is None:  # sin límite de tiempo
         return f"⏱  {formatear_duracion(reloj.duracion)}"
-    return (
-        f"⏱  blancas {formatear_tiempo(reloj.restante(chess.WHITE))}"
-        f"  ·  negras {formatear_tiempo(reloj.restante(chess.BLACK))}"
-    )
+    return f"⏱  blancas {formatear_tiempo(blancas)}  ·  negras {formatear_tiempo(negras)}"
 
 
 def _mostrar_jugada(resultado: ResultadoJugada) -> None:
@@ -142,7 +140,7 @@ def _mostrar_jugada(resultado: ResultadoJugada) -> None:
 
 
 def _mostrar_boton(resultado: ResultadoBoton) -> None:
-    if resultado.paso_turno:
+    if resultado.turno_nuevo is not None:
         print(
             f"🔔  botón {NOMBRES_COLOR[resultado.color]} → turno de "
             f"{NOMBRES_COLOR[resultado.turno_nuevo]}"
@@ -168,9 +166,9 @@ def _mostrar_pendiente(partida: Partida) -> None:
 def _anunciar_fin(partida: Partida) -> None:
     motivo = partida.motivo_fin
     resultado = partida.resultado()
-    if partida.reloj.tiempo_agotado:
-        perdedor = NOMBRES_COLOR[partida.reloj.perdedor]
-        print(f"\n⏱  ¡{perdedor.capitalize()} se quedaron sin tiempo! Gana {NOMBRES_COLOR[not partida.reloj.perdedor]}.")
+    if (color_perdedor := partida.reloj.perdedor) is not None:
+        perdedor = NOMBRES_COLOR[color_perdedor]
+        print(f"\n⏱  ¡{perdedor.capitalize()} se quedaron sin tiempo! Gana {NOMBRES_COLOR[not color_perdedor]}.")
     elif partida.estado.es_jaque_mate():
         ganador = NOMBRES_COLOR[not partida.estado.turno]
         print(f"\n♛  ¡Jaque mate! Ganan {ganador}.")

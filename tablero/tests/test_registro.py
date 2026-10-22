@@ -38,7 +38,9 @@ def _jugar(partida, texto):
 
 
 def _leer_pgn(ruta) -> chess.pgn.Game:
-    return chess.pgn.read_game(io.StringIO(ruta.read_text(encoding="utf-8")))
+    juego = chess.pgn.read_game(io.StringIO(ruta.read_text(encoding="utf-8")))
+    assert juego is not None
+    return juego
 
 
 def test_crea_los_dos_archivos_de_la_partida(tmp_path):

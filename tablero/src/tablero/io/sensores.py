@@ -24,7 +24,7 @@ import time
 from collections.abc import Callable
 
 import chess
-import RPi.GPIO as GPIO
+from RPi import GPIO  # pyright: ignore[reportMissingModuleSource] (solo en la Pi)
 
 from tablero import config
 from tablero.io import matriz
@@ -412,6 +412,7 @@ if __name__ == "__main__":
         parser.error(f"{argumentos.prueba} no lleva argumentos")
     try:
         if argumentos.prueba == "medir":
+            assert argumentos.objetivo is not None  # validado arriba con parser.error
             medir(argumentos.objetivo)
         else:
             {

@@ -15,6 +15,8 @@ desde otro hilo para que los LEDs y la matriz no se congelen.
 
 from __future__ import annotations
 
+from typing import Self
+
 import chess
 import chess.engine
 
@@ -76,7 +78,7 @@ class MotorStockfish:
         """Cierra el proceso de Stockfish."""
         self._engine.quit()
 
-    def __enter__(self) -> MotorStockfish:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: object) -> None:

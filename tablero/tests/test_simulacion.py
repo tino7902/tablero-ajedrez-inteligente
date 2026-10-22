@@ -18,8 +18,8 @@ class _MotorFalso:
         self._jugadas = [chess.Move.from_uci(uci) for uci in jugadas]
         self.posiciones: list[str] = []
 
-    def mejor_movimiento(self, board: chess.Board) -> chess.Move:
-        self.posiciones.append(board.fen())
+    def mejor_movimiento(self, tablero: chess.Board) -> chess.Move:
+        self.posiciones.append(tablero.fen())
         return self._jugadas.pop(0)
 
 

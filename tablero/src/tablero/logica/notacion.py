@@ -24,15 +24,15 @@ import chess
 from tablero.logica.estado_tablero import MovimientoIlegalError
 
 __all__ = [
-    "Idioma",
-    "NotacionInvalidaError",
-    "MovimientoIlegalError",
-    "parsear_movimiento",
+    "GENERO_PIEZA",
     "NOMBRES_COLOR",
     "NOMBRES_PIEZA",
+    "Idioma",
+    "MovimientoIlegalError",
+    "NotacionInvalidaError",
     "describir_pieza",
-    "GENERO_PIEZA",
     "ninguna_pieza",
+    "parsear_movimiento",
     "traducir_san",
 ]
 

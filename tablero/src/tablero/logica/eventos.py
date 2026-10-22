@@ -27,6 +27,7 @@ from enum import Enum, auto
 import chess
 
 from tablero.logica.estado_tablero import EstadoTablero
+
 # Los nombres en español viven en `notacion.py` (el módulo de "lenguaje" del proyecto),
 # compartidos con los mensajes de `logica/partida.py` y el log de `logica/registro.py`.
 from tablero.logica.notacion import NOMBRES_COLOR as _NOMBRES_COLOR
@@ -217,6 +218,7 @@ class RastreadorMovimientos:
 
     def _loguear(self, lectura: Lectura) -> None:
         if lectura.tipo is TipoLectura.JUGADA:
+            assert lectura.movimiento is not None
             log.info(
                 "%s: posición de %s, falta el botón del reloj",
                 self._prefijo_log(),
@@ -244,6 +246,7 @@ def marcas(lectura: Lectura, board: chess.Board) -> dict[chess.Square, Marca]:
     if lectura.tipo is TipoLectura.REPOSO:
         return {}
     if lectura.tipo is TipoLectura.JUGADA:
+        assert lectura.movimiento is not None
         todas, _ = casillas_tocadas(board, lectura.movimiento)
         return dict.fromkeys(todas, Marca.JUGADA)
 

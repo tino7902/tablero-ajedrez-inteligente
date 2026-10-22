@@ -147,7 +147,7 @@ def _nombre_color(color: chess.Color) -> str:
     return "blancas" if color == chess.WHITE else "negras"
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _fuente(tamano: int) -> pygame.font.Font:
     return pygame.font.Font(None, tamano)
 
@@ -161,7 +161,7 @@ def _fila_de_botones(cantidad: int, y: int, alto: int = 80, gap: int = 20) -> li
     return [pygame.Rect(x0 + i * (ancho + gap), y, ancho, alto) for i in range(cantidad)]
 
 
-def _dibujar_boton(surf: pygame.Surface, boton: Boton, color: tuple, tamano_fuente: int) -> None:
+def _dibujar_boton(surf: pygame.Surface, boton: Boton, color: tuple[int, int, int], tamano_fuente: int) -> None:
     pygame.draw.rect(surf, color, boton.rect, width=3, border_radius=10)
     texto = _fuente(tamano_fuente).render(boton.texto, True, color)
     surf.blit(texto, texto.get_rect(center=boton.rect.center))
@@ -181,7 +181,7 @@ def _dibujar_pantalla_seleccion(
         _dibujar_boton(surf, boton, _AZUL, _TAM_BOTON)
 
 
-def _dibujar_indicador(surf: pygame.Surface, centro: tuple[int, int], texto_str: str, color: tuple) -> None:
+def _dibujar_indicador(surf: pygame.Surface, centro: tuple[int, int], texto_str: str, color: tuple[int, int, int]) -> None:
     texto = _fuente(_TAM_INDICADOR).render(texto_str, True, color)
     rect = texto.get_rect(center=centro).inflate(16, 8)
     pygame.draw.rect(surf, color, rect, width=2, border_radius=6)
@@ -221,6 +221,7 @@ def _dibujar_juego_pvp(surf: pygame.Surface, pantalla: Pantalla, estado: EstadoP
     # Sin reloj (partida no arrancada) se muestran los dos lados con la duración elegida.
     restante_blancas = reloj.restante(chess.WHITE) if reloj else estado.duracion_segundos
     restante_negras = reloj.restante(chess.BLACK) if reloj else estado.duracion_segundos
+    assert restante_blancas is not None and restante_negras is not None  # PvP: siempre con límite
     _dibujar_reloj(surf, (130, 168), (140, 70), _TAM_RELOJ, restante_blancas)
     _dibujar_reloj(surf, (350, 168), (140, 70), _TAM_RELOJ, restante_negras)
     for boton in pantalla.botones:
@@ -230,6 +231,7 @@ def _dibujar_juego_pvp(surf: pygame.Surface, pantalla: Pantalla, estado: EstadoP
 def _dibujar_juego_vs_magnus(surf: pygame.Surface, pantalla: Pantalla, estado: EstadoPartida) -> None:
     surf.fill(_BLANCO)
     centro_x = config.PANTALLA_ANCHO // 2
+    assert estado.color_humano is not None  # se elige antes de entrar a esta pantalla
     texto = _fuente(_TAM_PREGUNTA).render(f"¡Sos {_nombre_color(estado.color_humano)}!", True, _NEGRO)
     surf.blit(texto, texto.get_rect(center=(centro_x, 40)))
     _dibujar_indicador(surf, (centro_x, 80), "¡Es tu turno!", _GRIS)
@@ -484,17 +486,16 @@ def ejecutar_menus() -> None:
 
             # `reloj_tick` se calcula ANTES de actualizar para que el frame en el que se
             # agota el tiempo también se redibuje y muestre el mensaje de fin.
-            reloj_tick = (
-                pantalla_actual.nombre == NOMBRE_JUEGO_PVP
-                and estado.reloj is not None
-                and not estado.reloj.tiempo_agotado
-            )
-            if reloj_tick and estado.reloj.actualizar():
-                logger.info(
-                    "%s se quedó sin tiempo, gana %s",
-                    _nombre_color(estado.reloj.perdedor).capitalize(),
-                    _nombre_color(not estado.reloj.perdedor),
-                )
+            reloj = estado.reloj
+            reloj_tick = False
+            if pantalla_actual.nombre == NOMBRE_JUEGO_PVP and reloj is not None and not reloj.tiempo_agotado:
+                reloj_tick = True
+                if reloj.actualizar() and (perdedor := reloj.perdedor) is not None:
+                    logger.info(
+                        "%s se quedó sin tiempo, gana %s",
+                        _nombre_color(perdedor).capitalize(),
+                        _nombre_color(not perdedor),
+                    )
 
             # Solo se redibuja cada frame en las pantallas "vivas" (cuenta regresiva, reloj
             # corriendo) — el resto vuelve al comportamiento original de redibujar solo ante

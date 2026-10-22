@@ -54,6 +54,7 @@ def test_jugada_mas_boton_pasa_el_turno(tiempo):
     resultado = partida.pulsar_boton(chess.WHITE)
 
     assert resultado.paso_turno
+    assert resultado.jugada is not None
     assert resultado.jugada.san == "e4"
     assert partida.partida.turno == chess.BLACK
     assert partida.board.piece_at(chess.E4) == chess.Piece(chess.PAWN, chess.WHITE)
@@ -141,6 +142,7 @@ def test_jaque_mate_termina_la_partida(tiempo):
     mano.mover("h5", "f7")
     resultado = partida.pulsar_boton(chess.WHITE)
 
+    assert resultado.jugada is not None
     assert resultado.jugada.aceptado
     assert resultado.boton.tipo is TipoBoton.IGNORADO_TERMINADA
     assert partida.terminada
@@ -155,12 +157,14 @@ def test_partida_corta_con_captura_y_enroque_queda_registrada(tiempo, tmp_path):
     for origen, destino in [("e2", "e4"), ("e7", "e5"), ("g1", "f3"), ("g8", "f6"), ("f1", "c4")]:
         assert _jugar(partida, mano, origen, destino).paso_turno
     captura = _jugar(partida, mano, "f6", "e4")
+    assert captura.jugada is not None
     assert captura.jugada.san == "Nxe4"
 
     mano.mover("e1", "g1")
     mano.mover("h1", "f1")
     enroque = partida.pulsar_boton(chess.WHITE)
     assert enroque.paso_turno
+    assert enroque.jugada is not None
     assert enroque.jugada.san == "O-O"
     partida.finalizar()
 

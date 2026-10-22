@@ -74,6 +74,7 @@ def describir_jugada_magnus(board: chess.Board, movimiento: chess.Move) -> str:
         )
 
     pieza = board.piece_at(origen)
+    assert pieza is not None  # la jugada es legal: hay una pieza en el origen
     texto = (
         f"Magnus: {describir_pieza(pieza.piece_type, con_articulo=False)} "
         f"{chess.square_name(origen)}→{chess.square_name(destino)}"
@@ -230,13 +231,20 @@ class PartidaVsMagnus:
             return self._marcas_magnus()
         return {}
 
-    def _marcas_magnus(self) -> dict[chess.Square, Marca]:
+    def _magnus(self) -> tuple[chess.Board, chess.Move]:
+        """La posición de antes de la jugada de Magnus y la jugada (solo si hay una)."""
+        assert self._antes_magnus is not None and self._jugada_magnus is not None
         movimiento = self._jugada_magnus.movimiento
-        todas, _ = casillas_tocadas(self._antes_magnus, movimiento)
+        assert movimiento is not None  # se guarda solo una jugada aceptada
+        return self._antes_magnus, movimiento
+
+    def _marcas_magnus(self) -> dict[chess.Square, Marca]:
+        antes, movimiento = self._magnus()
+        todas, _ = casillas_tocadas(antes, movimiento)
         lectura = self.lectura
         if lectura.tipo is TipoLectura.REPOSO:
             return dict.fromkeys(todas, Marca.JUGADA)
-        quedan = ocupacion_tras(self._antes_magnus, movimiento)
+        quedan = ocupacion_tras(antes, movimiento)
         resultado = {
             sq: Marca.MAGNUS_DESTINO if sq in quedan else Marca.MAGNUS_ORIGEN for sq in todas
         }
@@ -263,7 +271,7 @@ class PartidaVsMagnus:
         return "\n".join(lineas)
 
     def _describir_magnus(self) -> str:
-        return describir_jugada_magnus(self._antes_magnus, self._jugada_magnus.movimiento)
+        return describir_jugada_magnus(*self._magnus())
 
     def mensaje_final(self) -> str | None:
         """"¡Derrotaste a Magnus en MM:SS!" y compañía; `None` si sigue o se abandonó."""

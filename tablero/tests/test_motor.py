@@ -10,6 +10,7 @@ import os
 import shutil
 
 import chess
+import chess.engine
 import pytest
 
 from tablero import config
@@ -44,7 +45,9 @@ def test_cerrar_no_levanta_excepcion():
 def test_cada_nivel_configura_skill_level_y_devuelve_una_jugada_legal(nivel):
     board = chess.Board()
     with MotorStockfish(nivel=nivel) as motor:
-        aplicado = motor._engine.protocol.config["Skill Level"]
+        protocolo = motor._engine.protocol
+        assert isinstance(protocolo, chess.engine.UciProtocol)
+        aplicado = protocolo.config["Skill Level"]
         movimiento = motor.mejor_movimiento(board)
 
     assert aplicado == config.NIVELES_MAGNUS[nivel].skill_level

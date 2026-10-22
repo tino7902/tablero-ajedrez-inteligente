@@ -52,6 +52,7 @@ def _lista(casillas: Ocupacion) -> str:
 def describir_jugada(board: chess.Board, movimiento: chess.Move) -> str:
     """"caballo g1→f3 (Nf3)", con la posición de antes de jugarla."""
     pieza = board.piece_at(movimiento.from_square)
+    assert pieza is not None  # la jugada es legal: hay una pieza en el origen
     return (
         f"{describir_pieza(pieza.piece_type, con_articulo=False)} "
         f"{chess.square_name(movimiento.from_square)}→{chess.square_name(movimiento.to_square)} "
@@ -74,6 +75,7 @@ def describir_lectura(lectura: Lectura, board: chess.Board) -> str:
     if lectura.tipo is TipoLectura.REPOSO:
         return "no se movió ninguna pieza"
     if lectura.tipo is TipoLectura.JUGADA:
+        assert lectura.movimiento is not None
         return f"{describir_jugada(board, lectura.movimiento)}, falta apretar el reloj"
     if lectura.tipo is TipoLectura.AMBIGUA:
         destinos = " o ".join(chess.square_name(m.to_square) for m in lectura.candidatos)
@@ -168,6 +170,7 @@ class PartidaFisica:
             color == partida.turno
             and not partida.terminada
             and lectura.tipo is TipoLectura.JUGADA
+            and lectura.movimiento is not None
         ):
             jugada = partida.intentar_jugada(lectura.movimiento)
         boton = partida.pulsar_boton(color)

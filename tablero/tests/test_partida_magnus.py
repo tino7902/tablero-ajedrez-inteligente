@@ -78,6 +78,7 @@ def test_humano_con_blancas_confirma_y_pasa_a_magnus_pensando(tiempo):
     resultado = partida.pulsar_boton()
 
     assert resultado.confirmado
+    assert resultado.jugada is not None
     assert resultado.jugada.san == "e4"
     assert partida.fase is Fase.MAGNUS_PENSANDO
     assert partida.texto_estado() == "Magnus está pensando…"
@@ -182,6 +183,7 @@ def test_jugada_de_magnus_a_medio_mover_y_terminada(tiempo):
     resultado = partida.pulsar_boton()
 
     assert resultado.confirmado
+    assert resultado.jugada is not None
     assert resultado.jugada.san == "Nf6"
     assert partida.fase is Fase.TURNO_HUMANO
     assert partida.partida.turno == chess.WHITE

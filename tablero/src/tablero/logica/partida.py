@@ -245,8 +245,8 @@ class Partida:
 
     def _bloqueo_previo(self, texto: str) -> ResultadoJugada | None:
         """Lo que impide mover sin importar qué movimiento sea, o `None` si se puede."""
-        if self._reloj.tiempo_agotado:
-            perdedor = NOMBRES_COLOR[self._reloj.perdedor]
+        if (color_perdedor := self._reloj.perdedor) is not None:
+            perdedor = NOMBRES_COLOR[color_perdedor]
             return self._bloqueado(
                 TipoJugada.BLOQUEADO_TIEMPO, texto, f"la partida terminó: {perdedor} se quedó sin tiempo"
             )
@@ -297,6 +297,7 @@ class Partida:
         turno, numero = self.turno, self._estado.board.fullmove_number
         san = self._estado.board.san(movimiento)
         pieza = self._estado.board.piece_at(movimiento.from_square)
+        assert pieza is not None  # el movimiento es legal: hay una pieza en el origen
         descripcion = (
             f"{describir_pieza(pieza.piece_type, con_articulo=False)} "
             f"{chess.square_name(movimiento.from_square)}→{chess.square_name(movimiento.to_square)}"
@@ -383,8 +384,8 @@ class Partida:
         return resultado
 
     def _resolver_boton(self, color: chess.Color) -> ResultadoBoton:
-        if self._reloj.tiempo_agotado:
-            perdedor = NOMBRES_COLOR[self._reloj.perdedor]
+        if (color_perdedor := self._reloj.perdedor) is not None:
+            perdedor = NOMBRES_COLOR[color_perdedor]
             return ResultadoBoton(
                 TipoBoton.IGNORADO_TIEMPO, color, f"la partida terminó: {perdedor} se quedó sin tiempo"
             )
