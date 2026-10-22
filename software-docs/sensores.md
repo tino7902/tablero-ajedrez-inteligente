@@ -5,9 +5,9 @@ de carrera / limit switches, ver `hardware-docs/componentes.md`) y la matriz de 
 casillas, con **64 sensores Hall A3144** que barre un **Arduino Nano**. La Pi le pide cada
 lectura por USB serie. Los botones están verificados en hardware. **La matriz funciona de punta
 a punta en la Pi** (2026-10-18): `CASILLA_DE_CELDA_HALL` ya está generado con `mapear`, y
-`prueba_tablero recorrido` y `espejo` pasan con los LEDs. Falta `calibrar`, que necesita las 32
-piezas: hasta entonces `HALL_ESPERA_ENCENDIDO` y `HALL_LECTURAS_ESTABLES` son los valores por
-defecto, que alcanzaron para todas las pruebas.
+`prueba_tablero recorrido` y `espejo` pasan con los LEDs. El 2026-10-22, con las 32 piezas, se
+rehicieron los dos mapeos (tablero girado 90°) y se corrió `calibrar`: 0,1 ms de espera por fila
+y 3 lecturas estables.
 
 La matriz empezó con reed switches. Esa versión se conserva en `io/sensores_reed.py`, ver
 [`sensores-reed.md`](./sensores-reed.md); la de Hall es la actual y la que se usa por defecto.
@@ -125,8 +125,8 @@ Para el software eso implica tres cosas:
 | Constante | Valor por defecto | Lo genera |
 |---|---|---|
 | `NANO_PUERTO` | `None`: autodetectar (el único `/dev/ttyUSB*` o `/dev/ttyACM*`) | A mano, solo si hay varios puertos serie |
-| `HALL_ESPERA_ENCENDIDO` | `0.001` (1 ms por fila, generoso; sin calibrar todavía) | `calibrar` |
-| `HALL_LECTURAS_ESTABLES` | `3` (sin calibrar todavía) | `calibrar` |
+| `HALL_ESPERA_ENCENDIDO` | `0.0001` (0,1 ms por fila; calibrado el 2026-10-22 con las 32 piezas, el mínimo que recomienda `calibrar`) | `calibrar` |
+| `HALL_LECTURAS_ESTABLES` | `3` (calibrado el 2026-10-22, el mínimo) | `calibrar` |
 | `CASILLA_DE_CELDA_HALL` | Regenerado el 2026-10-22, con el tablero girado 90°: grilla, F0 = columna h … F7 = columna a, C0..C7 = filas 1..8 | `mapear` |
 
 Los clones del Nano con CH340 aparecen como `/dev/ttyUSB0`; otros, como `/dev/ttyACM0`. Si hay más

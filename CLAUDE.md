@@ -32,9 +32,8 @@ protocol text (building `L <µs>`, decoding `M`/`C`/`A`/`LISTO`) is pure code in
 `logica/matriz.py`, tested in `tests/test_matriz.py`. **Verified on the Pi (2026-10-18)**: the
 Halls (`sensores mapear`) and the LEDs (`prueba_tablero leds`) are mapped in `config.py`, and
 `prueba_tablero recorrido`/`espejo` pass. Both maps were redone on 2026-10-22 with the board rotated 90° (now F0..F7 = files h..a,
-C0..C7 = ranks 1..8). Still pending, now that the 32 pieces exist: `prueba_tablero calibrar`
-(so `HALL_ESPERA_ENCENDIDO`/`HALL_LECTURAS_ESTABLES` are still the defaults) and
-`prueba_tablero inicial`. Power is temporary: the Pi on one phone charger, LEDs + Nano on
+C0..C7 = ranks 1..8). `calibrar` ran the same day with the 32 pieces (`HALL_ESPERA_ENCENDIDO` = 0.1 ms,
+`HALL_LECTURAS_ESTABLES` = 3). Still pending: `prueba_tablero inicial`. Power is temporary: the Pi on one phone charger, LEDs + Nano on
 another (the Nano still talks to the Pi over USB); to be unified later. Build guide:
 `hardware-docs/matriz-hall-nano.md`;
 iterations (v1 reed, v2 Hall+138/165, v3 Nano) and every rejected alternative with its reason:

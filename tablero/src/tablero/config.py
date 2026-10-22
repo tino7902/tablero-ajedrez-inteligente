@@ -83,12 +83,12 @@ NANO_PUERTO: str | None = None
 #
 # Segundos que espera el Nano en cada fila, después de encenderla, antes de leer las
 # columnas: lo que tardan los Hall en arrancar. Se le manda en microsegundos con `L <µs>`
-# (máximo 50 ms). 1 ms es un placeholder generoso; el valor real lo mide
-# `uv run python -m tablero.io.sensores calibrar` (ver software-docs/sensores.md).
-HALL_ESPERA_ENCENDIDO: float = 0.001
+# (máximo 50 ms). Medido con `uv run python -m tablero.io.sensores calibrar` el 2026-10-22,
+# con las 32 piezas (ver software-docs/sensores.md): 0,1 ms, el mínimo que recomienda.
+HALL_ESPERA_ENCENDIDO: float = 0.0001
 # Lecturas iguales seguidas que tiene que dar la matriz antes de reportar un cambio
 # (antirrebote del paso de la mano y de los Hall que dudan en el borde de la casilla).
-# También lo recomienda `calibrar`.
+# También lo recomienda `calibrar` (2026-10-22: 3, el mínimo).
 HALL_LECTURAS_ESTABLES: int = 3
 # Mapeo celda → casilla, uno por sensor: CASILLA_DE_CELDA_HALL[fila Fk][columna Ck] =
 # nombre de la casilla, con Fk y Ck los números de cable de hardware-docs/matriz-hall-nano.md

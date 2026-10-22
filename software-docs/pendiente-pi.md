@@ -128,8 +128,7 @@ uv run simulacion --magnus dificil --sin-registro
 
 ### 2.1 Calibrar los Hall
 
-Hasta ahora `HALL_ESPERA_ENCENDIDO` y `HALL_LECTURAS_ESTABLES` son valores por defecto (1 ms
-y 3), que alcanzaron para todas las pruebas.
+Hecho el 2026-10-22: `HALL_ESPERA_ENCENDIDO = 0.0001` (0,1 ms) y `HALL_LECTURAS_ESTABLES = 3`.
 
 ```bash
 uv run python -m tablero.io.sensores calibrar     # o directo: prueba_tablero calibrar
@@ -139,12 +138,11 @@ Se relanza con `sudo` y calibra con los LEDs mostrando en vivo lo que detectan l
 rojo, falta o la pieza no está justo encima del sensor; amarillo, sobra. Tiene tres pasos:
 tablero vacío, posición inicial armada y 10 s sin tocar nada.
 
-- [ ] Mientras se arma la posición inicial, cada pieza bien puesta pasa a verde.
-
-- [ ] Ningún Hall marca pieza con el tablero vacío.
-- [ ] El paso 2 no da `FALLA` (si da, es eléctrico: `medir`).
-- [ ] Pegar las dos líneas que imprime en `config.py` y actualizar la tabla de configuración
-  de [`sensores.md`](./sensores.md), que dice "sin calibrar todavía".
+- [x] Mientras se arma la posición inicial, cada pieza bien puesta pasa a verde.
+- [ ] Ningún Hall marca pieza con el tablero vacío (el paso 1 dice "OK"; no quedó anotado).
+- [x] El paso 2 no da `FALLA` (si da, es eléctrico: `medir`).
+- [x] Pegar las dos líneas que imprime en `config.py` y actualizar la tabla de configuración
+  de [`sensores.md`](./sensores.md).
 
 Detalle en [`prueba-tablero.md`](./prueba-tablero.md#calibrar) y
 [`sensores.md`](./sensores.md#calibrar).
