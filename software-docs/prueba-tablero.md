@@ -36,7 +36,7 @@ Todas aceptan `--brillo 0-191` (tope `LED_BRILLO_MAX`, por defecto `LED_BRILLO`)
 ### `leds`
 
 Lo mismo que `leds calibrar`, pero la casilla la dicen los Hall en vez de tipearla. Con una sola
-pieza en el tablero, prende en blanco un LED por vez (salteando el de sacrificio). Para cada LED,
+pieza en el tablero, prende en blanco un LED por vez (salteando el de sacrificio, si hay). Para cada LED,
 se pone la pieza en la casilla iluminada y se aprieta Enter:
 
 - `-` si ese LED no ilumina ninguna casilla;

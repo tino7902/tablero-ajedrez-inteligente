@@ -127,12 +127,14 @@ FILA_DE_SALIDA_138: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6, 7)
 COLUMNA_DE_ENTRADA_165: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6, 7)
 
 # LEDs WS2812B, ver io/leds.py. rpi-ws281x usa numeración BCM (no BOARD): GPIO 12
-# es el pin físico 32, canal PWM0. El LED 0 es el de sacrificio (adapta el nivel
-# de la señal de datos, ver hardware-docs/componentes.md) y siempre queda apagado.
+# es el pin físico 32, canal PWM0. Había un LED 0 de sacrificio (adaptaba el nivel de la
+# señal de datos, ver hardware-docs/componentes.md) que se quemó el 2026-10-22: desde ahí
+# la señal entra directo al LED de h8 y la tira tiene solo los 64 de las casillas. Si se
+# vuelve a poner uno, LED_CANTIDAD = 65, LED_INDICE_SACRIFICIO = 0 y sumarle 1 a la tabla.
 LED_GPIO_BCM: int = 12
 LED_CANAL_PWM: int = 0
-LED_CANTIDAD: int = 65
-LED_INDICE_SACRIFICIO: int = 0
+LED_CANTIDAD: int = 64
+LED_INDICE_SACRIFICIO: int | None = None  # None = sin LED de sacrificio
 LED_BRILLO: int = (
     32  # 0-LED_BRILLO_MAX; bajo por defecto: 64 LEDs en blanco al máximo son ~3,8 A
 )
@@ -142,17 +144,17 @@ LED_BRILLO_MAX: int = 191
 # 63 = h8). Generado con `uv run python -m tablero.io.prueba_tablero leds` el
 # 2026-10-22 (ver software-docs/prueba-tablero.md) y espejado a mano (a↔h), igual que
 # CASILLA_DE_CELDA_HALL: la tira va en serpentina por columnas desde h8 (columna h de 8 a 1,
-# columna g de 1 a 8, ...) justo después del LED de sacrificio.
+# columna g de 1 a 8, ...). Índices corridos en -1 el 2026-10-22 al sacar el LED de sacrificio.
 # fmt: off
 LED_DE_CASILLA: tuple[int, ...] = (
-    57, 56, 41, 40, 25, 24,  9,  8,  # fila 1: a..h
-    58, 55, 42, 39, 26, 23, 10,  7,  # fila 2: a..h
-    59, 54, 43, 38, 27, 22, 11,  6,  # fila 3: a..h
-    60, 53, 44, 37, 28, 21, 12,  5,  # fila 4: a..h
-    61, 52, 45, 36, 29, 20, 13,  4,  # fila 5: a..h
-    62, 51, 46, 35, 30, 19, 14,  3,  # fila 6: a..h
-    63, 50, 47, 34, 31, 18, 15,  2,  # fila 7: a..h
-    64, 49, 48, 33, 32, 17, 16,  1,  # fila 8: a..h
+    56, 55, 40, 39, 24, 23,  8,  7,  # fila 1: a..h
+    57, 54, 41, 38, 25, 22,  9,  6,  # fila 2: a..h
+    58, 53, 42, 37, 26, 21, 10,  5,  # fila 3: a..h
+    59, 52, 43, 36, 27, 20, 11,  4,  # fila 4: a..h
+    60, 51, 44, 35, 28, 19, 12,  3,  # fila 5: a..h
+    61, 50, 45, 34, 29, 18, 13,  2,  # fila 6: a..h
+    62, 49, 46, 33, 30, 17, 14,  1,  # fila 7: a..h
+    63, 48, 47, 32, 31, 16, 15,  0,  # fila 8: a..h
 )
 # fmt: on
 # Registro de partidas (ver logica/registro.py y software-docs/registro.md). No se

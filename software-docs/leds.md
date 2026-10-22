@@ -1,7 +1,9 @@
 # `io/leds.py`
 
-Controla los 65 LEDs WS2812B del tablero (64 casillas + 1 LED de sacrificio, ver
-`hardware-docs/componentes.md`) con `rpi-ws281x`. **Probado en el prototipo** (2026-10-18):
+Controla los 64 LEDs WS2812B del tablero, uno por casilla, con `rpi-ws281x`. Hasta el
+2026-10-22 había además un LED de sacrificio al principio de la tira (ver
+`hardware-docs/componentes.md`); ese día se quemó, la señal pasó a entrar directo al primer
+LED de las casillas (el de h8) y el mapeo se corrió en −1. **Probado en el prototipo** (2026-10-18):
 los 64 LEDs funcionan y `LED_DE_CASILLA` ya está generado con `prueba_tablero leds` (ver
 [`prueba-tablero.md`](./prueba-tablero.md)). La tira se alimenta, por ahora, con un cargador de
 celular que comparte con el Nano (ver `hardware-docs/componentes.md`).
@@ -23,11 +25,11 @@ celular que comparte con el Nano (ver `hardware-docs/componentes.md`).
 |---|---|---|
 | `LED_GPIO_BCM` | 12 | Pin físico 32. `rpi-ws281x` usa numeración **BCM**, no BOARD como `io/sensores.py` |
 | `LED_CANAL_PWM` | 0 | GPIO 12 es PWM0 |
-| `LED_CANTIDAD` | 65 | Incluye el LED de sacrificio |
-| `LED_INDICE_SACRIFICIO` | 0 | Siempre apagado: `mostrar()` lo fuerza a negro antes de enviar |
+| `LED_CANTIDAD` | 64 | 65 si se vuelve a poner un LED de sacrificio |
+| `LED_INDICE_SACRIFICIO` | `None` | Sin LED de sacrificio. Con uno (índice 0), `mostrar()` lo fuerza a negro antes de enviar |
 | `LED_BRILLO` | 32 | Brillo global, de 0 a `LED_BRILLO_MAX` |
 | `LED_BRILLO_MAX` | 191 | Tope del brillo (75 %): `TiraLeds` lo aplica aunque `--brillo` pida más, y avisa por el log |
-| `LED_DE_CASILLA` | Generado el 2026-10-18: serpentina desde h1 (fila 1 h→a, fila 2 a→h, …) | Tabla de 64 índices (`[chess.Square]`); se regenera con `calibrar` o `prueba_tablero leds` |
+| `LED_DE_CASILLA` | Generado el 2026-10-22 y espejado (a↔h): serpentina por columnas desde h8; corrido en −1 al sacar el LED de sacrificio | Tabla de 64 índices (`[chess.Square]`); se regenera con `calibrar` o `prueba_tablero leds` |
 
 ## Decisiones de diseño
 
@@ -44,7 +46,10 @@ celular que comparte con el Nano (ver `hardware-docs/componentes.md`).
   solo color, ~0,5 A).
 - **LED de sacrificio siempre apagado**: su único trabajo es regenerar la señal de datos a
   nivel de 5 V para el resto de la tira (alimentado a ~4,3 V por el 1N4007), así que no importa
-  qué color muestre.
+  qué color muestre. **Sin él** (desde el 2026-10-22) los 3,3 V de GPIO 12 entran directo a un
+  WS2812B alimentado a 5 V, que pide ≥ 0,7 × 5 V = 3,5 V para leer un 1: suele andar igual,
+  pero queda al límite. Si la tira parpadea o muestra colores al azar, la solución es volver a
+  poner un LED de sacrificio (con su 1N4007) o un adaptador de nivel (74AHCT125).
 
 ## Requisitos en la Raspberry
 

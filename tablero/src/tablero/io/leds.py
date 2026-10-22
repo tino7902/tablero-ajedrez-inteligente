@@ -1,4 +1,4 @@
-"""LEDs WS2812B del tablero: uno por casilla más el LED de sacrificio.
+"""LEDs WS2812B del tablero: uno por casilla (más el LED de sacrificio, si hay; ver config.py).
 
 Usa `rpi-ws281x` sobre GPIO 12 (pin físico 32, PWM0). Necesita root para acceder a
 `/dev/mem` y el audio analógico desactivado (`dtparam=audio=off` en config.txt),
@@ -44,7 +44,7 @@ def indice_de(casilla: chess.Square) -> int:
 
 
 class TiraLeds:
-    """Envoltorio de `PixelStrip` que habla en casillas y mantiene apagado el LED de sacrificio."""
+    """Envoltorio de `PixelStrip` que habla en casillas y mantiene apagado el LED de sacrificio (si hay)."""
 
     def __init__(self, brillo: int = config.LED_BRILLO) -> None:
         if brillo > config.LED_BRILLO_MAX:
@@ -70,7 +70,8 @@ class TiraLeds:
 
     def mostrar(self) -> None:
         """Envía los colores a la tira (nada cambia hasta llamar a esto)."""
-        self._tira.setPixelColor(config.LED_INDICE_SACRIFICIO, APAGADO)
+        if config.LED_INDICE_SACRIFICIO is not None:
+            self._tira.setPixelColor(config.LED_INDICE_SACRIFICIO, APAGADO)
         self._tira.show()
 
     def apagar(self) -> None:

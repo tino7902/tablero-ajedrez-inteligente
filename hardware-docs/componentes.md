@@ -12,7 +12,7 @@
 - _64x Imanes de Neodimio:_ Instalados en la base de las piezas para activar los sensores Hall, **todos con el polo sur hacia abajo** (el A3144 no detecta el polo norte).
 - _64x Diodos (1N4148):_ Uno por casilla, **en el GND de cada Hall** (ánodo en el GND del Hall, banda hacia el bus de fila), para prevenir lecturas fantasma (ghosting). La salida de cada Hall va directo a su columna. Así quedaron soldadas las 64 celdas; implicancias en `matriz-hall-nano.md`, "Una celda".
 - ~~_1x IC 74HC138, 1x IC 74HC165 y 8x pull-ups de 10 kΩ a 3,3 V:_~~ Selector de filas y lector de columnas de la v1 y la v2. **Ya no se usan**: el 138 no aguantaba la corriente de los Hall (ver `historial-deteccion.md`). Las columnas usan las pull-ups internas del Nano; no agregar pull-ups externas (le suman corriente al Hall que detecta).
-- _65x LEDs WS2812B (Neopixels):_ 64 para la iluminación del tablero y 1 LED extra de "sacrificio".
+- _65x LEDs WS2812B (Neopixels):_ 64 para la iluminación del tablero y 1 LED extra de "sacrificio". **El de sacrificio se quemó el 2026-10-22** y se sacó: la señal va directo al primer LED de las casillas (ver `software-docs/leds.md`).
 - _1x Fuente de Alimentación Externa (5V, >4A):_ Alimentación exclusiva para la matriz de LEDs.
 - **Alimentación actual (provisoria, 2026-10-18):** dos cargadores de celular, uno para la
   Raspberry Pi y otro para los LEDs + el Arduino Nano (el Nano sigue conectado a la Pi por USB
@@ -31,7 +31,7 @@ _Reloj de Ajedrez (Entradas Digitales):_
 
 _Iluminación LED (Salida Hardware PWM):_
 
-- _GPIO 12_ (Pin 32) → Datos de LEDs WS2812B (al LED de sacrificio)
+- _GPIO 12_ (Pin 32) → Datos de LEDs WS2812B (directo al primer LED de las casillas desde el 2026-10-22; antes, al LED de sacrificio)
 
 _Detección de Tablero:_ desde la v3 la matriz la lee el Arduino Nano, conectado a la Pi por
 **USB**, y no usa ningún pin GPIO de la Pi (pines del Nano en `matriz-hall-nano.md`). Los pines de
