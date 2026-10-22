@@ -10,7 +10,26 @@ haga cada uno por su cuenta.
 """
 
 import os
+import re
 import sys
+from pathlib import Path
+
+# Driver DRM del panel (overlay `piscreen`). Se busca por nombre porque el número de
+# `/dev/dri/cardN` depende del orden en que el kernel carga los drivers.
+_DRIVER_DRM_PANEL = "ili9486"
+_INDICE_DRM_POR_DEFECTO = 1
+
+
+def _indice_drm_del_panel(directorio: Path = Path("/sys/class/drm")) -> int | None:
+    """Número N de `/dev/dri/cardN` cuyo driver es el del panel, o None si no aparece."""
+    for card in sorted(directorio.glob("card*")):
+        coincidencia = re.fullmatch(r"card(\d+)", card.name)  # saltea conectores (card0-HDMI-A-1)
+        if coincidencia is None:
+            continue
+        driver = card / "device" / "driver"
+        if driver.exists() and driver.resolve().name == _DRIVER_DRM_PANEL:
+            return int(coincidencia.group(1))
+    return None
 
 
 def configurar_entorno_sdl() -> None:
@@ -27,12 +46,13 @@ def configurar_entorno_sdl() -> None:
     en modo ventana — `wayland` no existe ahí y SDL ya elige el backend nativo
     correcto por su cuenta.
 
-    En modo Raspberry (KMS/DRM) se fuerza además `SDL_KMSDRM_DEVICE_INDEX=1`: esta
-    Raspberry tiene dos dispositivos DRM (`dmesg`: `card0` es la GPU integrada vc4/HDMI,
-    que sin monitor conectado reporta "Cannot find any crtc or sizes"; `card1` es el panel
-    `ili9486` real, que sí inicializa framebuffer). SDL por default abre el índice 0 — sin
-    error, pero sin nada que mostrar, así que la pantalla queda en blanco sin ningún
-    traceback. Confirmado por Tino en hardware real (2026-08-13).
+    En modo Raspberry (KMS/DRM) se fija además `SDL_KMSDRM_DEVICE_INDEX` al `cardN` del
+    panel: esta Raspberry tiene dos dispositivos DRM, la GPU integrada vc4/HDMI (que sin
+    monitor reporta "Cannot find any crtc or sizes") y el panel `ili9486`. Si SDL abre el
+    de la vc4 no hay error, pero el panel queda en blanco sin ningún traceback (confirmado
+    por Tino el 2026-08-13). El índice no es fijo: el 2026-08-13 el panel era `card1` y el
+    2026-10-22, en otro arranque, `card0`, así que se busca por el nombre del driver en
+    `/sys/class/drm`; si no aparece, se usa 1 y se avisa.
     """
     if os.environ.get("TABLERO_PANTALLA_VENTANA") == "1":
         if sys.platform.startswith("linux"):
@@ -40,4 +60,13 @@ def configurar_entorno_sdl() -> None:
         return
     os.environ.setdefault("SDL_VIDEODRIVER", "kmsdrm")
     os.environ.setdefault("SDL_NOMOUSE", "1")
-    os.environ.setdefault("SDL_KMSDRM_DEVICE_INDEX", "1")
+    if "SDL_KMSDRM_DEVICE_INDEX" not in os.environ:
+        indice = _indice_drm_del_panel()
+        if indice is None:
+            print(
+                f"Aviso: no se encontró el panel {_DRIVER_DRM_PANEL} en /sys/class/drm; "
+                f"se usa /dev/dri/card{_INDICE_DRM_POR_DEFECTO}. ¿Está el overlay piscreen?",
+                file=sys.stderr,
+            )
+            indice = _INDICE_DRM_POR_DEFECTO
+        os.environ["SDL_KMSDRM_DEVICE_INDEX"] = str(indice)

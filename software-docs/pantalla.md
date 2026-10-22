@@ -90,11 +90,22 @@ Desktop sobre Trixie), cada uno con síntoma distinto:
    conectado reporta `Cannot find any crtc or sizes`, y `card1` como el panel
    `ili9486` real, que sí inicializa framebuffer (`fb0`). SDL abre por default el
    índice 0, que no tiene salida válida — no tira excepción, simplemente no hay nada
-   que mostrar. Se resuelve fijando `SDL_KMSDRM_DEVICE_INDEX=1` en
-   `io/_sdl.py::configurar_entorno_sdl()` (confirmado por Tino en hardware real,
-   2026-08-13; si en algún momento se reordenan los dispositivos DRM del sistema,
-   `ls /dev/dri/` + `dmesg | grep -iE "drm|ili9486"` es cómo se vuelve a confirmar
-   cuál índice es cuál).
+   que mostrar. Al principio se resolvió fijando `SDL_KMSDRM_DEVICE_INDEX=1`
+   (confirmado por Tino, 2026-08-13), pero **el orden no es fijo**: el 2026-10-22, en
+   otro arranque, el panel quedó como `card0` (y `fb1`) y la vc4 como `card1`, y la
+   pantalla volvió a quedar en blanco. Desde entonces `io/_sdl.py::configurar_entorno_sdl()`
+   busca en `/sys/class/drm` la `cardN` cuyo driver es `ili9486` y usa esa (si no la
+   encuentra, avisa por stderr y usa 1). Para ver cuál es cuál a mano:
+   `for c in /sys/class/drm/card?; do echo "$c -> $(basename $(readlink $c/device/driver))"; done`.
+   Si hiciera falta forzarlo, `SDL_KMSDRM_DEVICE_INDEX=N` en el entorno le gana a la
+   detección.
+4. **Baja tensión** (mismo síntoma que 3, pero el touch sigue andando): con la Pi en un
+   cargador de celular y un cable largo, `vcgencmd get_throttled` dio `0x50000` (hubo baja
+   tensión desde el arranque) y el panel quedaba en blanco aunque el driver no diera
+   errores; ni escribir directo en el framebuffer (`cat /dev/urandom > /dev/fbN`) mostraba
+   nada. Con un cable más corto dio `0x0` y el panel volvió a mostrar la consola
+   (2026-10-22). Si la pantalla queda en blanco, `get_throttled` es lo primero que hay que
+   mirar.
 
 ### Instalación de `pygame`
 
