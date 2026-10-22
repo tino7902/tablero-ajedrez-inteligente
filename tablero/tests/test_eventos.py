@@ -179,6 +179,23 @@ def test_captura_sacando_primero_la_capturada():
     assert lectura.movimiento == chess.Move.from_uci("e4d5")
 
 
+def test_pieza_con_una_captura_levantada_no_es_la_captura():
+    mano, _, estado = _mano(_FEN_CAPTURA)
+
+    # Con el peón de e4 en la mano la ocupación es la misma que después de exd5 (d5 sigue
+    # ocupada): mientras no se vea vaciarse d5, es la pieza levantada, con todos sus destinos.
+    levantada = mano.levantar(chess.E4)
+    assert levantada.tipo is not TipoLectura.JUGADA
+    assert marcas(levantada, estado.board) == {
+        chess.E4: Marca.ORIGEN,
+        chess.E5: Marca.DESTINO,
+        chess.D5: Marca.DESTINO,
+    }
+    lectura = mano.apoyar(chess.E5)
+
+    assert lectura.movimiento == chess.Move.from_uci("e4e5")
+
+
 def test_captura_se_resuelve_por_la_casilla_que_se_vacio():
     mano, _, _ = _mano(_FEN_CABALLO_DOS_CAPTURAS)
 
@@ -223,13 +240,13 @@ def test_captura_sin_ver_vaciarse_la_casilla_es_ambigua_hasta_retocarla():
     reposo = casillas_ocupadas(estado.board)
 
     # El antirrebote no llegó a ver vacía la casilla capturada: de una lectura a la
-    # siguiente solo desapareció el caballo.
+    # siguiente solo desapareció el caballo. Es lo mismo que el caballo en la mano, así
+    # que se ven todos sus destinos.
     ambigua = rastreador.procesar_ocupacion(reposo - {chess.F3})
     assert ambigua.tipo is TipoLectura.AMBIGUA
     assert marcas(ambigua, estado.board) == {
-        chess.F3: Marca.JUGADA,
-        chess.E5: Marca.DESTINO,
-        chess.G5: Marca.DESTINO,
+        chess.F3: Marca.ORIGEN,
+        **dict.fromkeys([chess.D2, chess.D4, chess.E5, chess.G1, chess.G5, chess.H2, chess.H4], Marca.DESTINO),
     }
 
     # Levantar y volver a apoyar la pieza que capturó lo resuelve.

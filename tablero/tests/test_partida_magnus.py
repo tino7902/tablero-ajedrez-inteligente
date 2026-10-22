@@ -228,6 +228,27 @@ def test_captura_de_magnus(tiempo):
     assert partida.board.piece_at(chess.E4) == chess.Piece(chess.PAWN, chess.BLACK)
 
 
+def test_captura_de_magnus_con_su_pieza_en_la_mano_no_esta_hecha(tiempo):
+    partida, mano = _partida(tiempo, fen=FEN_CAPTURA)
+    _recibir(partida, "d5e4")
+
+    # La pieza de Magnus en la mano y tu peón todavía en e4: la ocupación es la de después
+    # de la captura, pero falta sacar el peón.
+    mano.levantar("d5")
+    assert _marcas(partida) == {"d5": Marca.MAGNUS_ORIGEN, "e4": Marca.MAGNUS_DESTINO}
+    resultado = partida.pulsar_boton()
+    assert not resultado.confirmado
+    assert resultado.motivo == (
+        "la jugada de Magnus no está terminada: sacá la pieza de e4 y apoyá ahí la de Magnus "
+        "(si ya lo hiciste, levantala y volvé a apoyarla)"
+    )
+
+    mano.levantar("e4")
+    mano.apoyar("e4")
+    assert _marcas(partida) == {"d5": Marca.JUGADA, "e4": Marca.JUGADA}
+    assert partida.pulsar_boton().confirmado
+
+
 @pytest.mark.parametrize(
     ("uci", "texto", "origenes", "destinos"),
     [

@@ -14,8 +14,10 @@ pasan por estados intermedios, no necesitan una máquina de estados: alcanza con
 la ocupación final. Ver `software-docs/eventos.md`.
 
 Lo único que se recuerda entre lecturas es qué casillas se vaciaron y se volvieron a
-ocupar desde la última posición de reposo, para desempatar capturas de una misma pieza a
-casillas distintas (todas dejan la misma ocupación: `−origen`).
+ocupar desde la última posición de reposo. Una captura deja la misma ocupación que la pieza
+que captura levantada en la mano (`−origen`, la casilla capturada sigue ocupada), así que
+solo cuenta si se vio vaciarse y volver a ocuparse la casilla capturada; eso también
+desempata las capturas de una misma pieza a casillas distintas.
 """
 
 from __future__ import annotations
@@ -87,7 +89,9 @@ class TipoLectura(Enum):
 
     REPOSO = auto()  # coincide con el tablero lógico: no hay nada en curso
     JUGADA = auto()  # coincide con la ocupación de una jugada legal
-    AMBIGUA = auto()  # coincide con varias capturas de la misma pieza y no hay cómo elegir
+    # Coincide con capturas, pero no se vio vaciarse la casilla capturada: la pieza está en
+    # la mano o la captura fue tan rápida que el antirrebote no la vio.
+    AMBIGUA = auto()
     INCOMPLETA = auto()  # no coincide con ninguna jugada legal (en curso o mal hecha)
 
 
@@ -206,11 +210,13 @@ class RastreadorMovimientos:
 
         if not candidatos:
             return lectura(TipoLectura.INCOMPLETA)
-        if len(candidatos) == 1:
+        if len(candidatos) == 1 and self._estado.board.piece_at(candidatos[0].to_square) is None:
             return lectura(TipoLectura.JUGADA, candidatos[0])
 
-        # Varios candidatos con la misma ocupación: capturas de una misma pieza a casillas
-        # distintas. Gana la casilla capturada que se volvió a ocupar más recientemente.
+        # Capturas (las únicas jugadas que pueden compartir ocupación: las de una misma pieza
+        # a casillas distintas). La ocupación es la misma que con la pieza que captura en la
+        # mano, así que cuenta solo la captura cuya casilla se vació y se volvió a ocupar; si
+        # hay varias, la que se ocupó más recientemente.
         vistas = [m for m in candidatos if m.to_square in self._reocupadas]
         if not vistas:
             return lectura(TipoLectura.AMBIGUA)
@@ -224,12 +230,6 @@ class RastreadorMovimientos:
                 self._prefijo_log(),
                 self._estado.board.san(lectura.movimiento),
             )
-        elif lectura.tipo is TipoLectura.AMBIGUA:
-            log.warning(
-                "%s: captura ambigua entre %s",
-                self._prefijo_log(),
-                ", ".join(self._estado.board.san(m) for m in lectura.candidatos),
-            )
 
 
 def marcas(lectura: Lectura, board: chess.Board) -> dict[chess.Square, Marca]:
@@ -237,8 +237,7 @@ def marcas(lectura: Lectura, board: chess.Board) -> dict[chess.Square, Marca]:
 
     - `JUGADA`: todas las casillas que toca la jugada (con la torre del enroque y el peón
       capturado al paso).
-    - `AMBIGUA`: el origen como `JUGADA` y las casillas posibles de la captura como `DESTINO`.
-    - `INCOMPLETA`: las jugadas compatibles con lo que se movió hasta ahora (las que tocan
+    - `INCOMPLETA` y `AMBIGUA` (que es la pieza que puede capturar levantada): las jugadas compatibles con lo que se movió hasta ahora (las que tocan
       todas las casillas cambiadas) muestran sus orígenes y destinos. Si no hay ninguna (por
       ejemplo, la pieza se apoyó en una casilla ilegal), se muestran las jugadas de las
       piezas propias levantadas. Lo que quede sin explicar es `FALTA` o `SOBRA`.
@@ -251,12 +250,6 @@ def marcas(lectura: Lectura, board: chess.Board) -> dict[chess.Square, Marca]:
         return dict.fromkeys(todas, Marca.JUGADA)
 
     resultado: dict[chess.Square, Marca] = {}
-    if lectura.tipo is TipoLectura.AMBIGUA:
-        for movimiento in lectura.candidatos:
-            resultado[movimiento.from_square] = Marca.JUGADA
-            resultado.setdefault(movimiento.to_square, Marca.DESTINO)
-        return resultado
-
     cambiadas = lectura.faltan | lectura.sobran
     tocadas = [(m, *casillas_tocadas(board, m)) for m in _jugadas_detectables(board)]
     compatibles = [(todas, origenes) for _, todas, origenes in tocadas if cambiadas <= todas]

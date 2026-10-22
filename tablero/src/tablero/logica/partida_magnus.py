@@ -164,6 +164,10 @@ class PartidaVsMagnus:
         # con la posición de antes, para las marcas y el texto.
         self._jugada_magnus: ResultadoJugada | None = None
         self._antes_magnus: chess.Board | None = None
+        # Si Magnus captura, la casilla de la pieza capturada mientras no se la vio vacía: con
+        # la pieza de Magnus en la mano, la ocupación ya es la de la jugada hecha (la casilla
+        # sigue ocupada, por la pieza capturada), así que no alcanza con mirar la lectura.
+        self._capturada_por_sacar: chess.Square | None = None
 
     # -- Lecturas -----------------------------------------------------------------
 
@@ -238,11 +242,15 @@ class PartidaVsMagnus:
         assert movimiento is not None  # se guarda solo una jugada aceptada
         return self._antes_magnus, movimiento
 
+    def _magnus_hecha(self) -> bool:
+        """La posición física es la de después de la jugada de Magnus, captura incluida."""
+        return self.lectura.tipo is TipoLectura.REPOSO and self._capturada_por_sacar is None
+
     def _marcas_magnus(self) -> dict[chess.Square, Marca]:
         antes, movimiento = self._magnus()
         todas, _ = casillas_tocadas(antes, movimiento)
         lectura = self.lectura
-        if lectura.tipo is TipoLectura.REPOSO:
+        if self._magnus_hecha():
             return dict.fromkeys(todas, Marca.JUGADA)
         quedan = ocupacion_tras(antes, movimiento)
         resultado = {
@@ -283,6 +291,8 @@ class PartidaVsMagnus:
 
     def procesar_ocupacion(self, ocupacion: Ocupacion) -> Lectura:
         """Interpreta una lectura de los sensores (ver `PartidaFisica.procesar_ocupacion`)."""
+        if self._capturada_por_sacar not in ocupacion:
+            self._capturada_por_sacar = None
         return self._fisica.procesar_ocupacion(ocupacion)
 
     def pulsar_boton(self) -> ResultadoPulsacion:
@@ -302,6 +312,13 @@ class PartidaVsMagnus:
 
     def _confirmar_magnus(self) -> ResultadoPulsacion:
         lectura = self.lectura
+        if lectura.tipo is TipoLectura.REPOSO and self._capturada_por_sacar is not None:
+            nombre = chess.square_name(self._capturada_por_sacar)
+            motivo = (
+                f"la jugada de Magnus no está terminada: sacá la pieza de {nombre} y apoyá ahí la de "
+                "Magnus (si ya lo hiciste, levantala y volvé a apoyarla)"
+            )
+            return ResultadoPulsacion(Fase.MOVER_MAGNUS, False, motivo)
         if lectura.tipo is TipoLectura.REPOSO:
             self.partida.pulsar_boton(self.color_magnus)
             jugada, self._jugada_magnus, self._antes_magnus = self._jugada_magnus, None, None
@@ -329,6 +346,8 @@ class PartidaVsMagnus:
         antes = self.board.copy(stack=False)
         resultado = self.partida.intentar_jugada(movimiento)
         self._jugada_magnus, self._antes_magnus = resultado, antes
+        # Al paso no hace falta: deja una ocupación propia (la casilla de destino está vacía).
+        self._capturada_por_sacar = movimiento.to_square if antes.piece_at(movimiento.to_square) else None
         # `LectorMatriz.leer()` solo devuelve algo cuando la matriz cambia: sin esto, la
         # última lectura seguiría siendo el reposo de antes de la jugada, y un botón
         # apretado sin tocar nada la confirmaría.

@@ -51,7 +51,8 @@ la regla no cambian: el log muestra `negras intenta 'g8f6' → ACEPTADO Nf6` y d
 `botón negras → TURNO PASADO`.
 
 - **Cuándo cuenta.** El botón confirma solo si la lectura es `REPOSO` contra el tablero
-  lógico, que ya incluye la jugada de Magnus. Es decir, si la posición física coincide.
+  lógico, que ya incluye la jugada de Magnus (es decir, si la posición física coincide) y,
+  si Magnus captura, ya se vio vacía la casilla de la pieza capturada (ver "Capturas").
   - Si no coincide, se ignora con lo que falta: "la jugada de Magnus no está terminada:
     falta pieza en f6; sobra pieza en g8".
   - Si el jugador ya armó su propia jugada encima, también se ignora: "primero hay que
@@ -60,9 +61,15 @@ la regla no cambian: el log muestra `negras intenta 'g8f6' → ACEPTADO Nf6` y d
   devuelve algo cuando la matriz cambia. Sin reinterpretar, la última lectura seguiría
   siendo el `REPOSO` de antes de la jugada, y un botón apretado sin tocar nada la
   confirmaría.
-- **Capturas.** Levantar el atacante con la pieza capturada todavía en su casilla deja la
-  misma ocupación que la captura terminada. Como hay botón, es el mismo caso que en PvP y
-  no se agrega ninguna protección.
+- **Capturas.** Levantar la pieza de Magnus con la capturada todavía en su casilla deja la
+  misma ocupación que la captura terminada. Al principio no tenía protección (había botón,
+  como en PvP), pero en la primera partida en el tablero (2026-10-22) se vio que con la
+  pieza en la mano los LEDs ya mostraban la jugada en verde, como terminada. Por eso
+  `PartidaVsMagnus` recuerda la casilla capturada hasta que una lectura la ve vacía: hasta
+  entonces siguen el violeta y el cian, y el botón se ignora con "sacá la pieza de e4 y
+  apoyá ahí la de Magnus (si ya lo hiciste, levantala y volvé a apoyarla)". El paréntesis es
+  para cuando la captura fue tan rápida que el antirrebote no vio la casilla vacía. El
+  mismo problema en PvP se resuelve en `logica/eventos.py` (ver [`eventos.md`](./eventos.md)).
 - **Si la jugada de Magnus termina la partida** (mate o tablas), `Partida` la cierra sin
   esperar el botón. Los LEDs siguen mostrando esa jugada para que se vea el mate.
 

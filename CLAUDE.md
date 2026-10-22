@@ -43,8 +43,9 @@ iterations (v1 reed, v2 Hall+138/165, v3 Nano) and every rejected alternative wi
 `config.py` (Stockfish + pantalla config), `logica/estado_tablero.py` (wraps `chess.Board`,
 tested in `tests/test_logica.py`), `logica/eventos.py` (interprets each occupancy reading by
 comparing it with the occupancy every legal move would leave — normal, captures, castling,
-en passant, promotion always to queen — plus a vacated/refilled-squares history to tell apart
-captures by the same piece; **never applies the move**, and `marcas()` says what to light on
+en passant, promotion always to queen — plus a vacated/refilled-squares history: a capture only counts once its square was seen
+emptied and refilled (a lifted attacker reads exactly like a finished capture), which also
+tells apart captures by the same piece; **never applies the move**, and `marcas()` says what to light on
 each square; tested in `tests/test_eventos.py`, see `software-docs/eventos.md`), `motor/stockfish.py` (UCI integration via
 `SimpleEngine`; difficulty levels from `config.NIVELES_MAGNUS` = `Skill Level` + seconds per move;
 runs in its own process group so a Ctrl+C doesn't kill it mid-move; tested in `tests/test_motor.py`), `io/pantalla.py` (static text on the RPI LCD V3
@@ -115,7 +116,7 @@ its clock on the buttons alone; `PartidaFisica` is ready for it, but reading the
 blocking the pygame loop is still to do. The touchscreen vs-Magnus screen (part F of
 `software-docs/vs-magnus.md`) goes with that same integration.
 `pytest` is a declared dev dependency (`uv add --dev pytest`) and
-`uv run pytest` works (231 tests, all hardware-free except `test_motor.py`, which skips itself
+`uv run pytest` works (234 tests, all hardware-free except `test_motor.py`, which skips itself
 without the `stockfish` binary). Don't assume implementations exist just because a file is present; check
 its actual contents. See `software-docs/` (per-module design notes) and `hardware-docs/`
 (componentes, pines GPIO, esquema de detección de casillas) for details beyond this file.

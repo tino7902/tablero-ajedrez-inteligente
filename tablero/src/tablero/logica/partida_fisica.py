@@ -80,8 +80,8 @@ def describir_lectura(lectura: Lectura, board: chess.Board) -> str:
     if lectura.tipo is TipoLectura.AMBIGUA:
         destinos = " o ".join(chess.square_name(m.to_square) for m in lectura.candidatos)
         return (
-            f"no se sabe dónde se capturó ({destinos}): levantá y volvé a apoyar la pieza "
-            "que capturó"
+            f"{describir_diferencias(lectura.faltan, lectura.sobran)} (si ya capturaste en "
+            f"{destinos}, levantá y volvé a apoyar la pieza que capturó)"
         )
     return "no es una jugada legal: " + describir_diferencias(lectura.faltan, lectura.sobran)
 

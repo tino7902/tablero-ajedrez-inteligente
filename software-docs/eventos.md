@@ -35,8 +35,8 @@ El resultado es una `Lectura`:
 | `TipoLectura` | Cuándo |
 |---|---|
 | `REPOSO` | La posición física coincide con el tablero lógico: no hay nada en curso |
-| `JUGADA` | Coincide con una jugada legal (o con varias y el historial desempata, ver abajo) |
-| `AMBIGUA` | Coincide con varias capturas de la misma pieza y no hay historial para elegir |
+| `JUGADA` | Coincide con una jugada legal. Si es una captura, además se vio vaciarse y volver a ocuparse la casilla capturada (ver abajo) |
+| `AMBIGUA` | Coincide con capturas, pero no se vio vaciarse la casilla capturada: la pieza que captura está en la mano, o la captura fue tan rápida que el antirrebote no la vio |
 | `INCOMPLETA` | No coincide con ninguna jugada legal: hay una jugada a medio hacer o mal hecha |
 
 Siempre trae `faltan` (casillas que en el tablero lógico tienen pieza y en el físico están
@@ -56,23 +56,31 @@ reinterpreta todo desde cero. Por ejemplo, en un enroque empezado por la torre, 
 ya en f1 la lectura es `JUGADA` de torre (`Rf1`); cuando el rey llega a g1, pasa a ser `O-O`.
 La que cuenta es la que está armada cuando se aprieta el botón.
 
-### Desempate de capturas
+### Capturas
 
-Las capturas de una misma pieza a casillas distintas dejan la misma ocupación (`−origen`).
-Por ejemplo, un caballo en f3 que puede tomar en e5 o en g5. Es el único caso en que dos
-jugadas legales coinciden: dos piezas distintas tienen distinto origen, y las promociones se
-juntan en una sola (ver abajo).
+Una captura deja la ocupación `−origen`: la casilla capturada sigue ocupada, ahora por la
+pieza que captura. Es exactamente lo que se lee con la pieza que captura **levantada en la
+mano**, con la rival todavía en su lugar. Además, las capturas de una misma pieza a casillas
+distintas dejan todas la misma ocupación (por ejemplo, un caballo en f3 que puede tomar en
+e5 o en g5). Es el único caso en que dos jugadas legales coinciden: dos piezas distintas
+tienen distinto origen, y las promociones se juntan en una sola (ver abajo).
 
-Para desempatar, el rastreador recuerda qué casillas se vaciaron y se volvieron a ocupar
-desde la última posición de reposo (la casilla capturada se vacía al sacar la pieza rival y
-se vuelve a ocupar con la que captura):
+Por eso el rastreador recuerda qué casillas se vaciaron y se volvieron a ocupar desde la
+última posición de reposo (la casilla capturada se vacía al sacar la pieza rival y se vuelve
+a ocupar con la que captura):
 
-- Se queda con la captura cuyo destino está en ese historial.
+- Una captura es `JUGADA` solo si su destino está en ese historial.
 - Si hay más de una, gana la casilla que se ocupó más recientemente. Así, si el jugador toca
   una pieza rival, la vuelve a poner y después captura otra, gana la última.
-- Si ninguna, la lectura es `AMBIGUA`. Pasa cuando la captura fue tan rápida que el
-  antirrebote (`HALL_LECTURAS_ESTABLES`) no llegó a ver vacía la casilla. Se resuelve
-  levantando y volviendo a apoyar la pieza que capturó.
+- Si ninguna, la lectura es `AMBIGUA`. Casi siempre es la pieza levantada, y se muestran
+  todos sus destinos, no solo las capturas. También pasa si la captura fue tan rápida que
+  el antirrebote (`HALL_LECTURAS_ESTABLES`) no llegó a ver vacía la casilla: el botón se
+  ignora con "falta pieza en e4 (si ya capturaste en d5, levantá y volvé a apoyar la pieza
+  que capturó)", y eso lo resuelve.
+
+Hasta el 2026-10-22, con una sola captura posible no se miraba el historial. Al levantar la
+pieza se tomaba como la captura hecha, y los LEDs mostraban solo esa jugada, en verde, en
+vez de todos los destinos. Se vio en la primera partida en el tablero.
 
 El historial se borra cuando la ocupación vuelve a coincidir con el tablero lógico, y cuando
 el tablero lógico cambia (después de cada jugada confirmada).
@@ -97,8 +105,7 @@ colores los elige `io/juego.py`. Es una función pura, testeada en `tests/test_e
 |---|---|
 | `REPOSO` | Ninguna |
 | `JUGADA` | `JUGADA` en todas las casillas que toca: origen y destino, más la torre en el enroque y el peón capturado al paso |
-| `AMBIGUA` | `JUGADA` en el origen y `DESTINO` en las casillas posibles de la captura |
-| `INCOMPLETA` | Las jugadas compatibles con lo que se movió (las que tocan todas las casillas cambiadas) muestran sus orígenes (`ORIGEN`) y el resto de sus casillas (`DESTINO`). Si no hay ninguna (por ejemplo, la pieza se apoyó en una casilla ilegal), se muestran las jugadas de las piezas propias levantadas. Lo que quede sin explicar es `FALTA` o `SOBRA` |
+| `INCOMPLETA` y `AMBIGUA` | Las jugadas compatibles con lo que se movió (las que tocan todas las casillas cambiadas) muestran sus orígenes (`ORIGEN`) y el resto de sus casillas (`DESTINO`). Si no hay ninguna (por ejemplo, la pieza se apoyó en una casilla ilegal), se muestran las jugadas de las piezas propias levantadas. Lo que quede sin explicar es `FALTA` o `SOBRA` |
 
 Ejemplos: al levantar el caballo de g1 se ven g1 (`ORIGEN`), f3 y h3 (`DESTINO`). Si se lo
 apoya en g3, g3 aparece como `SOBRA`. Si se saca primero el peón rival que se va a capturar,

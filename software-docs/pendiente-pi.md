@@ -163,6 +163,9 @@ uv run python -m tablero.io.juego --minutos 10
 ```
 
 - [ ] Una partida entera, con capturas, enroque y, si se puede, al paso y promoción.
+- [ ] Al levantar una pieza que puede capturar, se ven **todos** sus destinos (en blanco
+  tenue, con la captura entre ellos) y no la captura sola en verde. Arreglado el 2026-10-22
+  después de la primera partida.
 - [ ] Ver que ninguna lectura salte sola: piezas que parpadean, jugadas que aparecen sin
   tocar nada. Si pasa, subir `HALL_LECTURAS_ESTABLES`.
 - [ ] El PGN del registro se abre bien en Lichess.
@@ -175,6 +178,8 @@ uv run python -m tablero.io.juego --magnus medio --color negras
 ```
 
 - [ ] Una partida entera en cada color.
+- [ ] En una captura de Magnus, con su pieza en la mano y la tuya todavía en el destino,
+  siguen el violeta y el cian (no el verde), y el botón dice qué falta.
 - [ ] Una captura y un enroque de Magnus: los LEDs y el texto ("Magnus enroca corto: rey
   e8→g8 y torre h8→f8") alcanzan para entender qué mover.
 - [ ] El mensaje final con la duración.

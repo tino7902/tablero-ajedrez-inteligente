@@ -97,6 +97,22 @@ def test_boton_con_la_pieza_en_una_casilla_ilegal_dice_que_corregir(tiempo):
     assert partida.pulsar_boton(chess.WHITE).paso_turno
 
 
+def test_boton_con_la_pieza_que_puede_capturar_en_la_mano_no_captura(tiempo):
+    # 1.e4 d5: con el peón de e4 levantado, d5 sigue ocupada como después de exd5.
+    partida, mano = _partida(tiempo, fen="rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2")
+    mano.levantar("e4")
+
+    resultado = partida.pulsar_boton(chess.WHITE)
+
+    assert not resultado.paso_turno
+    assert resultado.motivo == (
+        "falta pieza en e4 (si ya capturaste en d5, levantá y volvé a apoyar la pieza que capturó)"
+    )
+    mano.levantar("d5")
+    mano.apoyar("d5")
+    assert partida.pulsar_boton(chess.WHITE).jugada.san == "exd5"
+
+
 def test_boton_del_rival_no_confirma_la_jugada(tiempo):
     partida, mano = _partida(tiempo)
     mano.mover("e2", "e4")
