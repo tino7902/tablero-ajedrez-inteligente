@@ -108,7 +108,7 @@ los ejecuta, le da a Tino el comando. Armado y prueba de la matriz:
 | `uv run python -m tablero.io.sensores` (o `... botones`) | Loguea cada presión de los botones del reloj | [`sensores.md`](./sensores.md) |
 | `uv run python -m tablero.io.sensores medir F0` | Deja una fila fija para medir tensiones con el multímetro y muestra las columnas y su nivel (`ADC`) en vivo (también acepta una casilla: `medir e4`; la fila va con F mayúscula) | [`sensores.md`](./sensores.md#medir) |
 | `uv run python -m tablero.io.sensores matriz` | Matriz cruda y tablero mapeado, en vivo | [`sensores.md`](./sensores.md#matriz-en-vivo) |
-| `uv run python -m tablero.io.sensores calibrar` | Mide la espera de encendido de los Hall y el antirrebote | [`sensores.md`](./sensores.md#calibrar) |
+| `uv run python -m tablero.io.sensores calibrar` | Mide la espera de encendido de los Hall y el antirrebote, con los LEDs mostrando lo que detectan (sudo; `--sin-leds` sin ellos) | [`sensores.md`](./sensores.md#calibrar) |
 | `uv run python -m tablero.io.sensores mapear` | Genera `CASILLA_DE_CELDA_HALL` (las 64 casillas) | [`sensores.md`](./sensores.md#mapear) |
 | `uv run python -m tablero.io.leds todos` / `recorrer` / `esquinas` / `calibrar` / `verificar` | Pruebas de la tira de LEDs (se relanza con `sudo`) | [`leds.md`](./leds.md) |
 | `uv run python -m tablero.io.prueba_tablero leds` / `recorrido` / `espejo` / `inicial` | Sensores y LEDs juntos: asociar LEDs, verificar las 64 casillas, espejo en vivo, posición inicial (se relanza con `sudo`) | [`prueba-tablero.md`](./prueba-tablero.md) |

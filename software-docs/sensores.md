@@ -241,7 +241,7 @@ Si falta `dialout`: `sudo usermod -aG dialout $USER` y volver a entrar por SSH.
 ```bash
 uv run python -m tablero.io.sensores matriz
 uv run python -m tablero.io.sensores medir F0     # o una casilla, después de mapear: medir e4
-uv run python -m tablero.io.sensores calibrar
+uv run python -m tablero.io.sensores calibrar      # con los LEDs (sudo); sin ellos: --sin-leds
 uv run python -m tablero.io.sensores mapear
 ```
 
@@ -317,9 +317,11 @@ su casilla.
 #### `calibrar`
 
 Mide la espera de encendido y el antirrebote, en tres pasos, y al final imprime las dos líneas
-para pegar en `config.py` (`HALL_ESPERA_ENCENDIDO`, `HALL_LECTURAS_ESTABLES`). Con los dos
-mapeos hechos conviene `prueba_tablero calibrar`: hace lo mismo, pero mientras se acomodan las
-piezas los LEDs muestran cuáles detectan los Hall (ver [`prueba-tablero.md`](./prueba-tablero.md#calibrar)).
+para pegar en `config.py` (`HALL_ESPERA_ENCENDIDO`, `HALL_LECTURAS_ESTABLES`). Mientras se
+acomodan las piezas, los LEDs muestran cuáles detectan los Hall: para eso `calibrar` se
+reemplaza por `prueba_tablero calibrar`, que se relanza con `sudo` (ver
+[`prueba-tablero.md`](./prueba-tablero.md#calibrar)). Necesita los dos mapeos hechos; si alguno
+está mal, `calibrar --sin-leds` hace lo mismo sin LEDs y sin `sudo`.
 
 1. **Reposo**: con el tablero vacío, 3 s de barridos con 5 ms por fila. Lista los Hall que marcan
    pieza sin imán (hay que arreglarlos antes de `mapear`).

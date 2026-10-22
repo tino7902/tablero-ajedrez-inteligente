@@ -28,7 +28,7 @@ uv run python -m tablero.io.prueba_tablero leds        # genera LED_DE_CASILLA c
 uv run python -m tablero.io.prueba_tablero recorrido   # verificación guiada de a1 a h8
 uv run python -m tablero.io.prueba_tablero espejo      # los LEDs muestran las casillas ocupadas
 uv run python -m tablero.io.prueba_tablero inicial     # compara con la posición inicial
-uv run python -m tablero.io.prueba_tablero calibrar    # `sensores calibrar` con los LEDs en vivo
+uv run python -m tablero.io.prueba_tablero calibrar    # calibra los Hall con los LEDs en vivo
 ```
 
 Todas aceptan `--brillo 0-191` (tope `LED_BRILLO_MAX`, por defecto `LED_BRILLO`).
@@ -81,8 +81,8 @@ comprobación antes de arrancar una partida.
 
 ### `calibrar`
 
-Es `sensores calibrar` (ver [`sensores.md`](./sensores.md#calibrar)), con los mismos tres pasos
-y el mismo resultado, pero mientras se espera el Enter de cada paso los LEDs muestran en vivo lo
+Es la calibración de los Hall (ver [`sensores.md`](./sensores.md#calibrar)), con los mismos
+tres pasos y el mismo resultado, pero mientras se espera el Enter de cada paso los LEDs muestran en vivo lo
 que detectan los Hall, comparado con lo que tiene que haber. Los colores son los de `inicial`:
 **verde** donde hay pieza y tiene que haber, **rojo** donde falta, **amarillo** donde sobra.
 
@@ -97,11 +97,14 @@ acomoda la pieza, o se sigue igual (por ejemplo, con un Hall que no anda).
 
 Durante las mediciones los LEDs quedan prendidos como estaban (hasta 32 en verde). Como los LEDs
 y el Nano comparten cargador, se mide con algo de carga, que es lo conservador. Si el paso 2 da
-`FALLA` acá y no con `sensores calibrar`, la culpa es de la caída de tensión de los LEDs y no de
+`FALLA` acá y no con `sensores calibrar --sin-leds`, la culpa es de la caída de tensión de los LEDs y no de
 la matriz.
 
 Necesita los dos mapeos hechos, porque pinta por casilla. Si alguno está mal, se usa
-`sensores calibrar`, que no prende LEDs.
+`sensores calibrar --sin-leds`, que no prende LEDs.
+
+`uv run python -m tablero.io.sensores calibrar` (sin `--sin-leds`) termina acá: se reemplaza
+por `prueba_tablero calibrar`, que se relanza con `sudo`.
 
 ## Decisiones de diseño
 

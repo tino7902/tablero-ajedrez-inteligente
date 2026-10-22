@@ -74,8 +74,9 @@ view), `io/sensores_reed.py` (the previous reed-switch version, kept on purpose 
 switch back: same API, two-permutation mapping, own CLI; works over the Nano too since a reed +
 diode pulls its column like a Hall — see `software-docs/sensores-reed.md`),
 `io/prueba_tablero.py` (sensors + LEDs together: sensor-assisted LED↔square association, guided
-a1..h8 walk, live mirror, initial-position check, and `calibrar` = `sensores calibrar` with the
-LEDs showing live which squares the Halls detect while the pieces are being placed; re-execs itself via `sudo` like `io/leds.py` —
+a1..h8 walk, live mirror, initial-position check, and `calibrar` = the Hall calibration with the
+LEDs showing live which squares the Halls detect while the pieces are being placed — `sensores
+calibrar` execs into it unless `--sin-leds`; re-execs itself via `sudo` like `io/leds.py` —
 see `software-docs/prueba-tablero.md`), `logica/matriz.py` (hardware-free processing of raw
 matrix reads: table validation, celda→casilla, the math behind `calibrar`, the Nano protocol text; tested in
 `tests/test_matriz.py`), `io/leds.py` (WS2812B via `rpi-ws281x` on BCM 12, needs root (the `__main__` re-execs itself via `sudo` so `uv run python -m tablero.io.leds` works) +

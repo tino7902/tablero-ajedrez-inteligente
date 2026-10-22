@@ -132,10 +132,10 @@ Hasta ahora `HALL_ESPERA_ENCENDIDO` y `HALL_LECTURAS_ESTABLES` son valores por d
 y 3), que alcanzaron para todas las pruebas.
 
 ```bash
-uv run python -m tablero.io.prueba_tablero calibrar
+uv run python -m tablero.io.sensores calibrar     # o directo: prueba_tablero calibrar
 ```
 
-Es `sensores calibrar` con los LEDs mostrando en vivo lo que detectan los Hall: verde, bien;
+Se relanza con `sudo` y calibra con los LEDs mostrando en vivo lo que detectan los Hall: verde, bien;
 rojo, falta o la pieza no está justo encima del sensor; amarillo, sobra. Tiene tres pasos:
 tablero vacío, posición inicial armada y 10 s sin tocar nada.
 

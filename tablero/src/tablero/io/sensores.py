@@ -12,13 +12,14 @@ Pruebas manuales en la Raspberry (ver software-docs/sensores.md):
     uv run python -m tablero.io.sensores botones
     uv run python -m tablero.io.sensores medir F0      (o una casilla: medir e4)
     uv run python -m tablero.io.sensores matriz
-    uv run python -m tablero.io.sensores calibrar
+    uv run python -m tablero.io.sensores calibrar      (con los LEDs; sin ellos: calibrar --sin-leds)
     uv run python -m tablero.io.sensores mapear
 """
 
 import argparse
 import functools
 import logging
+import os
 import sys
 import time
 from collections.abc import Callable
@@ -424,11 +425,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "objetivo", nargs="?", help="solo para medir: una fila (F0..F7, F mayúscula) o una casilla (e4)"
     )
+    parser.add_argument(
+        "--sin-leds",
+        action="store_true",
+        help="solo para calibrar: sin mostrar en los LEDs lo que detectan los Hall (y sin sudo)",
+    )
     argumentos = parser.parse_args()
     if argumentos.prueba == "medir" and argumentos.objetivo is None:
         parser.error("medir necesita una fila o una casilla, por ejemplo: medir F0")
     if argumentos.prueba != "medir" and argumentos.objetivo is not None:
         parser.error(f"{argumentos.prueba} no lleva argumentos")
+    if argumentos.prueba != "calibrar" and argumentos.sin_leds:
+        parser.error("--sin-leds es solo para calibrar")
+    if argumentos.prueba == "calibrar" and not argumentos.sin_leds:
+        # Con los LEDs es `prueba_tablero calibrar`, que se relanza solo con sudo (rpi-ws281x
+        # necesita root). Este proceso se reemplaza: no queda abierto el puerto del Nano.
+        os.execv(sys.executable, [sys.executable, "-m", "tablero.io.prueba_tablero", "calibrar"])
     try:
         if argumentos.prueba == "medir":
             assert argumentos.objetivo is not None  # validado arriba con parser.error
