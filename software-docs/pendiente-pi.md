@@ -162,8 +162,9 @@ uv run python -m tablero.io.prueba_tablero inicial
 uv run python -m tablero.io.juego --minutos 10
 ```
 
-- [ ] Una partida entera, con capturas, enroque y, si se puede, al paso y promoción.
-- [ ] Al levantar una pieza que puede capturar, se ven **todos** sus destinos (en blanco
+- [x] Una partida entera, con capturas, enroque y, si se puede, al paso y promoción
+  (2026-10-22, después de espejar el mapeo).
+- [x] Al levantar una pieza que puede capturar, se ven **todos** sus destinos (en blanco
   tenue, con la captura entre ellos) y no la captura sola en verde. Arreglado el 2026-10-22
   después de la primera partida.
 - [ ] Ver que ninguna lectura salte sola: piezas que parpadean, jugadas que aparecen sin
@@ -201,18 +202,27 @@ uv run python -m tablero.io.calibracion_touch
 
 Detalle en [`pantalla.md`](./pantalla.md#calibración-del-touch).
 
-### 3.2 Menús con los botones del reloj
+### 3.2 Jugar desde la pantalla
 
-En los docs no queda registrado si la pantalla PvP se probó en la Pi después de que pasó a
-usar `RelojAjedrez`:
+La interfaz completa con el tablero real (2026-10-22, [`menus.md`](./menus.md)). Antes,
+conviene probarla en la notebook con el tablero simulado (ver ahí).
 
 ```bash
-uv run python -m tablero.io.menus_gpio
+uv run python -m tablero.io.menus_gpio          # se relanza con sudo por los LEDs
 ```
 
-- [ ] Se navega por touch hasta la partida PvP, y los botones físicos pasan el turno y el
-  reloj cuenta para abajo.
-- [ ] Al quedarse sin tiempo, aparece el mensaje.
-
-Lo que todavía no existe y por eso no se puede probar: la pantalla leyendo los sensores (PvP y
-vs Magnus, la parte F de [`vs-magnus.md`](./vs-magnus.md)).
+- [ ] Arranca y muestra el menú; los toques caen en los botones.
+- [ ] Contra un amigo → 5 minutos → "Acomodá las piezas": cuenta faltan/sobran y los LEDs
+  marcan rojo/amarillo. Con todo en su lugar, "¡Posición lista!".
+- [ ] Un botón del reloj: 3, 2, 1 y la partida. El reloj de blancas corre y se redibuja cada
+  segundo sin que la pantalla se ponga en blanco.
+- [ ] Jugadas con los LEDs de siempre; una jugada ilegal + botón muestra el motivo abajo.
+- [ ] Tablas: ofrecer de un lado, aceptar del otro → "Tablas por acuerdo". Otra vez:
+  ofrecer y jugar sin contestar → la oferta desaparece.
+- [ ] ¿Rendirse? pide confirmación; "No" vuelve a la partida, "Sí" muestra el final.
+- [ ] Menú principal desde el final, y una segunda partida arranca reconociendo las piezas.
+- [ ] Contra Magnus → Fácil → Blancas: "Tu turno", "Magnus está pensando…", su jugada en
+  violeta/cian y en el recuadro; el tiempo arriba a la derecha.
+- [ ] Desenchufar el USB del Nano en una partida: pantalla "Problema con el tablero" y
+  Menú principal; al volver a enchufarlo, la partida siguiente anda.
+- [ ] Ctrl+C: apaga los LEDs, y `ls -l registros/partidas` muestra los PGN del usuario.

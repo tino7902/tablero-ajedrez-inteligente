@@ -32,7 +32,7 @@ from tablero.logica.eventos import (
     casillas_ocupadas,
     marcas,
 )
-from tablero.logica.notacion import describir_pieza
+from tablero.logica.notacion import NOMBRES_COLOR, describir_pieza
 from tablero.logica.partida import (
     MOTIVO_ABANDONO,
     Partida,
@@ -122,6 +122,8 @@ class PartidaFisica:
             registro=registro,
             fuente_tiempo=fuente_tiempo,
         )
+        self._registro = registro
+        self._oferta_tablas: chess.Color | None = None
         self._rastreador = RastreadorMovimientos(self._partida.estado)
         # Se asume que la partida arranca con las piezas bien puestas (`io/juego.py` lo
         # espera antes de crearla); la primera lectura lo corrige si no.
@@ -145,6 +147,11 @@ class PartidaFisica:
     @property
     def terminada(self) -> bool:
         return self._partida.terminada
+
+    @property
+    def oferta_tablas(self) -> chess.Color | None:
+        """Quién ofreció tablas y espera respuesta, o `None` si no hay oferta pendiente."""
+        return self._oferta_tablas
 
     def marcas(self) -> dict[chess.Square, Marca]:
         """Qué mostrar en cada casilla para la última lectura (ver `eventos.marcas`)."""
@@ -179,11 +186,43 @@ class PartidaFisica:
         if jugada is not None and jugada.aceptado:
             # La posición física pasa a ser la nueva posición de reposo.
             self._lectura = self._rastreador.procesar_ocupacion(lectura.ocupacion)
+            if self._oferta_tablas is not None and self._oferta_tablas != color:
+                # Jugar sin contestar es rechazar (reglamento FIDE).
+                self._anotar(f"{NOMBRES_COLOR[color]} juega sin contestar: tablas rechazadas")
+                self._oferta_tablas = None
         elif jugada is not None:
             motivo = jugada.motivo
         elif boton.tipo is TipoBoton.IGNORADO_SIN_MOVIMIENTO:
             motivo = describir_lectura(lectura, self.board)
         return ResultadoConfirmacion(boton=boton, lectura=lectura, jugada=jugada, motivo=motivo)
+
+    # -- Tablas -------------------------------------------------------------------
+
+    def ofrecer_tablas(self, color: chess.Color) -> bool:
+        """`color` ofrece tablas al rival. `False` si ya hay una oferta o terminó la partida.
+
+        La oferta queda hasta que el rival la conteste (`responder_tablas`) o confirme una
+        jugada, que cuenta como rechazo. No se puede retirar.
+        """
+        if self.terminada or self._oferta_tablas is not None:
+            return False
+        self._oferta_tablas = color
+        self._anotar(f"{NOMBRES_COLOR[color]} ofrece tablas")
+        return True
+
+    def responder_tablas(self, acepta: bool) -> None:
+        """El rival de quien ofreció contesta: aceptar termina la partida en tablas."""
+        ofrecio = self._oferta_tablas
+        if ofrecio is None or self.terminada:
+            return
+        self._oferta_tablas = None
+        self._anotar(f"{NOMBRES_COLOR[not ofrecio]} {'acepta' if acepta else 'rechaza'} las tablas")
+        if acepta:
+            self._partida.acordar_tablas()
+
+    def _anotar(self, texto: str) -> None:
+        if self._registro is not None:
+            self._registro.anotar_evento(texto)
 
     # -- Tiempo y fin -------------------------------------------------------------
 

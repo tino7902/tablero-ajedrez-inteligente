@@ -163,6 +163,10 @@ class RegistroPartida:
             f"tiempo agotado: {NOMBRES_COLOR[reloj.perdedor]} {self._estado_reloj(reloj)}"
         )
 
+    def anotar_evento(self, texto: str) -> None:
+        """Anota algo que no es ni jugada ni botón (por ejemplo, una oferta de tablas)."""
+        self._escribir_log(texto)
+
     def cerrar(self, resultado: str, motivo: str, board: chess.Board) -> None:
         """Escribe el resultado final en el PGN y en el log. Idempotente."""
         if self._cerrado:

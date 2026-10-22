@@ -52,15 +52,20 @@ each square; tested in `tests/test_eventos.py`, see `software-docs/eventos.md`),
 runs in its own process group so a Ctrl+C doesn't kill it mid-move; tested in `tests/test_motor.py`), `io/pantalla.py` (static text on the RPI LCD V3
 touchscreen via `pygame`/DRM-KMS), `io/calibracion_touch.py` (affine least-squares calibration
 for the XPT2046 touch controller, no hardware test yet — see `software-docs/pantalla.md`),
-`io/menus.py` (navigable menu screens matching `diseño-docs/diseño-interfaz.md`; PvP game screen
-has a real chess clock — countdown, two independent timers, turn switch on boton_1/boton_2,
-timeout message — while vs-Magnus is still a static placeholder aside from color selection; can
-also run windowed on a regular desktop via `TABLERO_PANTALLA_VENTANA=1`, no hardware needed, with
-the clock buttons simulated by the ←/→ keys — see `software-docs/menus.md`), `io/menus_gpio.py`
-(thin hardware-real driver: wires `io/sensores.py`'s GPIO buttons into `io/menus.py`'s shared
-loop via a custom pygame event, kept in a separate file from `io/menus.py` on purpose so the
-notebook-only keyboard-testing code path and the Raspberry-only GPIO code path can't break each
-other — see "Modo hardware real" in `software-docs/menus.md`), `io/sensores.py` (chess-clock
+`io/menus.py` (the touchscreen UI, 2026-10-22: menus → time or difficulty+color → "acomodá las
+piezas" → PvP with countdown, both clocks, resign with confirmation and draw offers, or vs
+Magnus with the phase text box → end screen; draws from `logica/sesion.py` and takes the
+hardware as a `Hardware` (occupancy source, LED painter, engine factory), importing nothing from
+GPIO/Nano/LEDs; run directly with `TABLERO_PANTALLA_VENTANA=1` it uses the terminal-driven
+`logica/tablero_simulado.py`, no LEDs, ←/→ as clock buttons — see `software-docs/menus.md`;
+**not yet tried, neither on the notebook nor on the Pi**), `io/menus_gpio.py` (the Pi entry
+point: builds the real `Hardware` — Nano matrix, LED strip, GPIO buttons as pygame events,
+Stockfish — re-execs via `sudo`, kept apart from `io/menus.py` on purpose so the notebook path
+and the Raspberry path can't break each other), `logica/sesion.py` (`SesionPvP`/`SesionMagnus`:
+one non-blocking game for the screen — setup phase, PvP countdown, draw offers, end texts,
+Stockfish in its own thread, redraw only when something visible changed; tested in
+`tests/test_sesion.py`), `logica/tablero_simulado.py` (typed `e2e4` → occupancy steps, one per
+read so captures are detected; tested), `io/sensores.py` (chess-clock
 buttons — GPIO event detection on the two limit-switch buttons, BOARD pins 33/35,
 hardware-verified by Tino, consumed by `io/menus_gpio.py` — plus the occupancy matrix with
 **Hall sensors** (A3144, scanned by the Nano): a calibrable per-row power-on wait
@@ -112,12 +117,11 @@ gitignored — see `software-docs/registro.md`), and `simulacion.py` (terminal-o
 simulation: type a move, the program answers how the board would react, with a real running
 clock; runs anywhere, no hardware; `--magnus` plays against Stockfish by typing, to tune the
 levels — see `software-docs/simulacion.md`). Still empty: `web/` and
-`tests/test_sensores.py`. Not yet wired: the touchscreen PvP screen (`io/menus.py`) still runs
-its clock on the buttons alone; `PartidaFisica` is ready for it, but reading the Nano without
-blocking the pygame loop is still to do. The touchscreen vs-Magnus screen (part F of
-`software-docs/vs-magnus.md`) goes with that same integration.
+`tests/test_sensores.py`. `PartidaFisica` also has PvP draw offers (`ofrecer_tablas`,
+`responder_tablas`; confirming a move without answering rejects) and `Partida.acordar_tablas`.
+Pending after the UI works on the Pi: a systemd service so it starts on boot.
 `pytest` is a declared dev dependency (`uv add --dev pytest`) and
-`uv run pytest` works (234 tests, all hardware-free except `test_motor.py`, which skips itself
+`uv run pytest` works (260 tests, all hardware-free except `test_motor.py`, which skips itself
 without the `stockfish` binary). Don't assume implementations exist just because a file is present; check
 its actual contents. See `software-docs/` (per-module design notes) and `hardware-docs/`
 (componentes, pines GPIO, esquema de detección de casillas) for details beyond this file.

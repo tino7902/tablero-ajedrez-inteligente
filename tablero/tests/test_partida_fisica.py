@@ -190,3 +190,65 @@ def test_partida_corta_con_captura_y_enroque_queda_registrada(tiempo, tmp_path):
     assert "4. O-O" in pgn
     detalle = next((tmp_path / SUBDIR_DETALLE).iterdir()).read_text(encoding="utf-8")
     assert "intenta 'e1g1' → ACEPTADO O-O" in detalle
+
+
+# -- Tablas ---------------------------------------------------------------------------
+
+
+def test_tablas_aceptadas_terminan_la_partida(tiempo, tmp_path):
+    registro = RegistroPartida(tmp_path, modo="tablero", segundos_por_jugador=300, max_partidas=5, max_detalles=5)
+    partida, _ = _partida(tiempo, registro=registro)
+
+    assert partida.ofrecer_tablas(chess.WHITE)
+    assert partida.oferta_tablas == chess.WHITE
+    assert not partida.ofrecer_tablas(chess.BLACK), "una sola oferta a la vez"
+    partida.responder_tablas(acepta=True)
+
+    assert partida.terminada
+    assert partida.oferta_tablas is None
+    assert partida.partida.resultado() == "1/2-1/2"
+    assert partida.partida.motivo_fin == "tablas por acuerdo"
+    log = registro.ruta_log.read_text(encoding="utf-8")
+    assert "blancas ofrece tablas" in log
+    assert "negras acepta las tablas" in log
+    assert '[Result "1/2-1/2"]' in registro.ruta_pgn.read_text(encoding="utf-8")
+
+
+def test_tablas_rechazadas_siguen_la_partida(tiempo):
+    partida, mano = _partida(tiempo)
+    partida.ofrecer_tablas(chess.BLACK)
+
+    partida.responder_tablas(acepta=False)
+
+    assert not partida.terminada
+    assert partida.oferta_tablas is None
+    assert _jugar(partida, mano, "e2", "e4").paso_turno
+
+
+def test_jugar_sin_contestar_rechaza_las_tablas(tiempo):
+    partida, mano = _partida(tiempo)
+    _jugar(partida, mano, "e2", "e4")
+    # Las blancas ofrecen después de jugar; la oferta sigue mientras piensan las negras.
+    partida.ofrecer_tablas(chess.WHITE)
+    assert partida.oferta_tablas == chess.WHITE
+
+    _jugar(partida, mano, "e7", "e5")
+
+    assert partida.oferta_tablas is None
+    assert not partida.terminada
+
+
+def test_la_oferta_sobrevive_a_la_jugada_de_quien_ofrecio(tiempo):
+    partida, mano = _partida(tiempo)
+    partida.ofrecer_tablas(chess.WHITE)
+
+    _jugar(partida, mano, "e2", "e4")
+
+    assert partida.oferta_tablas == chess.WHITE
+
+
+def test_no_se_ofrecen_tablas_con_la_partida_terminada(tiempo):
+    partida, _ = _partida(tiempo)
+    partida.partida.rendirse(chess.WHITE)
+
+    assert not partida.ofrecer_tablas(chess.BLACK)

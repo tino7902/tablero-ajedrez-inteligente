@@ -116,6 +116,7 @@ MOTIVO_TABLAS = "tablas"
 MOTIVO_TIEMPO = "tiempo"
 MOTIVO_ABANDONO = "abandonada"
 MOTIVO_RENDICION = "rendición"
+MOTIVO_ACUERDO = "tablas por acuerdo"
 
 
 class Partida:
@@ -189,6 +190,8 @@ class Partida:
             return "0-1" if self._reloj.perdedor == chess.WHITE else "1-0"
         if self._rendido is not None:
             return "0-1" if self._rendido == chess.WHITE else "1-0"
+        if self._motivo_fin == MOTIVO_ACUERDO:
+            return "1/2-1/2"
         return self._estado.resultado() or "*"
 
     # -- Tiempo -------------------------------------------------------------------
@@ -424,6 +427,15 @@ class Partida:
         self.actualizar_tiempo()
         self._rendido = color
         self.finalizar(MOTIVO_RENDICION)
+
+    def acordar_tablas(self) -> None:
+        """Los dos jugadores aceptaron tablas: termina en ½-½. Terminada, no hace nada."""
+        if self.terminada:
+            return
+        self.actualizar_tiempo()
+        if self.terminada:  # se le acabó el tiempo a alguien antes de aceptar
+            return
+        self.finalizar(MOTIVO_ACUERDO)
 
     def finalizar(self, motivo: str = MOTIVO_ABANDONO) -> None:
         """Cierra la partida y su registro. Idempotente: repetirlo no cambia nada."""

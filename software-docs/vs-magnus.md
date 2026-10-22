@@ -11,9 +11,8 @@ límite de tiempo**. Acordado e implementado el 2026-10-18, salvo la pantalla t�
   `simulacion.py --magnus`, probada en la notebook contra Stockfish; e
   `io/juego.py --magnus`.
 - **Falta probar en la Pi** `juego.py --magnus` ([`juego.md`](./juego.md#contra-magnus---magnus)).
-- **Pendiente (F):** la pantalla táctil. `io/menus.py` tiene las pantallas de dificultad y
-  color, pero la dificultad elegida no se guarda y la pantalla de juego es estática. Va
-  junto con la integración de sensores de la pantalla PvP, que tampoco existe todavía.
+- **F (pantalla táctil), escrita el 2026-10-22** junto con la integración de sensores de PvP:
+  ver [`menus.md`](./menus.md). Falta probarla.
 
 ## Decisiones
 
@@ -286,7 +285,7 @@ binario.
 4. ✅ E: simulación, para afinar los niveles.
 5. ✅ D: `juego.py --magnus`. Falta que lo pruebe Tino en la Pi, después de comprobar ahí
    que Stockfish está instalado (`which stockfish || ls -l /usr/games/stockfish`).
-6. F: pantalla, junto con la integración de sensores de PvP.
+6. ✅ F: pantalla, junto con la integración de sensores de PvP ([`menus.md`](./menus.md)). Falta probarla.
 
 Al implementar cada parte se actualizan sus docs (`partida.md`, `motor.md`, `config.md`,
 `registro.md`, `juego.md`, `testing.md`) y `CLAUDE.md`.
