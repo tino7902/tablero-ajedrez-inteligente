@@ -127,7 +127,7 @@ Para el software eso implica tres cosas:
 | `NANO_PUERTO` | `None`: autodetectar (el único `/dev/ttyUSB*` o `/dev/ttyACM*`) | A mano, solo si hay varios puertos serie |
 | `HALL_ESPERA_ENCENDIDO` | `0.0001` (0,1 ms por fila; calibrado el 2026-10-22 con las 32 piezas, el mínimo que recomienda `calibrar`) | `calibrar` |
 | `HALL_LECTURAS_ESTABLES` | `3` (calibrado el 2026-10-22, el mínimo) | `calibrar` |
-| `CASILLA_DE_CELDA_HALL` | Regenerado el 2026-10-22, con el tablero girado 90°: grilla, F0 = columna h … F7 = columna a, C0..C7 = filas 1..8 | `mapear` |
+| `CASILLA_DE_CELDA_HALL` | Regenerado el 2026-10-22, con el tablero girado 90°, y espejado a mano (a↔h) porque se mapeó con a1 en la esquina de h1: grilla, F0 = columna a … F7 = columna h, C0..C7 = filas 1..8 | `mapear` |
 
 Los clones del Nano con CH340 aparecen como `/dev/ttyUSB0`; otros, como `/dev/ttyACM0`. Si hay más
 de un puerto serie, poner en `NANO_PUERTO` el del Nano, mejor con su nombre de
@@ -347,6 +347,17 @@ en `config.py` (10 líneas, una fila F por línea) y avisa si el cableado no res
 Después de pegarlo, volver a correr `matriz` y confirmar que el tablero mapeado coincide con las
 piezas reales, o mejor, `prueba_tablero recorrido`, que verifica sensores y LEDs juntos (ver
 [`prueba-tablero.md`](./prueba-tablero.md)).
+
+**Ojo con la orientación.** Antes de empezar, ubicar bien a1: la esquina oscura a la izquierda
+de las blancas. Si se mapea con a1 en otra esquina, el tablero queda espejado (a↔h), y no lo
+detecta ninguna prueba. `recorrido` pasa porque el mapeo de LEDs (`prueba_tablero leds`) se
+arma con los Hall y queda espejado igual. `inicial` pasa porque la posición inicial es
+simétrica. Hasta se puede jugar, porque peones, caballos y alfiles se mueven igual en espejo.
+Se nota recién al enrocar, o en que el log dice "falta pieza en d1" al levantar el rey. Pasó
+el 2026-10-22. Para comprobarlo después de mapear: `prueba_tablero espejo` con una pieza en la
+esquina oscura de la izquierda de las blancas tiene que decir `aparece pieza en a1`. Si quedó
+espejado, alcanza con espejar a mano las dos tablas de `config.py` (columna a↔h, b↔g, c↔f,
+d↔e), sin rehacer los mapeos.
 
 ### Otros
 

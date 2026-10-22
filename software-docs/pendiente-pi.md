@@ -7,7 +7,7 @@ módulo (y `CLAUDE.md`, donde dice "not yet tested on the Pi").
 
 Estado al 2026-10-22. Lo que ya está probado en la Pi y no se repite: los botones del reloj,
 los LEDs (`LED_DE_CASILLA`), el mapeo de los Hall (`CASILLA_DE_CELDA_HALL`; los dos mapeos
-se rehicieron el 2026-10-22 con el tablero girado 90°) y `prueba_tablero recorrido` y `espejo`.
+se rehicieron el 2026-10-22 con el tablero girado 90°, y se espejaron a mano porque habían quedado a↔h) y `prueba_tablero recorrido` y `espejo`.
 
 ## 0. Preparación
 

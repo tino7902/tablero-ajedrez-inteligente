@@ -31,8 +31,9 @@ message on any port/protocol failure) with the same public API the v2 GPIO drive
 protocol text (building `L <µs>`, decoding `M`/`C`/`A`/`LISTO`) is pure code in
 `logica/matriz.py`, tested in `tests/test_matriz.py`. **Verified on the Pi (2026-10-18)**: the
 Halls (`sensores mapear`) and the LEDs (`prueba_tablero leds`) are mapped in `config.py`, and
-`prueba_tablero recorrido`/`espejo` pass. Both maps were redone on 2026-10-22 with the board rotated 90° (now F0..F7 = files h..a,
-C0..C7 = ranks 1..8). `calibrar` ran the same day with the 32 pieces (`HALL_ESPERA_ENCENDIDO` = 0.1 ms,
+`prueba_tablero recorrido`/`espejo` pass. Both maps were redone on 2026-10-22 with the board rotated 90° and then mirrored by hand (a↔h) because a1 had been taken at the wrong corner (now
+F0..F7 = files a..h, C0..C7 = ranks 1..8; a mirror passes `recorrido` and `inicial`, see
+`mapear` in `software-docs/sensores.md`). `calibrar` ran the same day with the 32 pieces (`HALL_ESPERA_ENCENDIDO` = 0.1 ms,
 `HALL_LECTURAS_ESTABLES` = 3). Still pending: `prueba_tablero inicial`. Power is temporary: the Pi on one phone charger, LEDs + Nano on
 another (the Nano still talks to the Pi over USB); to be unified later. Build guide:
 `hardware-docs/matriz-hall-nano.md`;

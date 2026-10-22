@@ -94,17 +94,18 @@ HALL_LECTURAS_ESTABLES: int = 3
 # nombre de la casilla, con Fk y Ck los números de cable de hardware-docs/matriz-hall-nano.md
 # (los mismos que eran Yk del 74HC138 y Dk del 74HC165 en la v2). Sirve aunque el cableado
 # no sea una grilla. Generado con `uv run python -m tablero.io.sensores mapear` el
-# 2026-10-18 (ver software-docs/sensores.md): es una grilla, F0 = fila 8 … F7 = fila 1 y
-# C0..C7 = columnas a..h.
+# 2026-10-22, con el tablero girado 90° (ver software-docs/sensores.md), y espejado a mano
+# (a↔h) porque se había mapeado con a1 en la esquina de h1: es una grilla, F0 = columna a …
+# F7 = columna h y C0..C7 = filas 1..8.
 CASILLA_DE_CELDA_HALL: tuple[tuple[str, ...], ...] = (
-    ("h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8"),  # F0: C0..C7
-    ("g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8"),  # F1: C0..C7
-    ("f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8"),  # F2: C0..C7
-    ("e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8"),  # F3: C0..C7
-    ("d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8"),  # F4: C0..C7
-    ("c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"),  # F5: C0..C7
-    ("b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"),  # F6: C0..C7
-    ("a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8"),  # F7: C0..C7
+    ("a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8"),  # F0: C0..C7
+    ("b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"),  # F1: C0..C7
+    ("c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"),  # F2: C0..C7
+    ("d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8"),  # F3: C0..C7
+    ("e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8"),  # F4: C0..C7
+    ("f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8"),  # F5: C0..C7
+    ("g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8"),  # F6: C0..C7
+    ("h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8"),  # F7: C0..C7
 )
 
 # -- Matriz: versión reed (la anterior, io/sensores_reed.py) -------------------------
@@ -139,18 +140,19 @@ LED_BRILLO: int = (
 LED_BRILLO_MAX: int = 191
 # Mapeo casilla → índice en la tira: LED_DE_CASILLA[chess.Square] (0 = a1, 1 = b1, ...,
 # 63 = h8). Generado con `uv run python -m tablero.io.prueba_tablero leds` el
-# 2026-10-18 (ver software-docs/prueba-tablero.md): la tira va en serpentina desde h1
-# (fila 1 h→a, fila 2 a→h, ...) justo después del LED de sacrificio.
+# 2026-10-22 (ver software-docs/prueba-tablero.md) y espejado a mano (a↔h), igual que
+# CASILLA_DE_CELDA_HALL: la tira va en serpentina por columnas desde h8 (columna h de 8 a 1,
+# columna g de 1 a 8, ...) justo después del LED de sacrificio.
 # fmt: off
 LED_DE_CASILLA: tuple[int, ...] = (
-     8,  9, 24, 25, 40, 41, 56, 57,  # fila 1: a..h
-     7, 10, 23, 26, 39, 42, 55, 58,  # fila 2: a..h
-     6, 11, 22, 27, 38, 43, 54, 59,  # fila 3: a..h
-     5, 12, 21, 28, 37, 44, 53, 60,  # fila 4: a..h
-     4, 13, 20, 29, 36, 45, 52, 61,  # fila 5: a..h
-     3, 14, 19, 30, 35, 46, 51, 62,  # fila 6: a..h
-     2, 15, 18, 31, 34, 47, 50, 63,  # fila 7: a..h
-     1, 16, 17, 32, 33, 48, 49, 64,  # fila 8: a..h
+    57, 56, 41, 40, 25, 24,  9,  8,  # fila 1: a..h
+    58, 55, 42, 39, 26, 23, 10,  7,  # fila 2: a..h
+    59, 54, 43, 38, 27, 22, 11,  6,  # fila 3: a..h
+    60, 53, 44, 37, 28, 21, 12,  5,  # fila 4: a..h
+    61, 52, 45, 36, 29, 20, 13,  4,  # fila 5: a..h
+    62, 51, 46, 35, 30, 19, 14,  3,  # fila 6: a..h
+    63, 50, 47, 34, 31, 18, 15,  2,  # fila 7: a..h
+    64, 49, 48, 33, 32, 17, 16,  1,  # fila 8: a..h
 )
 # fmt: on
 # Registro de partidas (ver logica/registro.py y software-docs/registro.md). No se
