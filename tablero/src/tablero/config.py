@@ -97,14 +97,14 @@ HALL_LECTURAS_ESTABLES: int = 3
 # 2026-10-18 (ver software-docs/sensores.md): es una grilla, F0 = fila 8 … F7 = fila 1 y
 # C0..C7 = columnas a..h.
 CASILLA_DE_CELDA_HALL: tuple[tuple[str, ...], ...] = (
-    ("a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"),  # F0: C0..C7
-    ("a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7"),  # F1: C0..C7
-    ("a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6"),  # F2: C0..C7
-    ("a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5"),  # F3: C0..C7
-    ("a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4"),  # F4: C0..C7
-    ("a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3"),  # F5: C0..C7
-    ("a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2"),  # F6: C0..C7
-    ("a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1"),  # F7: C0..C7
+    ("h1", "h2", "h3", "h4", "h5", "h6", "h7", "h8"),  # F0: C0..C7
+    ("g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8"),  # F1: C0..C7
+    ("f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8"),  # F2: C0..C7
+    ("e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8"),  # F3: C0..C7
+    ("d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8"),  # F4: C0..C7
+    ("c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"),  # F5: C0..C7
+    ("b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"),  # F6: C0..C7
+    ("a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8"),  # F7: C0..C7
 )
 
 # -- Matriz: versión reed (la anterior, io/sensores_reed.py) -------------------------
@@ -132,7 +132,9 @@ LED_GPIO_BCM: int = 12
 LED_CANAL_PWM: int = 0
 LED_CANTIDAD: int = 65
 LED_INDICE_SACRIFICIO: int = 0
-LED_BRILLO: int = 32  # 0-LED_BRILLO_MAX; bajo por defecto: 64 LEDs en blanco al máximo son ~3,8 A
+LED_BRILLO: int = (
+    32  # 0-LED_BRILLO_MAX; bajo por defecto: 64 LEDs en blanco al máximo son ~3,8 A
+)
 # Tope del brillo (75 % de 255): TiraLeds no pasa de acá aunque se pida más con --brillo.
 LED_BRILLO_MAX: int = 191
 # Mapeo casilla → índice en la tira: LED_DE_CASILLA[chess.Square] (0 = a1, 1 = b1, ...,
