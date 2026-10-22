@@ -127,7 +127,7 @@ Para el software eso implica tres cosas:
 | `NANO_PUERTO` | `None`: autodetectar (el único `/dev/ttyUSB*` o `/dev/ttyACM*`) | A mano, solo si hay varios puertos serie |
 | `HALL_ESPERA_ENCENDIDO` | `0.001` (1 ms por fila, generoso; sin calibrar todavía) | `calibrar` |
 | `HALL_LECTURAS_ESTABLES` | `3` (sin calibrar todavía) | `calibrar` |
-| `CASILLA_DE_CELDA_HALL` | Generado el 2026-10-18: grilla, F0 = fila 8 … F7 = fila 1, C0..C7 = columnas a..h | `mapear` |
+| `CASILLA_DE_CELDA_HALL` | Regenerado el 2026-10-22, con el tablero girado 90°: grilla, F0 = columna h … F7 = columna a, C0..C7 = filas 1..8 | `mapear` |
 
 Los clones del Nano con CH340 aparecen como `/dev/ttyUSB0`; otros, como `/dev/ttyACM0`. Si hay más
 de un puerto serie, poner en `NANO_PUERTO` el del Nano, mejor con su nombre de
@@ -317,7 +317,9 @@ su casilla.
 #### `calibrar`
 
 Mide la espera de encendido y el antirrebote, en tres pasos, y al final imprime las dos líneas
-para pegar en `config.py` (`HALL_ESPERA_ENCENDIDO`, `HALL_LECTURAS_ESTABLES`):
+para pegar en `config.py` (`HALL_ESPERA_ENCENDIDO`, `HALL_LECTURAS_ESTABLES`). Con los dos
+mapeos hechos conviene `prueba_tablero calibrar`: hace lo mismo, pero mientras se acomodan las
+piezas los LEDs muestran cuáles detectan los Hall (ver [`prueba-tablero.md`](./prueba-tablero.md#calibrar)).
 
 1. **Reposo**: con el tablero vacío, 3 s de barridos con 5 ms por fila. Lista los Hall que marcan
    pieza sin imán (hay que arreglarlos antes de `mapear`).

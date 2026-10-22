@@ -109,6 +109,13 @@ _SEGUNDOS_ESTABILIDAD = 10
 
 _AVISO_POLARIDAD = "¿Imán al revés? El A3144 solo ve el polo sur."
 
+# Casillas ocupadas en la posición inicial (filas 1, 2, 7 y 8).
+POSICION_INICIAL = frozenset(chess.SquareSet(chess.BB_RANK_1 | chess.BB_RANK_2 | chess.BB_RANK_7 | chess.BB_RANK_8))
+
+# Cómo espera `calibrar` a que se acomoden las piezas antes de cada paso: recibe el mensaje y
+# las casillas que tienen que quedar ocupadas, y vuelve cuando se aprieta Enter.
+EsperarPiezas = Callable[[str, frozenset[chess.Square]], None]
+
 
 class LectorMatriz(matriz.LectorMatriz):
     """`io/matriz.py::LectorMatriz` con la espera de encendido y el antirrebote de los Hall."""
@@ -234,8 +241,14 @@ def _barrer_durante(segundos: float, espera: float) -> list[MatrizCruda]:
     return lecturas
 
 
-def _paso_reposo() -> None:
-    input("Paso 1/3 · Reposo: sacá todas las piezas del tablero (y los imanes de cerca) y apretá Enter... ")
+def _esperar_enter(mensaje: str, _esperadas: frozenset[chess.Square]) -> None:
+    input(mensaje)
+
+
+def _paso_reposo(esperar_piezas: EsperarPiezas) -> None:
+    esperar_piezas(
+        "Paso 1/3 · Reposo: sacá todas las piezas del tablero (y los imanes de cerca) y apretá Enter... ", frozenset()
+    )
     lecturas = _barrer_durante(_SEGUNDOS_REPOSO, _ESPERA_REFERENCIA)
     activas = sorted({celda for lectura in lecturas for celda in celdas_activas(lectura)})
     if activas:
@@ -245,9 +258,11 @@ def _paso_reposo() -> None:
         print("  OK: ningún Hall marca pieza sin imán.")
 
 
-def _paso_encendido() -> tuple[MatrizCruda, float] | None:
+def _paso_encendido(esperar_piezas: EsperarPiezas) -> tuple[MatrizCruda, float] | None:
     while True:
-        input("Paso 2/3 · Tiempo de encendido: armá la posición inicial (32 piezas) y apretá Enter... ")
+        esperar_piezas(
+            "Paso 2/3 · Tiempo de encendido: armá la posición inicial (32 piezas) y apretá Enter... ", POSICION_INICIAL
+        )
         lecturas = [leer_matriz(_ESPERA_REFERENCIA) for _ in range(_BARRIDOS_POR_ESPERA)]
         referencia = logica_matriz.lectura_mas_comun(lecturas)
         if celdas_activas(referencia):
@@ -275,10 +290,11 @@ def _paso_encendido() -> tuple[MatrizCruda, float] | None:
     return referencia, espera
 
 
-def _paso_estabilidad(referencia: MatrizCruda, espera: float) -> int:
-    input(
+def _paso_estabilidad(esperar_piezas: EsperarPiezas, referencia: MatrizCruda, espera: float) -> int:
+    esperar_piezas(
         f"Paso 3/3 · Estabilidad: dejá las piezas y no toques el tablero durante {_SEGUNDOS_ESTABILIDAD} s. "
-        "Enter para empezar... "
+        "Enter para empezar... ",
+        POSICION_INICIAL,
     )
     lecturas = _barrer_durante(_SEGUNDOS_ESTABILIDAD, espera)
     estable = logica_matriz.lectura_mas_comun(lecturas)
@@ -296,25 +312,28 @@ def _paso_estabilidad(referencia: MatrizCruda, espera: float) -> int:
     return logica_matriz.recomendar_lecturas_estables(racha)
 
 
-def calibrar() -> None:
+def calibrar(esperar_piezas: EsperarPiezas = _esperar_enter) -> None:
     """Mide la espera de encendido y el antirrebote de los Hall (HALL_* de config.py).
 
     Tres pasos: reposo (tablero vacío: ningún Hall tiene que marcar), tiempo de encendido
     (con piezas, prueba esperas por fila cada vez más cortas contra una lectura de
     referencia) y estabilidad (10 s sin tocar, para elegir el antirrebote). Las cuentas
     están en logica/matriz.py; detalle en software-docs/sensores.md.
+
+    Antes de cada paso, `esperar_piezas` espera el Enter. Por defecto es un `input`;
+    `prueba_tablero calibrar` pasa una que además muestra en los LEDs lo que detectan los Hall.
     """
     configurar_matriz()
     try:
         print("Calibración de los Hall, 3 pasos.\n")
-        _paso_reposo()
+        _paso_reposo(esperar_piezas)
         print()
-        encendido = _paso_encendido()
+        encendido = _paso_encendido(esperar_piezas)
         if encendido is None:
             return
         referencia, espera = encendido
         print()
-        lecturas_estables = _paso_estabilidad(referencia, espera)
+        lecturas_estables = _paso_estabilidad(esperar_piezas, referencia, espera)
     except KeyboardInterrupt:
         print("\nCalibración cancelada.")
         return

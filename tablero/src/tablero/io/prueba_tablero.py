@@ -10,6 +10,7 @@ Pruebas manuales en la Raspberry (desde tablero/, ver software-docs/prueba-table
     uv run python -m tablero.io.prueba_tablero recorrido   # verificación guiada de a1 a h8
     uv run python -m tablero.io.prueba_tablero espejo      # los LEDs muestran las casillas ocupadas
     uv run python -m tablero.io.prueba_tablero inicial     # compara con la posición inicial
+    uv run python -m tablero.io.prueba_tablero calibrar    # `sensores calibrar` con los LEDs en vivo
 """
 
 import argparse
@@ -26,7 +27,6 @@ from tablero.io import leds, matriz, sensores
 
 logger = logging.getLogger(__name__)
 
-_POSICION_INICIAL = frozenset(chess.SquareSet(chess.BB_RANK_1 | chess.BB_RANK_2 | chess.BB_RANK_7 | chess.BB_RANK_8))
 _IDENTIDAD_HALL = tuple(
     tuple(chess.square_name(chess.square(entrada, salida)) for entrada in range(8)) for salida in range(8)
 )
@@ -41,6 +41,26 @@ def _pintar(tira: leds.TiraLeds, colores: dict[chess.Square, int]) -> None:
     for casilla, color in colores.items():
         tira.encender(casilla, color)
     tira.mostrar()
+
+
+def _pintar_comparacion(
+    tira: leds.TiraLeds, actuales: frozenset[chess.Square], esperadas: frozenset[chess.Square]
+) -> tuple[frozenset[chess.Square], frozenset[chess.Square]]:
+    """Verde donde hay pieza y tiene que haber, rojo donde falta, amarillo donde sobra.
+
+    Devuelve las casillas que faltan y las que sobran.
+    """
+    faltan = esperadas - actuales
+    sobran = actuales - esperadas
+    _pintar(
+        tira,
+        {
+            **dict.fromkeys(esperadas & actuales, leds.VERDE),
+            **dict.fromkeys(faltan, leds.ROJO),
+            **dict.fromkeys(sobran, leds.AMARILLO),
+        },
+    )
+    return faltan, sobran
 
 
 def _se_apreto_enter() -> bool:
@@ -201,16 +221,7 @@ def inicial(tira: leds.TiraLeds) -> None:
         lectura = lector.leer()
         if lectura is not None:
             actuales = sensores.ocupacion(lectura)
-            faltan = _POSICION_INICIAL - actuales
-            sobran = actuales - _POSICION_INICIAL
-            _pintar(
-                tira,
-                {
-                    **dict.fromkeys(_POSICION_INICIAL & actuales, leds.VERDE),
-                    **dict.fromkeys(faltan, leds.ROJO),
-                    **dict.fromkeys(sobran, leds.AMARILLO),
-                },
-            )
+            faltan, sobran = _pintar_comparacion(tira, actuales, sensores.POSICION_INICIAL)
             if not faltan and not sobran:
                 logger.info("Posición inicial completa (32 piezas).")
             else:
@@ -225,6 +236,47 @@ def inicial(tira: leds.TiraLeds) -> None:
         time.sleep(0.01)
 
 
+def calibrar(tira: leds.TiraLeds) -> None:
+    """`sensores calibrar` con los LEDs: antes de cada paso muestra en vivo lo que detectan los Hall.
+
+    Los Hall solo ven la pieza si está justo encima, así que mientras se arma el tablero (vacío
+    en el paso 1, posición inicial en el 2 y el 3) cada casilla se compara con lo que tiene
+    que haber, con los colores de `inicial`. Si al Enter algo no coincide, lo avisa y espera
+    otro Enter para seguir igual. Durante las mediciones los LEDs quedan como estaban.
+    """
+    _avisar_si_falta_mapear()
+    lector = sensores.LectorMatriz()
+
+    def esperar_piezas(mensaje: str, esperadas: frozenset[chess.Square]) -> None:
+        print(mensaje, end="", flush=True)
+        lector.reiniciar()
+        avisado = False
+        while True:
+            lectura = lector.leer()
+            if lectura is not None:
+                _pintar_comparacion(tira, sensores.ocupacion(lectura), esperadas)
+            if not _se_apreto_enter():
+                time.sleep(0.01)
+                continue
+            actuales = sensores.ocupacion(lector.estable or lector.esperar_estable())
+            faltan, sobran = _pintar_comparacion(tira, actuales, esperadas)
+            if avisado or not (faltan or sobran):
+                return
+            print(
+                f"  Faltan {len(faltan)} ({_nombres(faltan) or '-'}); sobran {len(sobran)} ({_nombres(sobran) or '-'}).\n"
+                "  Acomodalas hasta que todo quede en verde y Enter, o Enter para seguir igual... ",
+                end="",
+                flush=True,
+            )
+            avisado = True
+
+    print(
+        "Los LEDs muestran lo que detectan los Hall: verde = pieza donde tiene que estar; rojo = falta o no está "
+        "justo encima del sensor; amarillo = sobra.\n"
+    )
+    sensores.calibrar(esperar_piezas)
+
+
 if __name__ == "__main__":
     if os.geteuid() != 0:
         # rpi-ws281x necesita root (/dev/mem), ver io/leds.py: mismo relanzamiento.
@@ -233,10 +285,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prueba del tablero completo: sensores Hall y LEDs juntos.")
     parser.add_argument(
         "prueba",
-        choices=["leds", "recorrido", "espejo", "inicial"],
+        choices=["leds", "recorrido", "espejo", "inicial", "calibrar"],
         help=(
             "leds: generar LED_DE_CASILLA con una pieza; recorrido: verificación guiada de a1 a h8; "
-            "espejo: los LEDs siguen a las piezas; inicial: comparar con la posición inicial"
+            "espejo: los LEDs siguen a las piezas; inicial: comparar con la posición inicial; "
+            "calibrar: `sensores calibrar` mostrando en los LEDs lo que detectan los Hall"
         ),
     )
     parser.add_argument("--brillo", type=int, default=config.LED_BRILLO, help=f"0-{config.LED_BRILLO_MAX}")
@@ -246,6 +299,7 @@ if __name__ == "__main__":
         "recorrido": recorrido,
         "espejo": espejo,
         "inicial": inicial,
+        "calibrar": calibrar,
     }
     tira = leds.TiraLeds(argumentos.brillo)
     try:

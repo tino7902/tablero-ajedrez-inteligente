@@ -5,9 +5,9 @@ orden: primero lo que se puede hacer ya con pocos imanes, después lo que necesi
 piezas, y al final la pantalla. Cuando algo pasa, se tacha acá y se actualiza el doc del
 módulo (y `CLAUDE.md`, donde dice "not yet tested on the Pi").
 
-Estado al 2026-10-18. Lo que ya está probado en la Pi y no se repite: los botones del reloj,
-los LEDs (`LED_DE_CASILLA`), el mapeo de los Hall (`CASILLA_DE_CELDA_HALL`) y
-`prueba_tablero recorrido` y `espejo`.
+Estado al 2026-10-22. Lo que ya está probado en la Pi y no se repite: los botones del reloj,
+los LEDs (`LED_DE_CASILLA`), el mapeo de los Hall (`CASILLA_DE_CELDA_HALL`; los dos mapeos
+se rehicieron el 2026-10-22 con el tablero girado 90°) y `prueba_tablero recorrido` y `espejo`.
 
 ## 0. Preparación
 
@@ -126,23 +126,28 @@ uv run simulacion --magnus dificil --sin-registro
 
 ## 2. Con las 32 piezas
 
-### 2.1 `sensores calibrar`
+### 2.1 Calibrar los Hall
 
 Hasta ahora `HALL_ESPERA_ENCENDIDO` y `HALL_LECTURAS_ESTABLES` son valores por defecto (1 ms
 y 3), que alcanzaron para todas las pruebas.
 
 ```bash
-uv run python -m tablero.io.sensores calibrar
+uv run python -m tablero.io.prueba_tablero calibrar
 ```
 
-Tiene tres pasos: tablero vacío, posición inicial armada y 10 s sin tocar nada.
+Es `sensores calibrar` con los LEDs mostrando en vivo lo que detectan los Hall: verde, bien;
+rojo, falta o la pieza no está justo encima del sensor; amarillo, sobra. Tiene tres pasos:
+tablero vacío, posición inicial armada y 10 s sin tocar nada.
+
+- [ ] Mientras se arma la posición inicial, cada pieza bien puesta pasa a verde.
 
 - [ ] Ningún Hall marca pieza con el tablero vacío.
 - [ ] El paso 2 no da `FALLA` (si da, es eléctrico: `medir`).
 - [ ] Pegar las dos líneas que imprime en `config.py` y actualizar la tabla de configuración
   de [`sensores.md`](./sensores.md), que dice "sin calibrar todavía".
 
-Detalle en [`sensores.md`](./sensores.md) (`calibrar`).
+Detalle en [`prueba-tablero.md`](./prueba-tablero.md#calibrar) y
+[`sensores.md`](./sensores.md#calibrar).
 
 ### 2.2 `prueba_tablero inicial`
 

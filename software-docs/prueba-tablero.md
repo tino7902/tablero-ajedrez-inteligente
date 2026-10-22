@@ -4,8 +4,8 @@ Pruebas del tablero completo: los sensores Hall ([`sensores.md`](./sensores.md))
 ([`leds.md`](./leds.md)) juntos. Sirve para asociar cada LED a su casilla sin tipear nada y para
 verificar, de punta a punta, que lo que detectan los sensores, lo que muestran los LEDs y el
 tablero real coincidan. **Probado en el prototipo** (2026-10-18): `leds` generó
-`LED_DE_CASILLA`, y `recorrido` y `espejo` funcionan. Falta `inicial`, que necesita las 32
-piezas.
+`LED_DE_CASILLA`, y `recorrido` y `espejo` funcionan. Faltan `inicial` y `calibrar`, que
+necesitan las 32 piezas.
 
 ## Requisitos
 
@@ -28,6 +28,7 @@ uv run python -m tablero.io.prueba_tablero leds        # genera LED_DE_CASILLA c
 uv run python -m tablero.io.prueba_tablero recorrido   # verificación guiada de a1 a h8
 uv run python -m tablero.io.prueba_tablero espejo      # los LEDs muestran las casillas ocupadas
 uv run python -m tablero.io.prueba_tablero inicial     # compara con la posición inicial
+uv run python -m tablero.io.prueba_tablero calibrar    # `sensores calibrar` con los LEDs en vivo
 ```
 
 Todas aceptan `--brillo 0-191` (tope `LED_BRILLO_MAX`, por defecto `LED_BRILLO`).
@@ -77,6 +78,30 @@ Compara en vivo contra la posición inicial (filas 1, 2, 7 y 8 ocupadas): **verd
 pieza y tiene que haber, **rojo** donde falta, **amarillo** donde sobra. Loguea cuántas faltan y
 sobran en cada cambio, y `Posición inicial completa (32 piezas).` cuando coincide. Es la
 comprobación antes de arrancar una partida.
+
+### `calibrar`
+
+Es `sensores calibrar` (ver [`sensores.md`](./sensores.md#calibrar)), con los mismos tres pasos
+y el mismo resultado, pero mientras se espera el Enter de cada paso los LEDs muestran en vivo lo
+que detectan los Hall, comparado con lo que tiene que haber. Los colores son los de `inicial`:
+**verde** donde hay pieza y tiene que haber, **rojo** donde falta, **amarillo** donde sobra.
+
+- Paso 1 (reposo): se compara con el tablero vacío. Cualquier casilla que se prenda en
+  amarillo es una pieza o un imán que quedó cerca, o un Hall que marca solo.
+- Pasos 2 y 3: se compara con la posición inicial.
+
+Existe porque los Hall solo ven la pieza si está justo encima del sensor. Con la pieza un poco
+corrida, la casilla queda en rojo, y se la acomoda hasta que se prenda en verde antes de medir.
+Si al apretar Enter algo no coincide, imprime qué falta y qué sobra y espera otro Enter: o se
+acomoda la pieza, o se sigue igual (por ejemplo, con un Hall que no anda).
+
+Durante las mediciones los LEDs quedan prendidos como estaban (hasta 32 en verde). Como los LEDs
+y el Nano comparten cargador, se mide con algo de carga, que es lo conservador. Si el paso 2 da
+`FALLA` acá y no con `sensores calibrar`, la culpa es de la caída de tensión de los LEDs y no de
+la matriz.
+
+Necesita los dos mapeos hechos, porque pinta por casilla. Si alguno está mal, se usa
+`sensores calibrar`, que no prende LEDs.
 
 ## Decisiones de diseño
 

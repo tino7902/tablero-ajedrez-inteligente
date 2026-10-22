@@ -31,8 +31,9 @@ message on any port/protocol failure) with the same public API the v2 GPIO drive
 protocol text (building `L <µs>`, decoding `M`/`C`/`A`/`LISTO`) is pure code in
 `logica/matriz.py`, tested in `tests/test_matriz.py`. **Verified on the Pi (2026-10-18)**: the
 Halls (`sensores mapear`) and the LEDs (`prueba_tablero leds`) are mapped in `config.py`, and
-`prueba_tablero recorrido`/`espejo` pass. Still pending, waiting for the 32 pieces: `sensores
-calibrar` (so `HALL_ESPERA_ENCENDIDO`/`HALL_LECTURAS_ESTABLES` are still the defaults) and
+`prueba_tablero recorrido`/`espejo` pass. Both maps were redone on 2026-10-22 with the board rotated 90° (now F0..F7 = files h..a,
+C0..C7 = ranks 1..8). Still pending, now that the 32 pieces exist: `prueba_tablero calibrar`
+(so `HALL_ESPERA_ENCENDIDO`/`HALL_LECTURAS_ESTABLES` are still the defaults) and
 `prueba_tablero inicial`. Power is temporary: the Pi on one phone charger, LEDs + Nano on
 another (the Nano still talks to the Pi over USB); to be unified later. Build guide:
 `hardware-docs/matriz-hall-nano.md`;
@@ -73,7 +74,8 @@ view), `io/sensores_reed.py` (the previous reed-switch version, kept on purpose 
 switch back: same API, two-permutation mapping, own CLI; works over the Nano too since a reed +
 diode pulls its column like a Hall — see `software-docs/sensores-reed.md`),
 `io/prueba_tablero.py` (sensors + LEDs together: sensor-assisted LED↔square association, guided
-a1..h8 walk, live mirror, initial-position check; re-execs itself via `sudo` like `io/leds.py` —
+a1..h8 walk, live mirror, initial-position check, and `calibrar` = `sensores calibrar` with the
+LEDs showing live which squares the Halls detect while the pieces are being placed; re-execs itself via `sudo` like `io/leds.py` —
 see `software-docs/prueba-tablero.md`), `logica/matriz.py` (hardware-free processing of raw
 matrix reads: table validation, celda→casilla, the math behind `calibrar`, the Nano protocol text; tested in
 `tests/test_matriz.py`), `io/leds.py` (WS2812B via `rpi-ws281x` on BCM 12, needs root (the `__main__` re-execs itself via `sudo` so `uv run python -m tablero.io.leds` works) +
