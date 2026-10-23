@@ -146,14 +146,14 @@ LED_BRILLO_MAX: int = 191
 # columna g de 1 a 8, ...). Índices corridos en -1 el 2026-10-22 al sacar el LED de sacrificio.
 # fmt: off
 LED_DE_CASILLA: tuple[int, ...] = (
-    56, 55, 40, 39, 24, 23,  8,  7,  # fila 1: a..h
-    57, 54, 41, 38, 25, 22,  9,  6,  # fila 2: a..h
-    58, 53, 42, 37, 26, 21, 10,  5,  # fila 3: a..h
-    59, 52, 43, 36, 27, 20, 11,  4,  # fila 4: a..h
-    60, 51, 44, 35, 28, 19, 12,  3,  # fila 5: a..h
-    61, 50, 45, 34, 29, 18, 13,  2,  # fila 6: a..h
-    62, 49, 46, 33, 30, 17, 14,  1,  # fila 7: a..h
-    63, 48, 47, 32, 31, 16, 15,  0,  # fila 8: a..h
+    63, 62, 61, 60, 59, 58, 57, 56,  # fila 1: a..h
+    48, 49, 50, 51, 52, 53, 54, 55,  # fila 2: a..h
+    47, 46, 45, 44, 43, 42, 41, 40,  # fila 3: a..h
+    32, 33, 34, 35, 36, 37, 38, 39,  # fila 4: a..h
+    31, 30, 29, 28, 27, 26, 25, 24,  # fila 5: a..h
+    16, 17, 18, 19, 20, 21, 22, 23,  # fila 6: a..h
+    15, 14, 13, 12, 11, 10,  9,  8,  # fila 7: a..h
+     0,  1,  2,  3,  4,  5,  6,  7,  # fila 8: a..h
 )
 # fmt: on
 # Registro de partidas (ver logica/registro.py y software-docs/registro.md). No se
