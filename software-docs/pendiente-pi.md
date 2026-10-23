@@ -5,16 +5,21 @@ orden: primero lo que se puede hacer ya con pocos imanes, después lo que necesi
 piezas, y al final la pantalla. Cuando algo pasa, se tacha acá y se actualiza el doc del
 módulo (y `CLAUDE.md`, donde dice "not yet tested on the Pi").
 
-Estado al 2026-10-22. Lo que ya está probado en la Pi y no se repite: los botones del reloj,
-los LEDs (`LED_DE_CASILLA`), el mapeo de los Hall (`CASILLA_DE_CELDA_HALL`; los dos mapeos
-se rehicieron el 2026-10-22 con el tablero girado 90°, y se espejaron a mano porque habían quedado a↔h) y `prueba_tablero recorrido` y `espejo`.
+Estado al 2026-10-23: **todo lo de las secciones 0 a 3 pasó en la Pi** (confirmado por Tino),
+incluida la interfaz de la pantalla con el tablero real. Falta el mapeo final, ahora que se
+está pegando la estructura definitiva (sección 4), y el arranque automático (sección 5).
+
+Lo que ya estaba probado antes: los botones del reloj, los LEDs (`LED_DE_CASILLA`), el mapeo
+de los Hall (`CASILLA_DE_CELDA_HALL`; los dos mapeos se rehicieron el 2026-10-22 con el
+tablero girado 90°, y se espejaron a mano porque habían quedado a↔h) y `prueba_tablero
+recorrido` y `espejo`.
 
 ## 0. Preparación
 
-- [ ] **Código en la Pi.** Desde la notebook, con todo commiteado: `pushpi` (hace `git push`
+- [x] **Código en la Pi.** Desde la notebook, con todo commiteado: `pushpi` (hace `git push`
   y `git pull --ff-only` en la Pi; falla si la Pi tiene cambios locales en archivos del repo).
-- [ ] **Dependencias.** En la Pi, desde `tablero/`: `uv sync`.
-- [ ] **Stockfish** (solo para lo de Magnus):
+- [x] **Dependencias.** En la Pi, desde `tablero/`: `uv sync`.
+- [x] **Stockfish** (solo para lo de Magnus):
 
   ```bash
   which stockfish || ls -l /usr/games/stockfish    # alguno de los dos tiene que aparecer
@@ -37,16 +42,16 @@ Es la primera vez que los tres andan en un mismo programa. Imanes en e2 y e7:
 uv run python -m tablero.io.juego --fen "8/4p3/8/8/8/8/4P3/8 w - - 0 1"
 ```
 
-- [ ] Arranca, pide acomodar las piezas y con las dos puestas dice "Posición lista". Un botón
+- [x] Arranca, pide acomodar las piezas y con las dos puestas dice "Posición lista". Un botón
   arranca la partida.
-- [ ] `boton_1` sin mover: `⛔ ... no se movió ninguna pieza`.
-- [ ] Levantar e2: e2 en azul, e3 y e4 en blanco tenue.
-- [ ] Apoyarlo en d4: d4 en amarillo. `boton_1`: rechazado ("sobra pieza en d4").
-- [ ] Pasarlo a e4: e2 y e4 en verde. `boton_2` no hace nada (no es su turno). `boton_1`:
+- [x] `boton_1` sin mover: `⛔ ... no se movió ninguna pieza`.
+- [x] Levantar e2: e2 en azul, e3 y e4 en blanco tenue.
+- [x] Apoyarlo en d4: d4 en amarillo. `boton_1`: rechazado ("sobra pieza en d4").
+- [x] Pasarlo a e4: e2 y e4 en verde. `boton_2` no hace nada (no es su turno). `boton_1`:
   `✓ blancas: e4` y turno de negras, con el reloj.
-- [ ] Lo mismo con negras (e7 → e5, `boton_2`).
-- [ ] Ctrl+C: "Partida abandonada", se apagan los LEDs e imprime dónde quedó el registro.
-- [ ] El registro es del usuario y no de root:
+- [x] Lo mismo con negras (e7 → e5, `boton_2`).
+- [x] Ctrl+C: "Partida abandonada", se apagan los LEDs e imprime dónde quedó el registro.
+- [x] El registro es del usuario y no de root:
   `ls -l registros/partidas registros/detalle | tail`.
 
 Si algo no detecta, primero `uv run python -m tablero.io.prueba_tablero espejo` para ver que
@@ -59,10 +64,10 @@ los imanes se lean. Detalle en [`juego.md`](./juego.md#cómo-probarlo-sin-las-32
 | e1, h1, e8 | `uv run python -m tablero.io.juego --fen "4k3/8/8/8/8/8/8/4K2R w K - 0 1"` | Enroque corto, una vez empezando por el rey y otra por la torre: tiene que quedar `O-O` |
 | e4, d5 | `uv run python -m tablero.io.juego --fen "8/8/8/3p4/4P3/8/8/8 w - - 0 1"` | Captura `exd5`, sacando primero cualquiera de las dos piezas |
 
-- [ ] Enroque empezando por el rey.
-- [ ] Enroque empezando por la torre.
-- [ ] Captura sacando primero el peón capturado.
-- [ ] Captura levantando primero el que captura.
+- [x] Enroque empezando por el rey.
+- [x] Enroque empezando por la torre.
+- [x] Captura sacando primero el peón capturado.
+- [x] Captura levantando primero el que captura.
 
 ### 1.3 `juego.py --magnus`: el flujo contra la máquina
 
@@ -73,25 +78,25 @@ Imanes en e1, e2 y e8; Magnus juega con blancas, así que arranca él:
 uv run python -m tablero.io.juego --magnus facil --color negras --fen "4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"
 ```
 
-- [ ] Arranca sin error de Stockfish (si dice "No se encontró Stockfish", volver al paso 0).
-- [ ] Con las piezas puestas y un botón: "Magnus está pensando…" y enseguida
+- [x] Arranca sin error de Stockfish (si dice "No se encontró Stockfish", volver al paso 0).
+- [x] Con las piezas puestas y un botón: "Magnus está pensando…" y enseguida
   "Magnus: … / Movelo y apretá un botón".
-- [ ] La jugada de Magnus en violeta (lo que tiene que quedar vacío) y cian (adonde va), y que
+- [x] La jugada de Magnus en violeta (lo que tiene que quedar vacío) y cian (adonde va), y que
   esos colores se distingan bien del azul y del blanco tenue de PvP. Si no se distinguen,
   cambiar `VIOLETA`/`CIAN` en `io/leds.py`.
-- [ ] Un botón sin mover nada: se ignora con "la jugada de Magnus no está terminada: …".
-- [ ] Hacerla a medias: el botón sigue ignorándose con lo que falta.
-- [ ] Hacerla completa: las casillas en verde y un botón la confirma (`✓ Magnus: …`), con el
+- [x] Un botón sin mover nada: se ignora con "la jugada de Magnus no está terminada: …".
+- [x] Hacerla a medias: el botón sigue ignorándose con lo que falta.
+- [x] Hacerla completa: las casillas en verde y un botón la confirma (`✓ Magnus: …`), con el
   cronómetro.
-- [ ] Tu jugada con **cualquiera** de los dos botones.
-- [ ] Mientras dice "pensando", el botón se ignora ("Magnus está pensando").
-- [ ] Tu jugada armada encima de la de Magnus sin confirmar: el botón se ignora con "primero
+- [x] Tu jugada con **cualquiera** de los dos botones.
+- [x] Mientras dice "pensando", el botón se ignora ("Magnus está pensando").
+- [x] Tu jugada armada encima de la de Magnus sin confirmar: el botón se ignora con "primero
   hay que confirmar la jugada de Magnus".
-- [ ] Con `--magnus dificil` (1 s por jugada): mientras piensa, levantar una pieza tiene que
+- [x] Con `--magnus dificil` (1 s por jugada): mientras piensa, levantar una pieza tiene que
   prenderla en rojo enseguida. Así se ve que el motor no traba el loop.
-- [ ] Ctrl+C mientras piensa: sale limpio y no queda Stockfish colgado:
+- [x] Ctrl+C mientras piensa: sale limpio y no queda Stockfish colgado:
   `pgrep -a stockfish` no muestra nada.
-- [ ] El PGN del registro tiene `TimeControl "-"`, `White "Magnus (fácil)"` y
+- [x] El PGN del registro tiene `TimeControl "-"`, `White "Magnus (fácil)"` y
   `Black "Jugador"`, y la cabecera del log dice `modo=vs_magnus tiempo=sin límite`.
 
 ### 1.4 `juego.py --magnus`: mate de Magnus
@@ -104,10 +109,10 @@ y da mate con `Qb8#`; con `dificil` lo encuentra siempre):
 uv run python -m tablero.io.juego --magnus dificil --color negras --fen "7k/8/6K1/8/8/8/8/1Q6 w - - 0 1"
 ```
 
-- [ ] Imprime "Magnus: dama b1→b8", "Aguantaste 00:0X contra Magnus", "¡Jaque mate! Ganan
+- [x] Imprime "Magnus: dama b1→b8", "Aguantaste 00:0X contra Magnus", "¡Jaque mate! Ganan
   blancas" y "Hacé la jugada de Magnus en el tablero para verla; apretá un botón para salir".
-- [ ] b1 en violeta y b8 en cian. Al mover el imán de b1 a b8, las dos en verde.
-- [ ] Un botón termina el programa y apaga los LEDs.
+- [x] b1 en violeta y b8 en cian. Al mover el imán de b1 a b8, las dos en verde.
+- [x] Un botón termina el programa y apaga los LEDs.
 
 ### 1.5 Velocidad de los niveles en la Pi 3B
 
@@ -120,8 +125,8 @@ uv run simulacion --magnus facil --sin-registro
 uv run simulacion --magnus dificil --sin-registro
 ```
 
-- [ ] Cada jugada tarda más o menos el tiempo del nivel (0,1 s, 0,5 s, 1 s).
-- [ ] Si algún nivel queda demasiado fácil o difícil, ajustar `NIVELES_MAGNUS` en
+- [x] Cada jugada tarda más o menos el tiempo del nivel (0,1 s, 0,5 s, 1 s).
+- [x] Si algún nivel queda demasiado fácil o difícil, ajustar `NIVELES_MAGNUS` en
   `config.py` ([`motor.md`](./motor.md)).
 
 ## 2. Con las 32 piezas
@@ -139,7 +144,7 @@ rojo, falta o la pieza no está justo encima del sensor; amarillo, sobra. Tiene 
 tablero vacío, posición inicial armada y 10 s sin tocar nada.
 
 - [x] Mientras se arma la posición inicial, cada pieza bien puesta pasa a verde.
-- [ ] Ningún Hall marca pieza con el tablero vacío (el paso 1 dice "OK"; no quedó anotado).
+- [x] Ningún Hall marca pieza con el tablero vacío.
 - [x] El paso 2 no da `FALLA` (si da, es eléctrico: `medir`).
 - [x] Pegar las dos líneas que imprime en `config.py` y actualizar la tabla de configuración
   de [`sensores.md`](./sensores.md).
@@ -153,8 +158,8 @@ Detalle en [`prueba-tablero.md`](./prueba-tablero.md#calibrar) y
 uv run python -m tablero.io.prueba_tablero inicial
 ```
 
-- [ ] Con las 32 piezas puestas: "Posición inicial completa (32 piezas)." y todo en verde.
-- [ ] Sacar una pieza la marca en rojo, y ponerla en una casilla vacía la marca en amarillo.
+- [x] Con las 32 piezas puestas: "Posición inicial completa (32 piezas)." y todo en verde.
+- [x] Sacar una pieza la marca en rojo, y ponerla en una casilla vacía la marca en amarillo.
 
 ### 2.3 Partida completa PvP
 
@@ -167,9 +172,9 @@ uv run python -m tablero.io.juego --minutos 10
 - [x] Al levantar una pieza que puede capturar, se ven **todos** sus destinos (en blanco
   tenue, con la captura entre ellos) y no la captura sola en verde. Arreglado el 2026-10-22
   después de la primera partida.
-- [ ] Ver que ninguna lectura salte sola: piezas que parpadean, jugadas que aparecen sin
+- [x] Ver que ninguna lectura salte sola: piezas que parpadean, jugadas que aparecen sin
   tocar nada. Si pasa, subir `HALL_LECTURAS_ESTABLES`.
-- [ ] El PGN del registro se abre bien en Lichess.
+- [x] El PGN del registro se abre bien en Lichess.
 
 ### 2.4 Partida completa contra Magnus
 
@@ -178,12 +183,12 @@ uv run python -m tablero.io.juego --magnus facil
 uv run python -m tablero.io.juego --magnus medio --color negras
 ```
 
-- [ ] Una partida entera en cada color.
-- [ ] En una captura de Magnus, con su pieza en la mano y la tuya todavía en el destino,
+- [x] Una partida entera en cada color.
+- [x] En una captura de Magnus, con su pieza en la mano y la tuya todavía en el destino,
   siguen el violeta y el cian (no el verde), y el botón dice qué falta.
-- [ ] Una captura y un enroque de Magnus: los LEDs y el texto ("Magnus enroca corto: rey
+- [x] Una captura y un enroque de Magnus: los LEDs y el texto ("Magnus enroca corto: rey
   e8→g8 y torre h8→f8") alcanzan para entender qué mover.
-- [ ] El mensaje final con la duración.
+- [x] El mensaje final con la duración.
 
 ## 3. Pantalla táctil
 
@@ -195,9 +200,9 @@ uv run python -m tablero.io.juego --magnus medio --color negras
 uv run python -m tablero.io.calibracion_touch
 ```
 
-- [ ] Aparecen las 5 cruces y se pueden tocar todas.
-- [ ] Queda `tablero/calibracion_touch.json`.
-- [ ] `uv run python -m tablero.io.pantalla`: los toques dentro del botón "Tocame" suman siempre,
+- [x] Aparecen las 5 cruces y se pueden tocar todas.
+- [x] Queda `tablero/calibracion_touch.json`.
+- [x] `uv run python -m tablero.io.pantalla`: los toques dentro del botón "Tocame" suman siempre,
   también cerca de los bordes del botón. Antes de calibrar, algunos caían afuera.
 
 Detalle en [`pantalla.md`](./pantalla.md#calibración-del-touch).
@@ -211,18 +216,44 @@ conviene probarla en la notebook con el tablero simulado (ver ahí).
 uv run python -m tablero.io.menus_gpio          # se relanza con sudo por los LEDs
 ```
 
-- [ ] Arranca y muestra el menú; los toques caen en los botones.
-- [ ] Contra un amigo → 5 minutos → "Acomodá las piezas": cuenta faltan/sobran y los LEDs
+- [x] Arranca y muestra el menú; los toques caen en los botones.
+- [x] Contra un amigo → 5 minutos → "Acomodá las piezas": cuenta faltan/sobran y los LEDs
   marcan rojo/amarillo. Con todo en su lugar, "¡Posición lista!".
-- [ ] Un botón del reloj: 3, 2, 1 y la partida. El reloj de blancas corre y se redibuja cada
+- [x] Un botón del reloj: 3, 2, 1 y la partida. El reloj de blancas corre y se redibuja cada
   segundo sin que la pantalla se ponga en blanco.
-- [ ] Jugadas con los LEDs de siempre; una jugada ilegal + botón muestra el motivo abajo.
-- [ ] Tablas: ofrecer de un lado, aceptar del otro → "Tablas por acuerdo". Otra vez:
+- [x] Jugadas con los LEDs de siempre; una jugada ilegal + botón muestra el motivo abajo.
+- [x] Tablas: ofrecer de un lado, aceptar del otro → "Tablas por acuerdo". Otra vez:
   ofrecer y jugar sin contestar → la oferta desaparece.
-- [ ] ¿Rendirse? pide confirmación; "No" vuelve a la partida, "Sí" muestra el final.
-- [ ] Menú principal desde el final, y una segunda partida arranca reconociendo las piezas.
-- [ ] Contra Magnus → Fácil → Blancas: "Tu turno", "Magnus está pensando…", su jugada en
+- [x] ¿Rendirse? pide confirmación; "No" vuelve a la partida, "Sí" muestra el final.
+- [x] Menú principal desde el final, y una segunda partida arranca reconociendo las piezas.
+- [x] Contra Magnus → Fácil → Blancas: "Tu turno", "Magnus está pensando…", su jugada en
   violeta/cian y en el recuadro; el tiempo arriba a la derecha.
-- [ ] Desenchufar el USB del Nano en una partida: pantalla "Problema con el tablero" y
+- [x] Desenchufar el USB del Nano en una partida: pantalla "Problema con el tablero" y
   Menú principal; al volver a enchufarlo, la partida siguiente anda.
-- [ ] Ctrl+C: apaga los LEDs, y `ls -l registros/partidas` muestra los PGN del usuario.
+- [x] Ctrl+C: apaga los LEDs, y `ls -l registros/partidas` muestra los PGN del usuario.
+
+## 4. Mapeo final, con la estructura pegada
+
+Al pegar la estructura definitiva cambia dónde queda cada Hall y cada LED respecto de las
+casillas, así que se rehacen los dos mapeos (con el servicio parado, si ya está instalado:
+`sudo systemctl stop tablero`).
+
+- [ ] `uv run python -m tablero.io.sensores mapear`, con a1 en la esquina oscura a la izquierda
+  de las blancas ([`sensores.md`](./sensores.md#mapear)). Pegar `CASILLA_DE_CELDA_HALL` en
+  `config.py` desde la notebook (commit + `pushpi`), no en la Pi.
+- [ ] `uv run python -m tablero.io.prueba_tablero leds`, con el mapeo nuevo de los Hall ya en la
+  Pi. Pegar `LED_DE_CASILLA` igual.
+- [ ] `prueba_tablero espejo`: una pieza en la esquina oscura de la izquierda de las blancas
+  dice `aparece pieza en a1` (lo único que detecta un mapeo espejado).
+- [ ] `prueba_tablero recorrido` termina en `OK` y `prueba_tablero inicial` da
+  "Posición inicial completa (32 piezas).".
+- [ ] Si cambió la distancia entre imanes y sensores: `prueba_tablero calibrar` de nuevo.
+
+## 5. Arranque automático
+
+Que la Pi prenda directo en el menú, con un servicio de systemd.
+Paso a paso en [`arranque-automatico.md`](./arranque-automatico.md).
+
+- [ ] `sudo systemctl start tablero` muestra el menú y `stop` apaga los LEDs en pocos segundos.
+- [ ] Después de `sudo reboot`, el menú aparece solo, sin entrar por SSH.
+- [ ] Una partida desde el arranque, y los PGN de `registros/partidas` son de magnus.

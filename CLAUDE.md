@@ -34,7 +34,7 @@ Halls (`sensores mapear`) and the LEDs (`prueba_tablero leds`) are mapped in `co
 `prueba_tablero recorrido`/`espejo` pass. Both maps were redone on 2026-10-22 with the board rotated 90° and then mirrored by hand (a↔h) because a1 had been taken at the wrong corner (now
 F0..F7 = files a..h, C0..C7 = ranks 1..8; a mirror passes `recorrido` and `inicial`, see
 `mapear` in `software-docs/sensores.md`). `calibrar` ran the same day with the 32 pieces (`HALL_ESPERA_ENCENDIDO` = 0.1 ms,
-`HALL_LECTURAS_ESTABLES` = 3). Still pending: `prueba_tablero inicial`. Power is temporary: the Pi on one phone charger, LEDs + Nano on
+`HALL_LECTURAS_ESTABLES` = 3). `prueba_tablero inicial` passes too. Still pending: redoing both maps once the final structure is glued (2026-10-23). Power is temporary: the Pi on one phone charger, LEDs + Nano on
 another (the Nano still talks to the Pi over USB); to be unified later. Build guide:
 `hardware-docs/matriz-hall-nano.md`;
 iterations (v1 reed, v2 Hall+138/165, v3 Nano) and every rejected alternative with its reason:
@@ -51,14 +51,14 @@ each square; tested in `tests/test_eventos.py`, see `software-docs/eventos.md`),
 `SimpleEngine`; difficulty levels from `config.NIVELES_MAGNUS` = `Skill Level` + seconds per move;
 runs in its own process group so a Ctrl+C doesn't kill it mid-move; tested in `tests/test_motor.py`), `io/pantalla.py` (static text on the RPI LCD V3
 touchscreen via `pygame`/DRM-KMS), `io/calibracion_touch.py` (affine least-squares calibration
-for the XPT2046 touch controller, no hardware test yet — see `software-docs/pantalla.md`),
+for the XPT2046 touch controller, hardware-verified — see `software-docs/pantalla.md`),
 `io/menus.py` (the touchscreen UI, 2026-10-22: menus → time or difficulty+color → "acomodá las
 piezas" → PvP with countdown, both clocks, resign with confirmation and draw offers, or vs
 Magnus with the phase text box → end screen; draws from `logica/sesion.py` and takes the
 hardware as a `Hardware` (occupancy source, LED painter, engine factory), importing nothing from
 GPIO/Nano/LEDs; run directly with `TABLERO_PANTALLA_VENTANA=1` it uses the terminal-driven
 `logica/tablero_simulado.py`, no LEDs, ←/→ as clock buttons — see `software-docs/menus.md`;
-**not yet tried, neither on the notebook nor on the Pi**), `io/menus_gpio.py` (the Pi entry
+**verified on the Pi with the real board, 2026-10-23**), `io/menus_gpio.py` (the Pi entry
 point: builds the real `Hardware` — Nano matrix, LED strip, GPIO buttons as pygame events,
 Stockfish — re-execs via `sudo`, kept apart from `io/menus.py` on purpose so the notebook path
 and the Raspberry path can't break each other), `logica/sesion.py` (`SesionPvP`/`SesionMagnus`:
@@ -110,8 +110,8 @@ program on the Pi that wires the Nano matrix, the GPIO clock buttons (via a `que
 the LEDs into `PartidaFisica`; waits for the starting position first; `--fen` lets it run with
 a few magnets; re-execs via `sudo` unless `--sin-leds`, and chowns the registros back to
 `SUDO_UID`; `--magnus {facil,medio,dificil}` plays `PartidaVsMagnus` with Stockfish in a
-one-thread `ThreadPoolExecutor` so the loop never blocks; **not yet tested on the Pi**, neither
-mode — see `software-docs/juego.md`), `logica/registro.py` (per-game
+one-thread `ThreadPoolExecutor` so the loop never blocks; **verified on the Pi**, both modes
+— see `software-docs/juego.md`), `logica/registro.py` (per-game
 PGN for the last 15 games plus a detailed event log for the last 5, under `tablero/registros/`,
 gitignored — see `software-docs/registro.md`), and `simulacion.py` (terminal-only game
 simulation: type a move, the program answers how the board would react, with a real running
@@ -119,7 +119,10 @@ clock; runs anywhere, no hardware; `--magnus` plays against Stockfish by typing,
 levels — see `software-docs/simulacion.md`). Still empty: `web/` and
 `tests/test_sensores.py`. `PartidaFisica` also has PvP draw offers (`ofrecer_tablas`,
 `responder_tablas`; confirming a move without answering rejects) and `Partida.acordar_tablas`.
-Pending after the UI works on the Pi: a systemd service so it starts on boot.
+Everything in `software-docs/pendiente-pi.md` sections 0–3 passed on the Pi (2026-10-23). Still
+pending: the final remap (section 4) and starting on boot with a systemd service (section 5) —
+the exact steps (`tablero.service`, root + `KillSignal=SIGINT`, not yet tried on the Pi) are in
+`software-docs/arranque-automatico.md`.
 `pytest` is a declared dev dependency (`uv add --dev pytest`) and
 `uv run pytest` works (260 tests, all hardware-free except `test_motor.py`, which skips itself
 without the `stockfish` binary). Don't assume implementations exist just because a file is present; check

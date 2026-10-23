@@ -225,12 +225,8 @@ uv run python -m tablero.io.juego --magnus facil --color negras --fen "4k3/8/8/8
 Antes de la primera prueba conviene comprobar en la Pi que Stockfish está instalado
 (`sudo apt install stockfish` si no) con `which stockfish || ls -l /usr/games/stockfish`.
 
-## Pendiente
+## Estado
 
-Los pasos para probar todo esto están en [`pendiente-pi.md`](./pendiente-pi.md).
-
-- Probarlo en la Pi (botones, matriz y LEDs juntos en un mismo programa es la primera vez),
-  también `--magnus`.
-- Una partida completa con las 32 piezas, después de `sensores calibrar`.
-- Conectarlo a la pantalla PvP de `io/menus.py`: `PartidaFisica` ya tiene todo lo que hace
-  falta; queda leer el Nano sin trabar el loop de pygame.
+Probado en la Pi el 2026-10-23, PvP y `--magnus`, con pocos imanes y con partidas completas
+de 32 piezas (ver [`pendiente-pi.md`](./pendiente-pi.md)). La misma partida con la pantalla
+táctil en vez de la terminal es `io/menus_gpio.py` ([`menus.md`](./menus.md)).

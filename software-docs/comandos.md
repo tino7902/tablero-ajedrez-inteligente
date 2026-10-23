@@ -140,4 +140,6 @@ enchufado, así que los corre Tino. Detalle, protocolo y prueba con el Nano suel
 - [`simulacion.md`](./simulacion.md) — modo de prueba de la lógica por terminal.
 - [`vs-magnus.md`](./vs-magnus.md) — el modo contra Stockfish.
 - [`pendiente-pi.md`](./pendiente-pi.md) — lo que falta probar en la Pi y cómo.
+- [`arranque-automatico.md`](./arranque-automatico.md) — el servicio de systemd que abre el
+  menú al prender la Pi, y cómo pararlo para probar otra cosa por SSH.
 - [`registro.md`](./registro.md) — dónde y cómo quedan registradas las partidas.

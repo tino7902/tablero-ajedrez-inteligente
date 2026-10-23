@@ -2,8 +2,9 @@
 
 Interfaz de la pantalla (480×320) para jugar en el tablero sin la terminal. Implementa los
 bocetos de [`diseño-docs/diseño-interfaz.md`](../diseño-docs/diseño-interfaz.md) y lo acordado
-con Tino el 2026-10-22. **Escrita, sin probar todavía** (ni en la notebook ni en la Pi; ver
-[`pendiente-pi.md`](./pendiente-pi.md#32-jugar-desde-la-pantalla)).
+con Tino el 2026-10-22. **Probada en la Pi con el tablero real** (2026-10-23, todo el punto
+3.2 de [`pendiente-pi.md`](./pendiente-pi.md#32-jugar-desde-la-pantalla)). Para que abra sola
+al prender la Pi: [`arranque-automatico.md`](./arranque-automatico.md).
 
 ## Flujo
 
